@@ -1,0 +1,18 @@
+        #!/bin/bash
+
+        cd /www/wwwroot/fishing.kaiyuantong.cn || exit
+
+        # 获取远程更新信息
+        git fetch origin
+
+        # 检查是否有更新
+        LOCAL=$(git rev-parse HEAD)
+        REMOTE=$(git rev-parse origin/$(git rev-parse --abbrev-ref HEAD))
+
+        if [ "$LOCAL" != "$REMOTE" ]; then
+            echo "有更新，执行 git pull"
+            git pull
+      
+        else
+            echo "无更新"
+        fi
