@@ -11,7 +11,7 @@ export default defineConfig({
     port: 5174,
     proxy: {
       '/api': {
-        target: 'http://fishing.kaiyuantong.cn/',
+        target: 'https://fishing.kaiyuantong.cn/',
         changeOrigin: true,
       },
     },

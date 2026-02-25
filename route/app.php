@@ -34,7 +34,7 @@ Route::group('api', function () {
     // ========== 后台管理（需登录的加中间件） ==========
     Route::group('admin', function () {
         Route::post('login', 'Api.Admin.Auth/login');
-        Route::get('init', 'Api.Admin.Auth/init');
+        Route::post('init', 'Api.Admin.Auth/init');
         Route::get('me', 'Api.Admin.Auth/me')->middleware(\app\middleware\AdminAuth::class);
         Route::post('logout', 'Api.Admin.Auth/logout')->middleware(\app\middleware\AdminAuth::class);
         Route::get('admins', 'Api.Admin.AdminUserController/list')->middleware(\app\middleware\AdminAuth::class);
