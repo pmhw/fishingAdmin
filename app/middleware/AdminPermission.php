@@ -4,34 +4,24 @@ declare (strict_types = 1);
 namespace app\middleware;
 
 use app\model\AdminUser;
+use think\facade\Config;
 use Closure;
 use think\Request;
 use think\Response;
 
 /**
  * 后台接口权限校验：在 AdminAuth 之后使用，按路径+方法校验所需权限码
+ * 映射配置在 config/admin_permission.php，新增功能时只需改配置文件
  */
 class AdminPermission
 {
-    /** 路径规则 => 所需权限码（支持正则或前缀匹配） */
-    private const ROUTE_PERMISSIONS = [
-        // 管理员：列表、详情、增删改
-        'GET:admin-users'       => 'admin.user.list',
-        'GET:admin-users/'      => 'admin.user.list',
-        'POST:admin-users'     => 'admin.user.create',
-        'PUT:admin-users/'      => 'admin.user.update',
-        'DELETE:admin-users/'   => 'admin.user.delete',
-        // 角色与权限
-        'GET:roles'             => 'admin.role.manage',
-        'GET:roles/'            => 'admin.role.manage',
-        'POST:roles'            => 'admin.role.manage',
-        'PUT:roles/'            => 'admin.role.manage',
-        'DELETE:roles/'         => 'admin.role.manage',
-        'GET:permissions'       => 'admin.role.manage',
-    ];
-
     /** 无需权限校验的 path 前缀（仅登录即可） */
     private const SKIP_PATHS = ['me', 'logout'];
+
+    private function getRoutePermissions(): array
+    {
+        return Config::get('admin_permission', []);
+    }
 
     public function handle(Request $request, Closure $next): Response
     {
@@ -45,7 +35,8 @@ class AdminPermission
             return $next($request);
         }
 
-        $required = $this->getRequiredPermission($request->method(), $path);
+        $routePermissions = $this->getRoutePermissions();
+        $required = $this->getRequiredPermission($request->method(), $path, $routePermissions);
         if ($required === null) {
             return $next($request);
         }
@@ -76,13 +67,13 @@ class AdminPermission
         return false;
     }
 
-    private function getRequiredPermission(string $method, string $path): ?string
+    private function getRequiredPermission(string $method, string $path, array $routePermissions): ?string
     {
         $key = $method . ':' . $path;
-        if (isset(self::ROUTE_PERMISSIONS[$key])) {
-            return self::ROUTE_PERMISSIONS[$key];
+        if (isset($routePermissions[$key])) {
+            return $routePermissions[$key];
         }
-        foreach (self::ROUTE_PERMISSIONS as $pattern => $perm) {
+        foreach ($routePermissions as $pattern => $perm) {
             if ($key === $pattern) {
                 return $perm;
             }

@@ -2,9 +2,13 @@
   <el-container class="layout">
     <el-aside width="200px" class="aside">
       <div class="logo">fishingAdmin</div>
-      <el-menu :default-active="$route.path" router>
-        <el-menu-item index="/admins">管理员管理</el-menu-item>
-        <el-menu-item index="/roles">角色与权限</el-menu-item>
+      <el-menu :default-active="$route.path" :default-openeds="['permission']" router>
+        <el-menu-item index="/home">首页</el-menu-item>
+        <el-sub-menu index="permission">
+          <template #title>权限中心</template>
+          <el-menu-item index="/admins">管理员管理</el-menu-item>
+          <el-menu-item index="/roles">角色与权限</el-menu-item>
+        </el-sub-menu>
       </el-menu>
     </el-aside>
     <el-container>
@@ -62,6 +66,13 @@ async function onLogout() {
 .aside :deep(.el-menu-item.is-active) {
   color: #409eff;
   background: rgba(64, 158, 255, 0.1);
+}
+.aside :deep(.el-sub-menu__title) {
+  color: #a0a0a0;
+}
+.aside :deep(.el-sub-menu .el-menu-item) {
+  min-width: auto;
+  padding-left: 50px;
 }
 .header {
   display: flex;

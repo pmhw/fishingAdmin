@@ -8,9 +8,10 @@ const routes = [
     component: () => import('@/views/Layout.vue'),
     meta: { requiresAuth: true },
     children: [
-      { path: '', redirect: '/admins' },
-      { path: 'admins', name: 'Admins', component: () => import('@/views/AdminList.vue') },
-      { path: 'roles', name: 'Roles', component: () => import('@/views/RoleList.vue') },
+      { path: '', redirect: '/home' },
+      { path: 'home', name: 'Home', component: () => import('@/views/Home.vue'), meta: { title: '首页' } },
+      { path: 'admins', name: 'Admins', component: () => import('@/views/AdminList.vue'), meta: { title: '管理员管理' } },
+      { path: 'roles', name: 'Roles', component: () => import('@/views/RoleList.vue'), meta: { title: '角色与权限' } },
     ],
   },
 ]
