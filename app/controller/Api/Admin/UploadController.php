@@ -40,6 +40,10 @@ class UploadController extends BaseController
         }
 
         try {
+            $root = config('filesystem.disks.public.root');
+            if (!is_dir($root)) {
+                @mkdir($root, 0755, true);
+            }
             $subDir = 'banner/' . date('Ym');
             $savename = Filesystem::disk('public')->putFile($subDir, $file);
             if (!$savename) {

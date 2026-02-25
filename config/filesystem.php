@@ -12,11 +12,9 @@ return [
         'public' => [
             // 磁盘类型
             'type'       => 'local',
-            // 磁盘路径
-            'root'       => app()->getRootPath() . 'public/storage',
-            // 磁盘路径对应的外部URL路径
+            // 使用 runtime/storage，避免 public/storage 目录权限问题；通过 /storage 路由提供访问
+            'root'       => app()->getRuntimePath() . 'storage',
             'url'        => '/storage',
-            // 可见性
             'visibility' => 'public',
         ],
         // 更多的磁盘配置信息

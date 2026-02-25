@@ -16,6 +16,9 @@ Route::get('think', function () {
 
 Route::get('hello/:name', 'index/hello');
 
+// 上传文件访问（runtime/storage 下的文件，如 /storage/banner/202502/xxx.jpg）
+Route::get('storage/:path', 'Storage/read')->pattern(['path' => '.+']);
+
 // ========== 示例 API 路由 ==========
 Route::group('api', function () {
     // 通用接口
