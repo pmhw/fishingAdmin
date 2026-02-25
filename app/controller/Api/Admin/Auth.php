@@ -40,9 +40,7 @@ class Auth extends BaseController
             'last_login_at' => date('Y-m-d H:i:s'),
             'last_login_ip'  => $this->request->ip(),
         ]);
-        $user->load('role');
-        $userArr = $user->toArray();
-        $userArr['permissions'] = $user->getPermissionCodes();
+        $userArr = $this->buildUserWithRoleAndPermissions($user);
         return json([
             'code' => 0,
             'msg'  => 'success',
@@ -95,9 +93,7 @@ class Auth extends BaseController
         if (!$user || $user->status !== 1) {
             return json(['code' => 401, 'msg' => '账号不存在或已禁用', 'data' => null]);
         }
-        $user->load('role');
-        $userArr = $user->toArray();
-        $userArr['permissions'] = $user->getPermissionCodes();
+        $userArr = $this->buildUserWithRoleAndPermissions($user);
         return json(['code' => 0, 'msg' => 'success', 'data' => $userArr]);
     }
 
@@ -115,6 +111,25 @@ class Auth extends BaseController
             Cache::delete($token);
         }
         return json(['code' => 0, 'msg' => '已登出', 'data' => null]);
+    }
+
+    /**
+     * 组装带角色与权限的用户数据（角色/权限表未建或异常时降级为无角色、空权限）
+     */
+    private function buildUserWithRoleAndPermissions(AdminUser $user): array
+    {
+        try {
+            $user->load('role');
+        } catch (\Throwable $e) {
+            // role_id 或 admin_role 等不存在时不报错
+        }
+        $userArr = $user->toArray();
+        try {
+            $userArr['permissions'] = $user->getPermissionCodes();
+        } catch (\Throwable $e) {
+            $userArr['permissions'] = [];
+        }
+        return $userArr;
     }
 
     /**
