@@ -122,8 +122,7 @@ class AdminUserController extends BaseController
         if (!empty($data)) {
             $user->save($data);
         }
-        $user = $user->fresh();
-        $user->load('role');
+        $user = AdminUser::with('role')->find($id);
         $arr = $user->toArray();
         $arr['role_name'] = $user->role ? $user->role->name : '';
         return json(['code' => 0, 'msg' => '更新成功', 'data' => $arr]);
