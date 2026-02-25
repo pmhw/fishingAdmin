@@ -24,4 +24,11 @@ return [
     'PUT:roles/'          => 'admin.role.manage',
     'DELETE:roles/'       => 'admin.role.manage',
     'GET:permissions'     => 'admin.role.manage',
+
+    // ---------- 轮播图 ----------
+    'GET:banners'      => 'admin.banner.manage',
+    'GET:banners/'     => 'admin.banner.manage',
+    'POST:banners'     => 'admin.banner.manage',
+    'PUT:banners/'     => 'admin.banner.manage',
+    'DELETE:banners/'  => 'admin.banner.manage',
 ];

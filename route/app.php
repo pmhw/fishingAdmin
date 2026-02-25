@@ -51,6 +51,11 @@ Route::group('api', function () {
             Route::put('roles/:id', 'Api.Admin.RoleController/update');
             Route::delete('roles/:id', 'Api.Admin.RoleController/delete');
             Route::get('permissions', 'Api.Admin.PermissionController/list');
+            Route::get('banners', 'Api.Admin.BannerController/list');
+            Route::get('banners/:id', 'Api.Admin.BannerController/detail');
+            Route::post('banners', 'Api.Admin.BannerController/create');
+            Route::put('banners/:id', 'Api.Admin.BannerController/update');
+            Route::delete('banners/:id', 'Api.Admin.BannerController/delete');
         })->middleware([\app\middleware\AdminAuth::class, \app\middleware\AdminPermission::class]);
     });
 });
