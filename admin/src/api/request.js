@@ -5,7 +5,7 @@ import { ElMessage } from 'element-plus'
 
 const request = axios.create({
   baseURL: import.meta.env.DEV ? '' : '', // 开发时走 vite proxy /api
-  timeout: 10000,
+  timeout: 30000, // 30 秒，避免跨网/代理时超时
 })
 
 request.interceptors.request.use((config) => {

@@ -10,6 +10,7 @@ const routes = [
     children: [
       { path: '', redirect: '/admins' },
       { path: 'admins', name: 'Admins', component: () => import('@/views/AdminList.vue') },
+      { path: 'roles', name: 'Roles', component: () => import('@/views/RoleList.vue') },
     ],
   },
 ]

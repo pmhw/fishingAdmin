@@ -14,6 +14,24 @@ class AdminUser extends Model
 
     protected $hidden = ['password'];
 
+    public function role(): \think\model\relation\BelongsTo
+    {
+        return $this->belongsTo(AdminRole::class, 'role_id');
+    }
+
+    /**
+     * 获取该管理员拥有的权限码列表（超级管理员返回 ['*']）
+     * @return string[]
+     */
+    public function getPermissionCodes(): array
+    {
+        $role = $this->role;
+        if (!$role) {
+            return [];
+        }
+        return $role->getPermissionCodes();
+    }
+
     public function setPasswordAttr($value): string
     {
         return password_hash($value, PASSWORD_BCRYPT);

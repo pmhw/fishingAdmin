@@ -4,6 +4,7 @@
       <div class="logo">fishingAdmin</div>
       <el-menu :default-active="$route.path" router>
         <el-menu-item index="/admins">管理员管理</el-menu-item>
+        <el-menu-item index="/roles">角色与权限</el-menu-item>
       </el-menu>
     </el-aside>
     <el-container>

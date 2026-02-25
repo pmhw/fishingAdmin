@@ -14,6 +14,7 @@ export default defineConfig({
         target: 'https://fishing.kaiyuantong.cn',
         changeOrigin: true,
         secure: true,
+        timeout: 30000, // 代理超时 30 秒
       },
     },
   },

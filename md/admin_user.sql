@@ -21,5 +21,7 @@ CREATE TABLE IF NOT EXISTS `admin_user` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='后台管理员表';
 
 -- 默认管理员：账号 admin，密码 123456（导入后可直接登录，请及时修改密码）
+-- 若已存在 admin 则更新，避免重复执行报错
 INSERT INTO `admin_user` (`username`, `password`, `nickname`, `status`) VALUES
-('admin', '$2y$10$KODweJD04h5zABnKyhSg0.tx9iqNdC1CFgKUJFhOa/UD5lW0k7RAK', '超级管理员', 1);
+('admin', '$2y$10$KODweJD04h5zABnKyhSg0.tx9iqNdC1CFgKUJFhOa/UD5lW0k7RAK', '超级管理员', 1)
+ON DUPLICATE KEY UPDATE `password`=VALUES(`password`), `nickname`=VALUES(`nickname`), `status`=VALUES(`status`);

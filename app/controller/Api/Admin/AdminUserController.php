@@ -20,15 +20,20 @@ class AdminUserController extends BaseController
     {
         $page  = (int) $this->request->get('page', 1);
         $limit = min((int) $this->request->get('limit', 10), 100);
-        $list  = AdminUser::order('id', 'desc')->paginate([
+        $list  = AdminUser::with('role')->order('id', 'desc')->paginate([
             'list_rows' => $limit,
             'page'      => $page,
         ]);
+        $items = array_map(function ($u) {
+            $arr = $u->toArray();
+            $arr['role_name'] = $u->role ? $u->role->name : '';
+            return $arr;
+        }, $list->items());
         return json([
             'code' => 0,
             'msg'  => 'success',
             'data' => [
-                'list'  => $list->items(),
+                'list'  => $items,
                 'total' => $list->total(),
             ],
         ]);
@@ -40,11 +45,13 @@ class AdminUserController extends BaseController
      */
     public function detail(int $id): Json
     {
-        $user = AdminUser::find($id);
+        $user = AdminUser::with('role')->find($id);
         if (!$user) {
             return json(['code' => 404, 'msg' => '管理员不存在', 'data' => null]);
         }
-        return json(['code' => 0, 'msg' => 'success', 'data' => $user->toArray()]);
+        $arr = $user->toArray();
+        $arr['role_name'] = $user->role ? $user->role->name : '';
+        return json(['code' => 0, 'msg' => 'success', 'data' => $arr]);
     }
 
     /**
@@ -56,6 +63,7 @@ class AdminUserController extends BaseController
         $username = $this->request->post('username');
         $password = $this->request->post('password');
         $nickname = $this->request->post('nickname', '');
+        $roleId   = $this->request->post('role_id');
         if (empty($username) || empty($password)) {
             return json(['code' => 400, 'msg' => '账号和密码不能为空', 'data' => null]);
         }
@@ -65,13 +73,20 @@ class AdminUserController extends BaseController
         if (AdminUser::where('username', $username)->find()) {
             return json(['code' => 400, 'msg' => '账号已存在', 'data' => null]);
         }
-        $user = AdminUser::create([
+        $data = [
             'username' => $username,
             'password' => $password,
             'nickname' => $nickname,
             'status'   => 1,
-        ]);
-        return json(['code' => 0, 'msg' => '创建成功', 'data' => $user->toArray()]);
+        ];
+        if ($roleId !== null && $roleId !== '') {
+            $data['role_id'] = (int) $roleId;
+        }
+        $user = AdminUser::create($data);
+        $user->load('role');
+        $arr = $user->toArray();
+        $arr['role_name'] = $user->role ? $user->role->name : '';
+        return json(['code' => 0, 'msg' => '创建成功', 'data' => $arr]);
     }
 
     /**
@@ -87,12 +102,16 @@ class AdminUserController extends BaseController
         $nickname = $this->request->param('nickname');
         $status   = $this->request->param('status');
         $password = $this->request->param('password');
+        $roleId   = $this->request->param('role_id');
         $data     = [];
         if ($nickname !== null && $nickname !== '') {
             $data['nickname'] = $nickname;
         }
         if ($status !== null && $status !== '') {
             $data['status'] = (int) $status;
+        }
+        if ($roleId !== null && $roleId !== '') {
+            $data['role_id'] = (int) $roleId;
         }
         if ($password !== null && $password !== '') {
             if (strlen($password) < 6) {
@@ -103,7 +122,11 @@ class AdminUserController extends BaseController
         if (!empty($data)) {
             $user->save($data);
         }
-        return json(['code' => 0, 'msg' => '更新成功', 'data' => $user->fresh()->toArray()]);
+        $user = $user->fresh();
+        $user->load('role');
+        $arr = $user->toArray();
+        $arr['role_name'] = $user->role ? $user->role->name : '';
+        return json(['code' => 0, 'msg' => '更新成功', 'data' => $arr]);
     }
 
     /**

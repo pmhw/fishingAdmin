@@ -11,6 +11,7 @@
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="username" label="账号" width="120" />
         <el-table-column prop="nickname" label="昵称" width="120" />
+        <el-table-column prop="role_name" label="角色" width="120" />
         <el-table-column prop="status" label="状态" width="80">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'info'">{{ row.status === 1 ? '正常' : '禁用' }}</el-tag>
@@ -51,6 +52,11 @@
         <el-form-item label="昵称" prop="nickname">
           <el-input v-model="editForm.nickname" placeholder="昵称" />
         </el-form-item>
+        <el-form-item label="角色">
+          <el-select v-model="editForm.role_id" placeholder="选择角色" clearable style="width: 100%">
+            <el-option v-for="r in roleList" :key="r.id" :label="r.name" :value="r.id" />
+          </el-select>
+        </el-form-item>
         <el-form-item v-if="editId" label="状态" prop="status">
           <el-select v-model="editForm.status" placeholder="状态" style="width: 100%">
             <el-option :value="1" label="正常" />
@@ -70,8 +76,10 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import { getAdminList, getAdminDetail, createAdmin, updateAdmin, deleteAdmin } from '@/api/adminUser'
+import { getRoleList } from '@/api/role'
 
 const userStore = useUserStore()
+const roleList = ref([])
 const currentUserId = computed(() => userStore.user?.id)
 
 const loading = ref(false)
@@ -88,6 +96,7 @@ const editForm = reactive({
   username: '',
   password: '',
   nickname: '',
+  role_id: null,
   status: 1,
 })
 const editRules = computed(() => ({
@@ -116,11 +125,13 @@ function openEdit(row) {
   editForm.username = row?.username ?? ''
   editForm.password = ''
   editForm.nickname = row?.nickname ?? ''
+  editForm.role_id = row?.role_id ?? null
   editForm.status = row?.status ?? 1
   dialogVisible.value = true
   if (editId.value) {
     getAdminDetail(editId.value).then((res) => {
       editForm.nickname = res.data?.nickname ?? ''
+      editForm.role_id = res.data?.role_id ?? null
       editForm.status = res.data?.status ?? 1
     })
   }
@@ -130,6 +141,7 @@ function resetForm() {
   editForm.username = ''
   editForm.password = ''
   editForm.nickname = ''
+  editForm.role_id = null
   editForm.status = 1
   editFormRef.value?.resetFields?.()
 }
@@ -138,6 +150,7 @@ async function submitEdit() {
   if (editId.value) {
     await editFormRef.value?.validate().catch(() => {})
     const payload = { nickname: editForm.nickname, status: editForm.status }
+    if (editForm.role_id !== null && editForm.role_id !== undefined) payload.role_id = editForm.role_id
     if (editForm.password) payload.password = editForm.password
     await updateAdmin(editId.value, payload)
     ElMessage.success('更新成功')
@@ -147,6 +160,7 @@ async function submitEdit() {
       username: editForm.username,
       password: editForm.password,
       nickname: editForm.nickname,
+      role_id: editForm.role_id || undefined,
     })
     ElMessage.success('创建成功')
   }
@@ -165,6 +179,7 @@ function onDelete(row) {
 }
 
 onMounted(() => {
+  getRoleList().then((res) => { roleList.value = res.data ?? [] })
   fetchList()
 })
 </script>

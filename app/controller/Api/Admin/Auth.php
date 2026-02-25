@@ -40,12 +40,15 @@ class Auth extends BaseController
             'last_login_at' => date('Y-m-d H:i:s'),
             'last_login_ip'  => $this->request->ip(),
         ]);
+        $user->load('role');
+        $userArr = $user->toArray();
+        $userArr['permissions'] = $user->getPermissionCodes();
         return json([
             'code' => 0,
             'msg'  => 'success',
             'data' => [
                 'token' => $token,
-                'user'  => $user->toArray(),
+                'user'  => $userArr,
             ],
         ]);
     }
@@ -92,7 +95,10 @@ class Auth extends BaseController
         if (!$user || $user->status !== 1) {
             return json(['code' => 401, 'msg' => '账号不存在或已禁用', 'data' => null]);
         }
-        return json(['code' => 0, 'msg' => 'success', 'data' => $user->toArray()]);
+        $user->load('role');
+        $userArr = $user->toArray();
+        $userArr['permissions'] = $user->getPermissionCodes();
+        return json(['code' => 0, 'msg' => 'success', 'data' => $userArr]);
     }
 
     /**
