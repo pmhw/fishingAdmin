@@ -24,18 +24,23 @@ class Auth extends BaseController
      */
     public function captcha(): Json
     {
-        $key   = bin2hex(random_bytes(8));
-        $code  = $this->generateCaptchaCode(4);
-        Cache::set(self::CAPTCHA_PREFIX . $key, strtolower($code), self::CAPTCHA_TTL);
-        $image = $this->drawCaptchaImage($code);
-        return json([
-            'code' => 0,
-            'msg'  => 'success',
-            'data' => [
-                'key'   => $key,
-                'image' => 'data:image/png;base64,' . base64_encode($image),
-            ],
-        ]);
+        try {
+            $key   = bin2hex(random_bytes(8));
+            $code  = $this->generateCaptchaCode(4);
+            Cache::set(self::CAPTCHA_PREFIX . $key, strtolower($code), self::CAPTCHA_TTL);
+            $image = $this->drawCaptchaImage($code);
+            $b64   = $image !== '' ? base64_encode($image) : '';
+            return json([
+                'code' => 0,
+                'msg'  => 'success',
+                'data' => [
+                    'key'   => $key,
+                    'image' => $b64 ? 'data:image/png;base64,' . $b64 : '',
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            return json(['code' => 500, 'msg' => '验证码生成失败', 'data' => null]);
+        }
     }
 
     /**

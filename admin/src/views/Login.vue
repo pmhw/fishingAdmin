@@ -16,7 +16,7 @@
             <el-input v-model="form.captcha" placeholder="验证码" size="large" maxlength="4" show-word-limit style="flex: 1" @keyup.enter="onSubmit" />
             <div class="captcha-img-wrap" @click="loadCaptcha">
               <img v-if="captchaImage" :src="captchaImage" alt="验证码" class="captcha-img" />
-              <span v-else class="captcha-loading">加载中</span>
+              <span v-else class="captcha-loading">{{ captchaLoadFailed ? '点击重试' : '加载中...' }}</span>
             </div>
           </div>
         </el-form-item>
@@ -31,11 +31,11 @@
   </div>
 </template>
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
-import { login } from '@/api/auth'
+import { login, getCaptcha } from '@/api/auth'
 
 const router = useRouter()
 const route = useRoute()
@@ -43,24 +43,58 @@ const store = useUserStore()
 
 const formRef = ref(null)
 const loading = ref(false)
-const form = reactive({ username: 'admin', password: '123456' })
+const captchaImage = ref('')
+const captchaLoadFailed = ref(false)
+const form = reactive({
+  username: 'admin',
+  password: '123456',
+  captcha_key: '',
+  captcha: '',
+})
 const rules = {
   username: [{ required: true, message: '请输入账号', trigger: 'blur' }],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
+  captcha: [{ required: true, message: '请输入验证码', trigger: 'blur' }],
+}
+
+async function loadCaptcha() {
+  captchaImage.value = ''
+  form.captcha = ''
+  captchaLoadFailed.value = false
+  try {
+    const res = await getCaptcha()
+    form.captcha_key = res.data?.key ?? ''
+    captchaImage.value = res.data?.image ?? ''
+    if (!captchaImage.value) captchaLoadFailed.value = true
+  } catch (_) {
+    captchaLoadFailed.value = true
+    ElMessage.error('验证码加载失败，请点击图片重试')
+  }
 }
 
 async function onSubmit() {
   await formRef.value?.validate().catch(() => {})
   loading.value = true
   try {
-    const res = await login(form)
+    const res = await login({
+      username: form.username,
+      password: form.password,
+      captcha_key: form.captcha_key,
+      captcha: form.captcha,
+    })
     store.setLogin(res.data.token, res.data.user)
     ElMessage.success('登录成功')
     router.push(route.query.redirect || '/')
+  } catch (_) {
+    loadCaptcha()
   } finally {
     loading.value = false
   }
 }
+
+onMounted(() => {
+  loadCaptcha()
+})
 </script>
 <style scoped>
 .login-wrap {
