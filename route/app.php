@@ -51,6 +51,6 @@ Route::group('api', function () {
             Route::put('roles/:id', 'Api.Admin.RoleController/update');
             Route::delete('roles/:id', 'Api.Admin.RoleController/delete');
             Route::get('permissions', 'Api.Admin.PermissionController/list');
-        })->middleware(\app\middleware\AdminAuth::class);
+        })->middleware([\app\middleware\AdminAuth::class, \app\middleware\AdminPermission::class]);
     });
 });
