@@ -31,16 +31,20 @@ Route::group('api', function () {
     Route::get('user/info', 'Api.VbenAuth/userInfo');
     Route::get('auth/codes', 'Api.VbenAuth/codes');
 
-    // ========== 后台管理（需登录的加中间件） ==========
+    // ========== 后台管理 ==========
     Route::group('admin', function () {
+        // 以下不需要登录（不走登录中间件）
         Route::post('login', 'Api.Admin.Auth/login');
         Route::post('init', 'Api.Admin.Auth/init');
-        Route::get('me', 'Api.Admin.Auth/me')->middleware(\app\middleware\AdminAuth::class);
-        Route::post('logout', 'Api.Admin.Auth/logout')->middleware(\app\middleware\AdminAuth::class);
-        Route::get('admins', 'Api.Admin.AdminUserController/list')->middleware(\app\middleware\AdminAuth::class);
-        Route::get('admins/:id', 'Api.Admin.AdminUserController/detail')->middleware(\app\middleware\AdminAuth::class);
-        Route::post('admins', 'Api.Admin.AdminUserController/create')->middleware(\app\middleware\AdminAuth::class);
-        Route::put('admins/:id', 'Api.Admin.AdminUserController/update')->middleware(\app\middleware\AdminAuth::class);
-        Route::delete('admins/:id', 'Api.Admin.AdminUserController/delete')->middleware(\app\middleware\AdminAuth::class);
+        // 以下需登录，统一走 AdminAuth 中间件
+        Route::group(function () {
+            Route::get('me', 'Api.Admin.Auth/me');
+            Route::post('logout', 'Api.Admin.Auth/logout');
+            Route::get('admins', 'Api.Admin.AdminUserController/list');
+            Route::get('admins/:id', 'Api.Admin.AdminUserController/detail');
+            Route::post('admins', 'Api.Admin.AdminUserController/create');
+            Route::put('admins/:id', 'Api.Admin.AdminUserController/update');
+            Route::delete('admins/:id', 'Api.Admin.AdminUserController/delete');
+        })->middleware(\app\middleware\AdminAuth::class);
     });
 });

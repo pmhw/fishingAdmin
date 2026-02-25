@@ -20,6 +20,6 @@ CREATE TABLE IF NOT EXISTS `admin_user` (
   KEY `idx_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='后台管理员表';
 
--- 首次使用：调用接口 POST /api/admin/init 可创建首个管理员（仅当表为空时可用）
--- 或手动插入：INSERT INTO admin_user (username, password, nickname, status) VALUES
---   ('admin', '这里用 php -r "echo password_hash(''123456'', PASSWORD_BCRYPT);" 生成的哈希', '超级管理员', 1);
+-- 默认管理员：账号 admin，密码 123456（导入后可直接登录，请及时修改密码）
+INSERT INTO `admin_user` (`username`, `password`, `nickname`, `status`) VALUES
+('admin', '$2y$10$KODweJD04h5zABnKyhSg0.tx9iqNdC1CFgKUJFhOa/UD5lW0k7RAK', '超级管理员', 1);
