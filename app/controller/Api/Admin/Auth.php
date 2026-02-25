@@ -13,8 +13,8 @@ use think\response\Json;
  */
 class Auth extends BaseController
 {
-    private const TOKEN_PREFIX = 'admin_token:';
-    private const TOKEN_TTL = 86400 * 7; // 7 天
+    private const TOKEN_PREFIX = 'admin_token:'; // token 前缀
+    private const TOKEN_TTL = 86400 * 7; // 7 天 登录有效期
 
     /**
      * 登录
