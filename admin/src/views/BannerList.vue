@@ -53,8 +53,24 @@
         <el-form-item label="标题">
           <el-input v-model="editForm.title" placeholder="选填，用于后台区分" />
         </el-form-item>
-        <el-form-item label="图片地址" prop="image_url">
-          <el-input v-model="editForm.image_url" placeholder="图片 URL" />
+        <el-form-item label="轮播图" prop="image_url">
+          <div class="upload-wrap">
+            <el-image
+              v-if="editForm.image_url"
+              :src="imageDisplayUrl"
+              fit="cover"
+              class="upload-preview"
+            />
+            <el-upload
+              class="upload-btn"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              :show-file-list="false"
+              :http-request="handleUpload"
+            >
+              <el-button type="primary" :loading="uploading">{{ editForm.image_url ? '更换图片' : '上传图片' }}</el-button>
+            </el-upload>
+            <span v-if="editForm.image_url" class="upload-tip">已选图片，可点击「更换图片」重新上传</span>
+          </div>
         </el-form-item>
         <el-form-item label="跳转链接">
           <el-input v-model="editForm.link_url" placeholder="点击跳转的链接，选填" />
@@ -77,9 +93,9 @@
   </div>
 </template>
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getBannerList, getBannerDetail, createBanner, updateBanner, deleteBanner } from '@/api/banner'
+import { getBannerList, getBannerDetail, createBanner, updateBanner, deleteBanner, uploadImage } from '@/api/banner'
 
 const loading = ref(false)
 const list = ref([])
@@ -99,7 +115,37 @@ const editForm = reactive({
   status: 1,
 })
 const editRules = {
-  image_url: [{ required: true, message: '请填写图片地址', trigger: 'blur' }],
+  image_url: [{ required: true, message: '请上传图片', trigger: 'change' }],
+}
+const uploading = ref(false)
+const imageDisplayUrl = computed(() => {
+  const u = editForm.image_url
+  if (!u) return ''
+  if (/^https?:\/\//i.test(u)) return u
+  return import.meta.env.VITE_STORAGE_URL ? import.meta.env.VITE_STORAGE_URL + u : u
+})
+
+async function handleUpload({ file }) {
+  if (!file) return
+  const isImage = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)
+  if (!isImage) {
+    ElMessage.warning('请选择 jpg/png/gif/webp 图片')
+    return
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    ElMessage.warning('图片不能超过 2MB')
+    return
+  }
+  uploading.value = true
+  try {
+    const res = await uploadImage(file)
+    editForm.image_url = res.data?.url ?? ''
+    ElMessage.success('上传成功')
+  } catch (_) {
+    ElMessage.error('上传失败')
+  } finally {
+    uploading.value = false
+  }
 }
 
 async function fetchList() {
@@ -195,5 +241,20 @@ onMounted(() => {
 .text-muted {
   color: var(--el-text-color-secondary);
   font-size: 12px;
+}
+.upload-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.upload-preview {
+  width: 200px;
+  height: 112px;
+  border-radius: 8px;
+  border: 1px solid var(--el-border-color);
+}
+.upload-tip {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 </style>

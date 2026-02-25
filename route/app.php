@@ -31,6 +31,9 @@ Route::group('api', function () {
     Route::get('user/info', 'Api.VbenAuth/userInfo');
     Route::get('auth/codes', 'Api.VbenAuth/codes');
 
+    // ========== 小程序端（无需登录） ==========
+    Route::get('mini/banners', 'Api.Mini.BannerController/list');
+
     // ========== 后台管理 ==========
     Route::group('admin', function () {
         // 以下不需要登录（不走登录中间件）
@@ -40,6 +43,7 @@ Route::group('api', function () {
         Route::group(function () {
             Route::get('me', 'Api.Admin.Auth/me');
             Route::post('logout', 'Api.Admin.Auth/logout');
+            Route::post('upload/image', 'Api.Admin.UploadController/image');
             Route::get('admin-users', 'Api.Admin.AdminUserController/list');
             Route::get('admin-users/:id', 'Api.Admin.AdminUserController/detail');
             Route::post('admin-users', 'Api.Admin.AdminUserController/create');
