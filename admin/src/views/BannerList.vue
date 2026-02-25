@@ -15,6 +15,7 @@
               v-if="row.image_url"
               :src="getImageDisplayUrl(row.image_url)"
               :preview-src-list="[getImageDisplayUrl(row.image_url)]"
+              preview-teleported
               fit="cover"
               style="width: 100px; height: 56px; border-radius: 4px; cursor: pointer"
             />
@@ -60,6 +61,7 @@
               v-if="editForm.image_url"
               :src="imageDisplayUrl"
               :preview-src-list="[imageDisplayUrl]"
+              preview-teleported
               fit="cover"
               class="upload-preview"
             />

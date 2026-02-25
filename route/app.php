@@ -40,6 +40,7 @@ Route::group('api', function () {
     // ========== 后台管理 ==========
     Route::group('admin', function () {
         // 以下不需要登录（不走登录中间件）
+        Route::get('captcha', 'Api.Admin.Auth/captcha');
         Route::post('login', 'Api.Admin.Auth/login');
         Route::post('init', 'Api.Admin.Auth/init');
         // 以下需登录，统一走 AdminAuth 中间件

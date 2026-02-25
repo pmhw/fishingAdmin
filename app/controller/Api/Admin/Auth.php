@@ -13,19 +13,51 @@ use think\response\Json;
  */
 class Auth extends BaseController
 {
-    private const TOKEN_PREFIX = 'admin_token:'; // token 前缀
-    private const TOKEN_TTL = 86400 * 7; // 7 天 登录有效期
+    private const TOKEN_PREFIX   = 'admin_token:'; // token 前缀
+    private const TOKEN_TTL      = 86400 * 7; // 7 天 登录有效期
+    private const CAPTCHA_PREFIX = 'admin_captcha:';
+    private const CAPTCHA_TTL    = 300; // 5 分钟
+
+    /**
+     * 获取验证码图片
+     * GET /api/admin/captcha  返回 { key, image: "data:image/png;base64,..." }
+     */
+    public function captcha(): Json
+    {
+        $key   = bin2hex(random_bytes(8));
+        $code  = $this->generateCaptchaCode(4);
+        Cache::set(self::CAPTCHA_PREFIX . $key, strtolower($code), self::CAPTCHA_TTL);
+        $image = $this->drawCaptchaImage($code);
+        return json([
+            'code' => 0,
+            'msg'  => 'success',
+            'data' => [
+                'key'   => $key,
+                'image' => 'data:image/png;base64,' . base64_encode($image),
+            ],
+        ]);
+    }
 
     /**
      * 登录
-     * POST /api/admin/login
+     * POST /api/admin/login  body: username, password, captcha_key, captcha
      */
     public function login(): Json
     {
-        $username = $this->request->post('username');
-        $password = $this->request->post('password');
+        $username   = $this->request->post('username');
+        $password   = $this->request->post('password');
+        $captchaKey = $this->request->post('captcha_key');
+        $captcha    = $this->request->post('captcha');
         if (empty($username) || empty($password)) {
             return json(['code' => 400, 'msg' => '账号和密码不能为空', 'data' => null]);
+        }
+        if (empty($captchaKey) || $captcha === '' || $captcha === null) {
+            return json(['code' => 400, 'msg' => '请输入验证码', 'data' => null]);
+        }
+        $cached = Cache::get(self::CAPTCHA_PREFIX . $captchaKey);
+        Cache::delete(self::CAPTCHA_PREFIX . $captchaKey);
+        if ($cached === null || $cached !== strtolower((string) $captcha)) {
+            return json(['code' => 400, 'msg' => '验证码错误或已过期', 'data' => null]);
         }
         $user = AdminUser::where('username', $username)->find();
         if (!$user || !$user->verifyPassword($password)) {
@@ -142,5 +174,52 @@ class Auth extends BaseController
         }
         $id = Cache::get($token);
         return $id ? (int) $id : null;
+    }
+
+    private function generateCaptchaCode(int $len): string
+    {
+        $chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+        $code  = '';
+        for ($i = 0; $i < $len; $i++) {
+            $code .= $chars[random_int(0, strlen($chars) - 1)];
+        }
+        return $code;
+    }
+
+    private function drawCaptchaImage(string $code): string
+    {
+        $w = 120;
+        $h = 40;
+        if (!function_exists('imagecreatetruecolor')) {
+            return $this->drawCaptchaImageFallback($code, $w, $h);
+        }
+        $img = imagecreatetruecolor($w, $h);
+        if (!$img) {
+            return $this->drawCaptchaImageFallback($code, $w, $h);
+        }
+        $bg = imagecolorallocate($img, random_int(230, 255), random_int(230, 255), random_int(230, 255));
+        imagefill($img, 0, 0, $bg);
+        for ($i = 0; $i < 4; $i++) {
+            $c = imagecolorallocate($img, random_int(100, 200), random_int(100, 200), random_int(100, 200));
+            imageline($img, random_int(0, $w), random_int(0, $h), random_int(0, $w), random_int(0, $h), $c);
+        }
+        $len = strlen($code);
+        $x   = (int) (($w - $len * 18) / 2);
+        for ($i = 0; $i < $len; $i++) {
+            $fc = imagecolorallocate($img, random_int(0, 80), random_int(0, 80), random_int(0, 80));
+            imagestring($img, 5, $x + $i * 22, (int) (($h - 20) / 2), $code[$i], $fc);
+        }
+        ob_start();
+        imagepng($img);
+        $out = ob_get_clean();
+        imagedestroy($img);
+        return $out ?: $this->drawCaptchaImageFallback($code, $w, $h);
+    }
+
+    /** GD 绘图失败时返回最小占位图 */
+    private function drawCaptchaImageFallback(string $code, int $w, int $h): string
+    {
+        $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', true);
+        return $png ?: '';
     }
 }

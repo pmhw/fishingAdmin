@@ -1,5 +1,9 @@
 import request from './request'
 
+export function getCaptcha() {
+  return request.get('/api/admin/captcha')
+}
+
 export function login(data) {
   return request.post('/api/admin/login', data)
 }
