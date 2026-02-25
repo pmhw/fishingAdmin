@@ -40,11 +40,11 @@ Route::group('api', function () {
         Route::group(function () {
             Route::get('me', 'Api.Admin.Auth/me');
             Route::post('logout', 'Api.Admin.Auth/logout');
-            Route::get('admins', 'Api.Admin.AdminUserController/list');
-            Route::get('admins/:id', 'Api.Admin.AdminUserController/detail');
-            Route::post('admins', 'Api.Admin.AdminUserController/create');
-            Route::put('admins/:id', 'Api.Admin.AdminUserController/update');
-            Route::delete('admins/:id', 'Api.Admin.AdminUserController/delete');
+            Route::get('admin-users', 'Api.Admin.AdminUserController/list');
+            Route::get('admin-users/:id', 'Api.Admin.AdminUserController/detail');
+            Route::post('admin-users', 'Api.Admin.AdminUserController/create');
+            Route::put('admin-users/:id', 'Api.Admin.AdminUserController/update');
+            Route::delete('admin-users/:id', 'Api.Admin.AdminUserController/delete');
         })->middleware(\app\middleware\AdminAuth::class);
     });
 });
