@@ -26,10 +26,15 @@ Route::group('api', function () {
     Route::get('user/detail/:id', 'Api.User/detail');
     Route::post('user/create', 'Api.User/create');
 
+    // ========== Vben Admin 官方模板兼容接口（code/data/message、accessToken、userInfo） ==========
+    Route::post('auth/login', 'Api.VbenAuth/login');
+    Route::get('user/info', 'Api.VbenAuth/userInfo');
+    Route::get('auth/codes', 'Api.VbenAuth/codes');
+
     // ========== 后台管理（需登录的加中间件） ==========
     Route::group('admin', function () {
         Route::post('login', 'Api.Admin.Auth/login');
-        Route::post('init', 'Api.Admin.Auth/init');
+        Route::get('init', 'Api.Admin.Auth/init');
         Route::get('me', 'Api.Admin.Auth/me')->middleware(\app\middleware\AdminAuth::class);
         Route::post('logout', 'Api.Admin.Auth/logout')->middleware(\app\middleware\AdminAuth::class);
         Route::get('admins', 'Api.Admin.AdminUserController/list')->middleware(\app\middleware\AdminAuth::class);
