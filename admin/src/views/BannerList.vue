@@ -13,9 +13,10 @@
           <template #default="{ row }">
             <el-image
               v-if="row.image_url"
-              :src="row.image_url"
+              :src="getImageDisplayUrl(row.image_url)"
+              :preview-src-list="[getImageDisplayUrl(row.image_url)]"
               fit="cover"
-              style="width: 100px; height: 56px; border-radius: 4px"
+              style="width: 100px; height: 56px; border-radius: 4px; cursor: pointer"
             />
             <span v-else class="text-muted">未设置</span>
           </template>
@@ -58,6 +59,7 @@
             <el-image
               v-if="editForm.image_url"
               :src="imageDisplayUrl"
+              :preview-src-list="[imageDisplayUrl]"
               fit="cover"
               class="upload-preview"
             />
@@ -124,6 +126,12 @@ const imageDisplayUrl = computed(() => {
   if (/^https?:\/\//i.test(u)) return u
   return import.meta.env.VITE_STORAGE_URL ? import.meta.env.VITE_STORAGE_URL + u : u
 })
+
+function getImageDisplayUrl(url) {
+  if (!url) return ''
+  if (/^https?:\/\//i.test(url)) return url
+  return import.meta.env.VITE_STORAGE_URL ? import.meta.env.VITE_STORAGE_URL + url : url
+}
 
 async function handleUpload({ file }) {
   if (!file) return
@@ -252,6 +260,7 @@ onMounted(() => {
   height: 112px;
   border-radius: 8px;
   border: 1px solid var(--el-border-color);
+  cursor: pointer;
 }
 .upload-tip {
   font-size: 12px;
