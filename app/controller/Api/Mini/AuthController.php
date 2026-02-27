@@ -11,10 +11,10 @@ use think\response\Json;
 /**
  * 小程序端 - 登录
  *
- * 使用方式（小程序前端）：
- * 1. 调用 wx.login 拿到 code
- * 2. 将 code POST 到 /api/mini/login
- * 3. 后端向微信 jscode2session 换取 openid，签发自己的 token 返回
+ * 接口约定：
+ * 请求 POST /api/mini/login  Content-Type: application/json
+ * Body: code(必填), nickname, avatar, gender, country, province, city（均可为空）
+ * 成功: code=0, data: { token, openid, unionid, user }；老用户不覆盖昵称头像，仅更新 unionid(当库为空时)、last_login_at/ip
  */
 class AuthController extends BaseController
 {
@@ -22,16 +22,8 @@ class AuthController extends BaseController
 
     /**
      * 登录
-     * POST /api/mini/login
-     * body: {
-     *   code: string,
-     *   nickname?: string,
-     *   avatar?: string,
-     *   gender?: int,   // 0 未知 1 男 2 女
-     *   country?: string,
-     *   province?: string,
-     *   city?: string
-     * }
+     * POST /api/mini/login  Content-Type: application/json
+     * body: { code, nickname?, avatar?, gender?, country?, province?, city? }
      */
     public function login(): Json
     {
@@ -40,8 +32,8 @@ class AuthController extends BaseController
             return json(['code' => 400, 'msg' => '缺少 code', 'data' => null]);
         }
 
-        $appid  = (string) config('wechat_mini.appid', '');
-        $secret = (string) config('wechat_mini.secret', '');
+        $appid  = trim((string) config('wechat_mini.appid', ''));
+        $secret = trim((string) config('wechat_mini.secret', ''));
         if ($appid === '' || $secret === '') {
             return json(['code' => 500, 'msg' => '小程序未配置 appid/secret', 'data' => null]);
         }
@@ -86,9 +78,9 @@ class AuthController extends BaseController
             return json(['code' => 500, 'msg' => '微信登录失败：缺少 openid', 'data' => null]);
         }
 
-        // 处理本地用户：已存在则不覆盖头像昵称，仅更新最后登录；不存在时用前端授权信息创建
+        // 客户端 IP：优先 X-Forwarded-For / X-Real-IP，否则 REMOTE_ADDR
+        $ip  = $this->getClientIp();
         $now = date('Y-m-d H:i:s');
-        $ip  = $this->request->ip();
 
         $nickname = (string) $this->request->post('nickname', '');
         $avatar   = (string) $this->request->post('avatar', '');
@@ -99,14 +91,15 @@ class AuthController extends BaseController
 
         $user = MiniUser::where('openid', $openid)->find();
         if ($user) {
-            if ((int) $user->status !== 1) {
+            if ((int) $user->status === 0) {
                 return json(['code' => 403, 'msg' => '账号已禁用', 'data' => null]);
             }
-            $user->save([
-                'unionid'       => $unionid ?: $user->unionid,
-                'last_login_at' => $now,
-                'last_login_ip' => $ip,
-            ]);
+            // 老用户：不覆盖 nickname、avatar 等；仅当本次有 unionid 且库里为空时更新 unionid
+            $updates = ['last_login_at' => $now, 'last_login_ip' => $ip];
+            if ($unionid !== null && $unionid !== '' && (empty($user->unionid) || $user->unionid === null)) {
+                $updates['unionid'] = $unionid;
+            }
+            $user->save($updates);
         } else {
             $user = MiniUser::create([
                 'openid'        => $openid,
@@ -134,11 +127,25 @@ class AuthController extends BaseController
                 'token'   => $token,
                 'openid'  => $openid,
                 'unionid' => $unionid,
-                'user'    => $user ? $user->toArray() : null,
-                // session_key 如需前端加解密可一并返回
-                // 'session_key' => $data['session_key'] ?? null,
+                'user'    => $user->toArray(),
             ],
         ]);
+    }
+
+    /** 客户端 IP：X-Forwarded-For / X-Real-IP，否则 request->ip() */
+    private function getClientIp(): string
+    {
+        $ip = $this->request->header('X-Forwarded-For');
+        if ($ip !== null && $ip !== '') {
+            $ip = trim(explode(',', $ip)[0]);
+        }
+        if (empty($ip)) {
+            $ip = $this->request->header('X-Real-IP');
+        }
+        if ($ip !== null && $ip !== '') {
+            return trim($ip);
+        }
+        return (string) $this->request->ip();
     }
 
     /**
