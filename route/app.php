@@ -35,6 +35,7 @@ Route::group('api', function () {
     Route::get('auth/codes', 'Api.VbenAuth/codes');
 
     // ========== 小程序端（无需登录） ==========
+    Route::post('mini/login', 'Api.Mini.AuthController/login');
     Route::get('mini/banners', 'Api.Mini.BannerController/list');
 
     // ========== 后台管理 ==========
