@@ -4,6 +4,7 @@ declare (strict_types = 1);
 namespace app\controller\Api\Mini;
 
 use app\BaseController;
+use app\model\MiniUser;
 use think\facade\Cache;
 use think\response\Json;
 
@@ -22,7 +23,15 @@ class AuthController extends BaseController
     /**
      * 登录
      * POST /api/mini/login
-     * body: { code: string }
+     * body: {
+     *   code: string,
+     *   nickname?: string,
+     *   avatar?: string,
+     *   gender?: int,   // 0 未知 1 男 2 女
+     *   country?: string,
+     *   province?: string,
+     *   city?: string
+     * }
      */
     public function login(): Json
     {
@@ -77,6 +86,43 @@ class AuthController extends BaseController
             return json(['code' => 500, 'msg' => '微信登录失败：缺少 openid', 'data' => null]);
         }
 
+        // 处理本地用户：已存在则不覆盖头像昵称，仅更新最后登录；不存在时用前端授权信息创建
+        $now = date('Y-m-d H:i:s');
+        $ip  = $this->request->ip();
+
+        $nickname = (string) $this->request->post('nickname', '');
+        $avatar   = (string) $this->request->post('avatar', '');
+        $gender   = (int) $this->request->post('gender', 0);
+        $country  = (string) $this->request->post('country', '');
+        $province = (string) $this->request->post('province', '');
+        $city     = (string) $this->request->post('city', '');
+
+        $user = MiniUser::where('openid', $openid)->find();
+        if ($user) {
+            if ((int) $user->status !== 1) {
+                return json(['code' => 403, 'msg' => '账号已禁用', 'data' => null]);
+            }
+            $user->save([
+                'unionid'       => $unionid ?: $user->unionid,
+                'last_login_at' => $now,
+                'last_login_ip' => $ip,
+            ]);
+        } else {
+            $user = MiniUser::create([
+                'openid'        => $openid,
+                'unionid'       => $unionid,
+                'nickname'      => $nickname !== '' ? $nickname : null,
+                'avatar'        => $avatar !== '' ? $avatar : null,
+                'gender'        => $gender,
+                'country'       => $country !== '' ? $country : null,
+                'province'      => $province !== '' ? $province : null,
+                'city'          => $city !== '' ? $city : null,
+                'status'        => 1,
+                'last_login_at' => $now,
+                'last_login_ip' => $ip,
+            ]);
+        }
+
         $tokenTtl = (int) config('wechat_mini.token_ttl', 86400 * 30);
         $token    = self::TOKEN_PREFIX . bin2hex(random_bytes(32));
         Cache::set($token, $openid, $tokenTtl > 0 ? $tokenTtl : 86400 * 30);
@@ -88,6 +134,7 @@ class AuthController extends BaseController
                 'token'   => $token,
                 'openid'  => $openid,
                 'unionid' => $unionid,
+                'user'    => $user ? $user->toArray() : null,
                 // session_key 如需前端加解密可一并返回
                 // 'session_key' => $data['session_key'] ?? null,
             ],
