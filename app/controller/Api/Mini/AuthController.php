@@ -11,9 +11,12 @@ use think\response\Json;
 /**
  * 小程序端 - 登录
  *
- * 接口约定：
+ * 推荐流程：
+ * 1. 用户点击「登录」→ 仅用 wx.login 的 code 调本接口，body 只传 { code }，拿到 token 和 user（新用户无头像昵称）
+ * 2. 若 user 无头像/昵称，再展示「授权获取头像昵称」→ 用户点击后 wx.getUserProfile 拿到昵称头像，再调 PUT /api/mini/user/profile 传入并更新
+ *
  * 请求 POST /api/mini/login  Content-Type: application/json
- * Body: code(必填), nickname, avatar, gender, country, province, city（均可为空）
+ * Body: code(必填), nickname/avatar/gender/country/province/city 均可为空（首次登录只传 code 即可）
  * 成功: code=0, data: { token, openid, unionid, user }；老用户不覆盖昵称头像，仅更新 unionid(当库为空时)、last_login_at/ip
  */
 class AuthController extends BaseController

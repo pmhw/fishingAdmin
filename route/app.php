@@ -34,9 +34,14 @@ Route::group('api', function () {
     Route::get('user/info', 'Api.VbenAuth/userInfo');
     Route::get('auth/codes', 'Api.VbenAuth/codes');
 
-    // ========== 小程序端（无需登录） ==========
+    // ========== 小程序端 ==========
     Route::post('mini/login', 'Api.Mini.AuthController/login');
     Route::get('mini/banners', 'Api.Mini.BannerController/list');
+    // 以下需登录（Authorization: Bearer {token}）
+    Route::group('mini', function () {
+        Route::get('user/me', 'Api.Mini.UserController/me');
+        Route::put('user/profile', 'Api.Mini.UserController/profile');
+    })->middleware(\app\middleware\MiniAuth::class);
 
     // ========== 后台管理 ==========
     Route::group('admin', function () {
