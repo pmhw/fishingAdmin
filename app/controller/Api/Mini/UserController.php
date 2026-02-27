@@ -11,13 +11,13 @@ use think\response\Json;
  * 小程序端 - 用户信息（需登录）
  *
  * 流程建议：先 POST /api/mini/login 只传 code 拿到 token，再调起头像昵称授权，
- * 授权后调用本接口 PUT /api/mini/user/profile 更新资料。
+ * 授权后调用 POST /api/mini/profile 更新资料。
  */
 class UserController extends BaseController
 {
     /**
      * 更新当前用户资料（头像、昵称等，来自授权后前端传入）
-     * PUT /api/mini/user/profile  Header: Authorization: Bearer {token}
+     * POST /api/mini/profile  Header: Authorization: Bearer {token}
      * body: { nickname?, avatar?, gender?, country?, province?, city? }
      */
     public function profile(): Json
@@ -76,7 +76,7 @@ class UserController extends BaseController
 
     /**
      * 当前登录用户信息
-     * GET /api/mini/user/me  Header: Authorization: Bearer {token}
+     * GET /api/mini/me  Header: Authorization: Bearer {token}
      */
     public function me(): Json
     {

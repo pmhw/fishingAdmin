@@ -37,10 +37,9 @@ Route::group('api', function () {
     // ========== 小程序端 ==========
     Route::post('mini/login', 'Api.Mini.AuthController/login');
     Route::get('mini/banners', 'Api.Mini.BannerController/list');
-    // 以下需登录（Authorization: Bearer {token}），路径明确为 api/mini/user/me、api/mini/user/profile
-    Route::get('mini/user/me', 'Api.Mini.UserController/me')->middleware(\app\middleware\MiniAuth::class);
-    Route::put('mini/user/profile', 'Api.Mini.UserController/profile')->middleware(\app\middleware\MiniAuth::class);
-    Route::post('mini/user/profile', 'Api.Mini.UserController/profile')->middleware(\app\middleware\MiniAuth::class);
+    // 需登录：GET /api/mini/me、POST /api/mini/profile（避免 /user/ 与 api/user 冲突）
+    Route::get('mini/me', 'Api.Mini.UserController/me')->middleware(\app\middleware\MiniAuth::class);
+    Route::post('mini/profile', 'Api.Mini.UserController/profile')->middleware(\app\middleware\MiniAuth::class);
 
     // ========== 后台管理 ==========
     Route::group('admin', function () {
