@@ -86,6 +86,24 @@ class UserController extends BaseController
      */
     public function me(): Json
     {
+        return $this->getCurrentUserInfo();
+    }
+
+    /**
+     * 获取当前用户信息（与 me 相同，路径更语义化）
+     * GET /api/mini/user/info  Header: Authorization: Bearer {token}
+     * 返回: { code: 0, msg: 'success', data: { id, openid, nickname, avatar, gender, ... } }
+     */
+    public function info(): Json
+    {
+        return $this->getCurrentUserInfo();
+    }
+
+    /**
+     * 内部：根据 token 获取当前用户信息
+     */
+    private function getCurrentUserInfo(): Json
+    {
         $openid = $this->request->miniOpenid ?? '';
         if ($openid === '') {
             return json(['code' => 401, 'msg' => '未登录', 'data' => null]);
