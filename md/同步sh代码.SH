@@ -20,8 +20,21 @@ fi
 
 LOCAL=$(git rev-parse HEAD)
 if [ "$LOCAL" != "$REMOTE" ]; then
-    echo "有更新，执行 git pull origin $BRANCH"
-    git pull origin "$BRANCH" || exit 1
+    # 若有本地修改（如 .env），先 stash 再 pull，成功后再恢复
+    if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
+        echo "暂存本地修改（如 .env）后拉取..."
+        git stash push -m "sync: keep local"
+        STASHED=1
+    fi
+    echo "执行 git pull origin $BRANCH"
+    if ! git pull origin "$BRANCH"; then
+        [ -n "$STASHED" ] && git stash pop 2>/dev/null || true
+        exit 1
+    fi
+    if [ -n "$STASHED" ]; then
+        git stash pop 2>/dev/null || true
+        echo "已恢复本地修改"
+    fi
     # 设置上游分支，之后可直接 git pull
     git branch --set-upstream-to=origin/"$BRANCH" "$BRANCH" 2>/dev/null || true
     if [ -f "composer.json" ]; then

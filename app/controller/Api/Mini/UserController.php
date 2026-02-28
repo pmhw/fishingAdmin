@@ -47,7 +47,13 @@ class UserController extends BaseController
             $updates['nickname'] = $nickname;
         }
         if ($avatar !== null && $avatar !== '') {
-            $updates['avatar'] = $avatar;
+            // 微信临时地址（如 http://tmp/xxx.jpeg）会失效，需下载到服务器并存本地展示地址
+            if (preg_match('#^https?://#i', $avatar)) {
+                $localUrl = $this->downloadImageToStorage($avatar, 'avatar');
+                $updates['avatar'] = $localUrl !== null ? $localUrl : $avatar;
+            } else {
+                $updates['avatar'] = $avatar;
+            }
         }
         if ($gender !== null && $gender !== '') {
             $updates['gender'] = (int) $gender;
