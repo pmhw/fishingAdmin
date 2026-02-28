@@ -3,7 +3,6 @@ declare (strict_types = 1);
 
 namespace app\controller\Api\Mini;
 
-use app\BaseController;
 use app\model\MiniUser;
 use think\response\Json;
 
@@ -13,7 +12,7 @@ use think\response\Json;
  * 流程建议：先 POST /api/mini/login 只传 code 拿到 token，再调起头像昵称授权，
  * 授权后调用 POST /api/mini/profile 更新资料。
  */
-class UserController extends BaseController
+class UserController extends MiniBaseController
 {
     /**
      * 更新当前用户资料（头像、昵称等，来自授权后前端传入）
@@ -22,17 +21,9 @@ class UserController extends BaseController
      */
     public function profile(): Json
     {
-        $openid = $this->request->miniOpenid ?? '';
-        if ($openid === '') {
-            return json(['code' => 401, 'msg' => '未登录', 'data' => null]);
-        }
-
-        $user = MiniUser::where('openid', $openid)->find();
-        if (!$user) {
-            return json(['code' => 404, 'msg' => '用户不存在', 'data' => null]);
-        }
-        if ((int) $user->status === 0) {
-            return json(['code' => 403, 'msg' => '账号已禁用', 'data' => null]);
+        [$user, $err] = $this->getCurrentUserOrFail();
+        if ($err !== null) {
+            return $err;
         }
 
         $nickname = $this->request->param('nickname');
@@ -100,23 +91,14 @@ class UserController extends BaseController
     }
 
     /**
-     * 内部：根据 token 获取当前用户信息
+     * 内部：根据 token 获取当前用户信息（复用公共登录校验）
      */
     private function getCurrentUserInfo(): Json
     {
-        $openid = $this->request->miniOpenid ?? '';
-        if ($openid === '') {
-            return json(['code' => 401, 'msg' => '未登录', 'data' => null]);
+        [$user, $err] = $this->getCurrentUserOrFail();
+        if ($err !== null) {
+            return $err;
         }
-
-        $user = MiniUser::where('openid', $openid)->find();
-        if (!$user) {
-            return json(['code' => 404, 'msg' => '用户不存在', 'data' => null]);
-        }
-        if ((int) $user->status === 0) {
-            return json(['code' => 403, 'msg' => '账号已禁用', 'data' => null]);
-        }
-
         return json([
             'code' => 0,
             'msg'  => 'success',

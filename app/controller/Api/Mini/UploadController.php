@@ -3,7 +3,6 @@ declare (strict_types = 1);
 
 namespace app\controller\Api\Mini;
 
-use app\BaseController;
 use think\response\Json;
 use think\facade\Filesystem;
 
@@ -12,7 +11,7 @@ use think\facade\Filesystem;
  * POST /api/mini/upload  multipart/form-data 字段名 file
  * 响应：{ "url": "永久可访问的图片地址" }
  */
-class UploadController extends BaseController
+class UploadController extends MiniBaseController
 {
     private const IMAGE_EXT = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
     private const MAX_SIZE  = 2 * 1024 * 1024; // 2MB
