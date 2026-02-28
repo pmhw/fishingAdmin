@@ -38,6 +38,7 @@ Route::group('api', function () {
     Route::post('mini/login', 'Api.Mini.AuthController/login');
     Route::get('mini/banners', 'Api.Mini.BannerController/list');
     // 需登录（任一路径均可）
+    Route::post('mini/upload', 'Api.Mini.UploadController/index')->middleware(\app\middleware\MiniAuth::class);
     Route::get('mini/me', 'Api.Mini.UserController/me')->middleware(\app\middleware\MiniAuth::class);
     Route::get('mini/user/me', 'Api.Mini.UserController/me')->middleware(\app\middleware\MiniAuth::class);
     Route::post('mini/profile', 'Api.Mini.UserController/profile')->middleware(\app\middleware\MiniAuth::class);
