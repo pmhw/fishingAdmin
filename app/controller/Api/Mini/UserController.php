@@ -105,4 +105,55 @@ class UserController extends BaseController
             'data' => $user->toArray(),
         ]);
     }
+
+    /**
+     * 从 URL（如微信临时地址）下载图片并保存到本地存储，返回可访问路径
+     * @param string $url 图片 URL，如 http://tmp/xxx.jpeg
+     * @param string $subDir 存储子目录，如 avatar
+     * @return string|null 成功返回如 /storage/avatar/202502/xxx.jpeg，失败返回 null
+     */
+    private function downloadImageToStorage(string $url, string $subDir = 'avatar'): ?string
+    {
+        $allowedExt = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+        $maxSize   = 2 * 1024 * 1024; // 2MB
+
+        $context = stream_context_create([
+            'http' => [
+                'timeout'    => 10,
+                'user_agent' => 'Mozilla/5.0 (compatible; FishingAdmin/1.0)',
+            ],
+        ]);
+        $content = @file_get_contents($url, false, $context);
+        if ($content === false || strlen($content) > $maxSize) {
+            return null;
+        }
+
+        $ext = 'jpg';
+        if (preg_match('#\.(jpe?g|png|gif|webp)(\?|$)#i', $url, $m)) {
+            $ext = strtolower($m[1]);
+            if ($ext === 'jpeg') {
+                $ext = 'jpg';
+            }
+        }
+        if (!in_array($ext, $allowedExt, true)) {
+            $ext = 'jpg';
+        }
+
+        $root = config('filesystem.disks.public.root');
+        if (!is_dir($root)) {
+            @mkdir($root, 0755, true);
+        }
+        $dir = $subDir . '/' . date('Ym');
+        $fullDir = $root . '/' . str_replace('/', DIRECTORY_SEPARATOR, $dir);
+        if (!is_dir($fullDir)) {
+            @mkdir($fullDir, 0755, true);
+        }
+        $filename = md5($content . uniqid('', true)) . '.' . $ext;
+        $path     = $dir . '/' . $filename;
+        $fullPath = $root . '/' . str_replace('/', DIRECTORY_SEPARATOR, $path);
+        if (file_put_contents($fullPath, $content) === false) {
+            return null;
+        }
+        return '/storage/' . str_replace('\\', '/', $path);
+    }
 }
