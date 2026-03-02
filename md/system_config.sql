@@ -14,3 +14,13 @@ CREATE TABLE IF NOT EXISTS `system_config` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_config_key` (`config_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统配置表(key-value)';
+
+-- ============================================
+-- 后台权限：全局配置（需先执行 admin_role_permission.sql）
+-- ============================================
+INSERT INTO `admin_permission` (`name`,`code`,`module`) VALUES
+('全局配置','admin.config.manage','misc')
+ON DUPLICATE KEY UPDATE `name`=VALUES(`name`), `module`=VALUES(`module`);
+
+INSERT IGNORE INTO `admin_role_permission` (`role_id`,`permission_id`)
+SELECT r.id, p.id FROM `admin_role` r CROSS JOIN `admin_permission` p WHERE r.code='super_admin' AND p.code='admin.config.manage';

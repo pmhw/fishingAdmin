@@ -2,7 +2,7 @@
   <el-container class="layout">
     <el-aside width="200px" class="aside">
       <div class="logo">fishingAdmin</div>
-      <el-menu :default-active="$route.path" :default-openeds="['permission', 'content']" router>
+      <el-menu :default-active="$route.path" :default-openeds="['permission', 'content', 'misc']" router>
         <el-menu-item index="/home">首页</el-menu-item>
         <el-sub-menu index="permission">
           <template #title>权限中心</template>
@@ -12,6 +12,10 @@
         <el-sub-menu index="content">
           <template #title>内容管理</template>
           <el-menu-item index="/banners">轮播图管理</el-menu-item>
+        </el-sub-menu>
+        <el-sub-menu index="misc">
+          <template #title>杂项</template>
+          <el-menu-item index="/config">全局配置</el-menu-item>
         </el-sub-menu>
       </el-menu>
     </el-aside>
