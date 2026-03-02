@@ -36,13 +36,13 @@
             <span>内容管理</span>
           </template>
           <el-menu-item index="/banners">
-            <el-icon><Folder /></el-icon>
+            <el-icon><PictureFilled /></el-icon>
             <template #title>轮播图管理</template>
           </el-menu-item>
         </el-sub-menu>
         <el-sub-menu index="misc">
           <template #title>
-            <el-icon><Setting /></el-icon>
+            <el-icon><Grid /></el-icon>
             <span>杂项</span>
           </template>
           <el-menu-item index="/config">
@@ -54,13 +54,7 @@
     </el-aside>
     <el-container>
       <el-header class="header">
-        <el-button
-          class="collapse-btn"
-          :icon="collapsed ? Expand : Fold"
-          circle
-          text
-          @click="toggleCollapse"
-        />
+        <el-button class="collapse-btn" :icon="collapsed ? Expand : Fold" text @click="toggleCollapse" />
         <span class="title">{{ $route.meta.title || '后台' }}</span>
         <div class="user">
           <span>{{ userStore.user?.nickname || userStore.user?.username }}</span>
@@ -75,7 +69,17 @@
 </template>
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { Fold, Expand, HomeFilled, User, Key, Setting, Document, Folder } from '@element-plus/icons-vue'
+import {
+  Fold,
+  Expand,
+  HomeFilled,
+  User,
+  Key,
+  Setting,
+  Document,
+  PictureFilled,
+  Grid,
+} from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { useRouter } from 'vue-router'
 import { logout } from '@/api/auth'
