@@ -1,26 +1,66 @@
 <template>
   <el-container class="layout">
-    <el-aside width="200px" class="aside">
-      <div class="logo">fishingAdmin</div>
-      <el-menu :default-active="$route.path" :default-openeds="['permission', 'content', 'misc']" router>
-        <el-menu-item index="/home">首页</el-menu-item>
+    <el-aside :width="asideWidth" class="aside" :class="{ 'aside--collapsed': collapsed }">
+      <div class="logo">
+        <span v-show="!collapsed">fishingAdmin</span>
+        <span v-show="collapsed" class="logo-short">F</span>
+      </div>
+      <el-menu
+        :default-active="$route.path"
+        :default-openeds="collapsed ? [] : ['permission', 'content', 'misc']"
+        :collapse="collapsed"
+        :collapse-transition="false"
+        router
+      >
+        <el-menu-item index="/home">
+          <el-icon><HomeFilled /></el-icon>
+          <template #title>首页</template>
+        </el-menu-item>
         <el-sub-menu index="permission">
-          <template #title>权限中心</template>
-          <el-menu-item index="/admins">管理员管理</el-menu-item>
-          <el-menu-item index="/roles">角色与权限</el-menu-item>
+          <template #title>
+            <el-icon><Key /></el-icon>
+            <span>权限中心</span>
+          </template>
+          <el-menu-item index="/admins">
+            <el-icon><User /></el-icon>
+            <template #title>管理员管理</template>
+          </el-menu-item>
+          <el-menu-item index="/roles">
+            <el-icon><Setting /></el-icon>
+            <template #title>角色与权限</template>
+          </el-menu-item>
         </el-sub-menu>
         <el-sub-menu index="content">
-          <template #title>内容管理</template>
-          <el-menu-item index="/banners">轮播图管理</el-menu-item>
+          <template #title>
+            <el-icon><Document /></el-icon>
+            <span>内容管理</span>
+          </template>
+          <el-menu-item index="/banners">
+            <el-icon><Folder /></el-icon>
+            <template #title>轮播图管理</template>
+          </el-menu-item>
         </el-sub-menu>
         <el-sub-menu index="misc">
-          <template #title>杂项</template>
-          <el-menu-item index="/config">全局配置</el-menu-item>
+          <template #title>
+            <el-icon><Setting /></el-icon>
+            <span>杂项</span>
+          </template>
+          <el-menu-item index="/config">
+            <el-icon><Setting /></el-icon>
+            <template #title>全局配置</template>
+          </el-menu-item>
         </el-sub-menu>
       </el-menu>
     </el-aside>
     <el-container>
       <el-header class="header">
+        <el-button
+          class="collapse-btn"
+          :icon="collapsed ? Expand : Fold"
+          circle
+          text
+          @click="toggleCollapse"
+        />
         <span class="title">{{ $route.meta.title || '后台' }}</span>
         <div class="user">
           <span>{{ userStore.user?.nickname || userStore.user?.username }}</span>
@@ -34,12 +74,32 @@
   </el-container>
 </template>
 <script setup>
+import { ref, computed, onMounted } from 'vue'
+import { Fold, Expand, HomeFilled, User, Key, Setting, Document, Folder } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { useRouter } from 'vue-router'
 import { logout } from '@/api/auth'
 
+const STORAGE_KEY = 'admin_sidebar_collapsed'
+
 const userStore = useUserStore()
 const router = useRouter()
+const collapsed = ref(false)
+
+const asideWidth = computed(() => (collapsed.value ? '64px' : '200px'))
+
+function toggleCollapse() {
+  collapsed.value = !collapsed.value
+  try {
+    localStorage.setItem(STORAGE_KEY, collapsed.value ? '1' : '0')
+  } catch (_) {}
+}
+
+onMounted(() => {
+  try {
+    collapsed.value = localStorage.getItem(STORAGE_KEY) === '1'
+  } catch (_) {}
+})
 
 async function onLogout() {
   try {
@@ -56,6 +116,11 @@ async function onLogout() {
 .aside {
   background: #1a1a2e;
   color: #fff;
+  transition: width 0.2s ease;
+  overflow: hidden;
+}
+.aside--collapsed .logo {
+  padding: 0 8px;
 }
 .logo {
   height: 56px;
@@ -63,6 +128,15 @@ async function onLogout() {
   text-align: center;
   font-weight: bold;
   border-bottom: 1px solid #2a2a4a;
+  white-space: nowrap;
+  transition: padding 0.2s ease;
+}
+.logo-short {
+  font-size: 20px;
+}
+.collapse-btn {
+  margin-right: 12px;
+  font-size: 18px;
 }
 .aside :deep(.el-menu) {
   border-right: none;
@@ -88,6 +162,9 @@ async function onLogout() {
   justify-content: space-between;
   border-bottom: 1px solid var(--el-border-color);
   padding: 0 16px;
+}
+.header .title {
+  flex: 1;
 }
 .title {
   font-size: 16px;
