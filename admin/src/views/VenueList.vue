@@ -81,7 +81,10 @@
           </div>
         </el-form-item>
         <el-form-item label="详细描述">
-          <el-input v-model="editForm.description" type="textarea" :rows="3" placeholder="选填" />
+          <div class="rich-editor-wrap" v-if="dialogVisible">
+            <Toolbar class="rich-toolbar" :editor="editorRef" :defaultConfig="toolbarConfig" />
+            <Editor class="rich-editor" v-model="descriptionHtml" :defaultConfig="editorConfig" @onCreated="onEditorCreated" />
+          </div>
         </el-form-item>
         <el-divider content-position="left">位置与联系</el-divider>
         <el-row :gutter="12">
@@ -102,7 +105,16 @@
         </el-row>
         <el-divider content-position="left">营业与收费</el-divider>
         <el-form-item label="营业时间">
-          <el-input v-model="editForm.opening_hours" placeholder="如 08:00-18:00" />
+          <el-time-picker
+            v-model="openingHoursRange"
+            is-range
+            value-format="HH:mm"
+            format="HH:mm"
+            start-placeholder="开始时间"
+            end-placeholder="结束时间"
+            placeholder="选择营业时间段"
+            style="width: 100%"
+          />
         </el-form-item>
         <el-row :gutter="12">
           <el-col :span="12">
@@ -157,9 +169,12 @@
   </div>
 </template>
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, shallowRef, onBeforeUnmount } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getVenueList, getVenueDetail, createVenue, updateVenue, updateVenueStatus, deleteVenue, uploadImage } from '@/api/venue'
+import AmapPointPicker from '@/components/AmapPointPicker.vue'
+import '@wangeditor/editor/dist/css/style.css'
+import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
 
 const loading = ref(false)
 const list = ref([])
@@ -172,6 +187,42 @@ const editId = ref(null)
 const editFormRef = ref(null)
 const submitLoading = ref(false)
 const uploading = ref(false)
+
+// 富文本
+const editorRef = shallowRef(null)
+const descriptionHtml = ref('')
+const toolbarConfig = {}
+const editorConfig = { placeholder: '请输入详细描述，支持富文本', MENU_CONF: {} }
+function onEditorCreated(editor) {
+  editorRef.value = editor
+}
+onBeforeUnmount(() => {
+  const editor = editorRef.value
+  if (editor) editor.destroy()
+})
+
+// 营业时间范围 ["08:00", "18:00"]
+const openingHoursRange = ref([])
+// 地图选点
+const mapPickerVisible = ref(false)
+const mapPickerCenter = computed(() => {
+  const lng = parseFloat(editForm.longitude)
+  const lat = parseFloat(editForm.latitude)
+  if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null
+  return [lng, lat]
+})
+
+function openMapPicker() {
+  mapPickerVisible.value = true
+}
+function onMapPickerConfirm(res) {
+  if (res.longitude) editForm.longitude = res.longitude
+  if (res.latitude) editForm.latitude = res.latitude
+  if (res.address) editForm.address = res.address
+  if (res.province) editForm.province = res.province
+  if (res.city) editForm.city = res.city
+  if (res.district) editForm.district = res.district
+}
 
 const editForm = reactive({
   name: '',
@@ -261,16 +312,28 @@ function openEdit(row) {
     status: row?.status ?? 1,
     sort_order: row?.sort_order ?? 0,
   })
+  descriptionHtml.value = editForm.description || ''
+  const str = (editForm.opening_hours || '').trim()
+  const parts = str ? str.split('-').map(s => s.trim()) : []
+  openingHoursRange.value = parts.length === 2 ? parts : []
   dialogVisible.value = true
   if (editId.value) {
     getVenueDetail(editId.value).then((res) => {
       const d = res.data
-      if (d) Object.assign(editForm, d)
+      if (d) {
+        Object.assign(editForm, d)
+        descriptionHtml.value = d.description || ''
+        const oh = (d.opening_hours || '').trim()
+        const p = oh ? oh.split('-').map(s => s.trim()) : []
+        openingHoursRange.value = p.length === 2 ? p : []
+      }
     })
   }
 }
 
 function resetForm() {
+  descriptionHtml.value = ''
+  openingHoursRange.value = []
   editFormRef.value?.resetFields?.()
 }
 
@@ -279,6 +342,10 @@ async function submitEdit() {
   submitLoading.value = true
   try {
     const payload = { ...editForm }
+    payload.description = descriptionHtml.value || ''
+    payload.opening_hours = Array.isArray(openingHoursRange.value) && openingHoursRange.value.length === 2
+      ? openingHoursRange.value.join('-')
+      : (editForm.opening_hours || '')
     if (payload.price_min === null || payload.price_min === '') payload.price_min = null
     if (payload.price_max === null || payload.price_max === '') payload.price_max = null
     if (editId.value) {
@@ -324,4 +391,8 @@ onMounted(() => fetchList())
 .venue-form { max-height: 70vh; overflow-y: auto; }
 .upload-wrap { display: flex; flex-direction: column; gap: 8px; }
 .upload-preview { width: 160px; height: 90px; border-radius: 6px; border: 1px solid var(--el-border-color); cursor: pointer; }
+.rich-editor-wrap { border: 1px solid var(--el-border-color); border-radius: 4px; overflow: hidden; }
+.rich-toolbar { border-bottom: 1px solid var(--el-border-color); }
+.rich-editor { min-height: 280px; }
+.address-preview { margin-left: 12px; color: var(--el-text-color-secondary); font-size: 13px; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>

@@ -35,6 +35,22 @@ class SystemConfigController extends BaseController
     }
 
     /**
+     * 按 key 批量取值（供前端读取，如地图 key）
+     * GET /api/admin/configs/values?keys=amap_key,amap_security_code
+     * 返回: { code: 0, data: { amap_key: '...', amap_security_code: '...' } }
+     */
+    public function values(): Json
+    {
+        $keys = $this->request->get('keys', '');
+        $keys = array_filter(array_map('trim', explode(',', $keys)));
+        if (empty($keys)) {
+            return json(['code' => 0, 'msg' => 'success', 'data' => (object) []]);
+        }
+        $list = SystemConfig::whereIn('config_key', $keys)->column('config_value', 'config_key');
+        return json(['code' => 0, 'msg' => 'success', 'data' => (object) $list]);
+    }
+
+    /**
      * 详情 GET /api/admin/configs/:id
      */
     public function detail(int $id): Json

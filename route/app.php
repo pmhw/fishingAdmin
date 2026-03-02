@@ -74,6 +74,7 @@ Route::group('api', function () {
             Route::put('banners/:id', 'Api.Admin.BannerController/update');
             Route::delete('banners/:id', 'Api.Admin.BannerController/delete');
             Route::get('configs', 'Api.Admin.SystemConfigController/list');
+            Route::get('configs/values', 'Api.Admin.SystemConfigController/values');
             Route::get('configs/:id', 'Api.Admin.SystemConfigController/detail');
             Route::post('configs', 'Api.Admin.SystemConfigController/create');
             Route::put('configs/:id', 'Api.Admin.SystemConfigController/update');

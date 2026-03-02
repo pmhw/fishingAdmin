@@ -33,8 +33,9 @@ return [
     'DELETE:banners/'  => 'admin.banner.manage',
 
     // ---------- 杂项：全局配置（仅增改查，禁止删除） ----------
-    'GET:configs'      => 'admin.config.manage',
-    'GET:configs/'      => 'admin.config.manage',
+    'GET:configs'        => 'admin.config.manage',
+    'GET:configs/values' => 'admin.config.manage',
+    'GET:configs/'       => 'admin.config.manage',
     'POST:configs'      => 'admin.config.manage',
     'PUT:configs/'      => 'admin.config.manage',
 

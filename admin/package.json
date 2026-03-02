@@ -10,6 +10,9 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",
+    "@amap/amap-jsapi-loader": "^1.0.1",
+    "@wangeditor/editor": "^5.1.23",
+    "@wangeditor/editor-for-vue": "^5.1.12",
     "vue": "^3.4.0",
     "vue-router": "^4.2.0",
     "pinia": "^2.1.0",
