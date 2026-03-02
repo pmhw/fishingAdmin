@@ -51,8 +51,9 @@ INSERT INTO `admin_permission` (`name`,`code`,`module`) VALUES
 ('新增管理员','admin.user.create','user'),
 ('编辑管理员','admin.user.update','user'),
 ('删除管理员','admin.user.delete','user'),
-('角色与权限','admin.role.manage','system')
-ON DUPLICATE KEY UPDATE `name`=VALUES(`name`);
+('角色与权限','admin.role.manage','system'),
+('全局配置','admin.config.manage','misc')
+ON DUPLICATE KEY UPDATE `name`=VALUES(`name`), `module`=VALUES(`module`);
 
 -- 超级管理员角色拥有全部权限（将上面插入的 permission 都挂到 super_admin 上）
 INSERT INTO `admin_role_permission` (`role_id`,`permission_id`)

@@ -37,4 +37,11 @@ return [
     'GET:configs/'      => 'admin.config.manage',
     'POST:configs'      => 'admin.config.manage',
     'PUT:configs/'      => 'admin.config.manage',
+
+    // ---------- 钓场 ----------
+    'GET:venues'         => 'admin.venue.manage',
+    'GET:venues/'        => 'admin.venue.manage',
+    'POST:venues'        => 'admin.venue.manage',
+    'PUT:venues/'        => 'admin.venue.manage',
+    'DELETE:venues/'     => 'admin.venue.manage',
 ];

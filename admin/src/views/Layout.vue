@@ -7,7 +7,7 @@
       </div>
       <el-menu
         :default-active="$route.path"
-        :default-openeds="collapsed ? [] : ['permission', 'content', 'misc']"
+        :default-openeds="collapsed ? [] : defaultOpeneds"
         :collapse="collapsed"
         :collapse-transition="false"
         router
@@ -16,36 +16,40 @@
           <el-icon><HomeFilled /></el-icon>
           <template #title>首页</template>
         </el-menu-item>
-        <el-sub-menu index="permission">
+        <el-sub-menu v-if="showPermissionMenu" index="permission">
           <template #title>
             <el-icon><Key /></el-icon>
             <span>权限中心</span>
           </template>
-          <el-menu-item index="/admins">
+          <el-menu-item v-if="hasPermission('admin.user.list')" index="/admins">
             <el-icon><User /></el-icon>
             <template #title>管理员管理</template>
           </el-menu-item>
-          <el-menu-item index="/roles">
+          <el-menu-item v-if="hasPermission('admin.role.manage')" index="/roles">
             <el-icon><Setting /></el-icon>
             <template #title>角色与权限</template>
           </el-menu-item>
         </el-sub-menu>
-        <el-sub-menu index="content">
+        <el-sub-menu v-if="showContentMenu" index="content">
           <template #title>
             <el-icon><Document /></el-icon>
             <span>内容管理</span>
           </template>
-          <el-menu-item index="/banners">
+          <el-menu-item v-if="hasPermission('admin.banner.manage')" index="/banners">
             <el-icon><PictureFilled /></el-icon>
             <template #title>轮播图管理</template>
           </el-menu-item>
+          <el-menu-item v-if="hasPermission('admin.venue.manage')" index="/venues">
+            <el-icon><Location /></el-icon>
+            <template #title>钓场管理</template>
+          </el-menu-item>
         </el-sub-menu>
-        <el-sub-menu index="misc">
+        <el-sub-menu v-if="showMiscMenu" index="misc">
           <template #title>
             <el-icon><Grid /></el-icon>
             <span>杂项</span>
           </template>
-          <el-menu-item index="/config">
+          <el-menu-item v-if="hasPermission('admin.config.manage')" index="/config">
             <el-icon><Setting /></el-icon>
             <template #title>全局配置</template>
           </el-menu-item>
@@ -79,6 +83,7 @@ import {
   Document,
   PictureFilled,
   Grid,
+  Location,
 } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { useRouter } from 'vue-router'
@@ -91,6 +96,29 @@ const router = useRouter()
 const collapsed = ref(false)
 
 const asideWidth = computed(() => (collapsed.value ? '64px' : '200px'))
+
+/** 是否拥有某权限（超级管理员 permissions 含 '*' 视为全部） */
+function hasPermission(code) {
+  const perms = userStore.user?.permissions
+  if (!Array.isArray(perms)) return false
+  if (perms.includes('*')) return true
+  return perms.includes(code)
+}
+
+const showPermissionMenu = computed(
+  () => hasPermission('admin.user.list') || hasPermission('admin.role.manage')
+)
+const showContentMenu = computed(() => hasPermission('admin.banner.manage') || hasPermission('admin.venue.manage'))
+const showMiscMenu = computed(() => hasPermission('admin.config.manage'))
+
+/** 展开的子菜单（仅在有权限时包含，避免空菜单占位） */
+const defaultOpeneds = computed(() => {
+  const opens = []
+  if (showPermissionMenu.value) opens.push('permission')
+  if (showContentMenu.value) opens.push('content')
+  if (showMiscMenu.value) opens.push('misc')
+  return opens
+})
 
 function toggleCollapse() {
   collapsed.value = !collapsed.value

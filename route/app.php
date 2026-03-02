@@ -77,6 +77,12 @@ Route::group('api', function () {
             Route::get('configs/:id', 'Api.Admin.SystemConfigController/detail');
             Route::post('configs', 'Api.Admin.SystemConfigController/create');
             Route::put('configs/:id', 'Api.Admin.SystemConfigController/update');
+            Route::get('venues', 'Api.Admin.FishingVenueController/list');
+            Route::get('venues/:id', 'Api.Admin.FishingVenueController/detail');
+            Route::post('venues', 'Api.Admin.FishingVenueController/create');
+            Route::put('venues/:id', 'Api.Admin.FishingVenueController/update');
+            Route::put('venues/:id/status', 'Api.Admin.FishingVenueController/updateStatus');
+            Route::delete('venues/:id', 'Api.Admin.FishingVenueController/delete');
         })->middleware([\app\middleware\AdminAuth::class, \app\middleware\AdminPermission::class]);
     });
 });

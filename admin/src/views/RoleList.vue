@@ -35,7 +35,7 @@
         <el-form-item label="权限">
           <div class="permission-groups">
             <div v-for="(perms, moduleName) in permissionGroups" :key="moduleName" class="permission-group">
-              <div class="group-title">{{ moduleName }}</div>
+              <div class="group-title">{{ getModuleLabel(moduleName) }}</div>
               <el-checkbox-group v-model="editForm.permission_ids" class="permission-list">
                 <el-checkbox v-for="p in perms" :key="p.id" :value="p.id">{{ p.name }} ({{ p.code }})</el-checkbox>
               </el-checkbox-group>
@@ -58,6 +58,18 @@ import { getRoleList, getRoleDetail, createRole, updateRole, deleteRole, getPerm
 const loading = ref(false)
 const list = ref([])
 const permissionGroups = ref({})
+
+const MODULE_LABELS = {
+  user: '管理员',
+  system: '系统',
+  content: '内容管理',
+  misc: '杂项',
+  other: '其他',
+}
+
+function getModuleLabel(key) {
+  return MODULE_LABELS[key] || key
+}
 
 const dialogVisible = ref(false)
 const editId = ref(null)
