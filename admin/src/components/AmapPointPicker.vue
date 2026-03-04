@@ -5,7 +5,7 @@
     width="900px"
     destroy-on-close
     :close-on-click-modal="false"
-    @open="onOpen"
+    @opened="onOpened"
     @close="onClose"
   >
     <div class="amap-picker">
@@ -38,8 +38,9 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import AMapLoader from '@amap/amap-jsapi-loader'
+import { getConfigList } from '@/api/config'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -55,6 +56,7 @@ const visible = computed({
 
 const mapRef = ref(null)
 const searchKeyword = ref('')
+const loadError = ref('')
 let AMap = null
 let map = null
 let marker = null
@@ -63,43 +65,63 @@ let placeSearch = null
 
 const currentResult = ref(null)
 
-// 高德 key（请在 .env 中配置 VITE_AMAP_KEY，可选 VITE_AMAP_SECURITY_CODE）
-const amapKey = import.meta.env.VITE_AMAP_KEY || ''
-const amapSecurity = import.meta.env.VITE_AMAP_SECURITY_CODE || ''
-
-function onOpen() {
+/** 弹窗完全打开后再初始化地图，确保容器已有宽高 */
+async function onOpened() {
   currentResult.value = null
   searchKeyword.value = ''
+  loadError.value = ''
+  let amapKey = ''
+  let amapSecurity = ''
+  try {
+    const res = await getConfigList({ page: 1, limit: 500 })
+    const mapByKey = {}
+    const list = (res && res.data && res.data.list) ? res.data.list : (res && Array.isArray(res.list) ? res.list : [])
+    if (Array.isArray(list)) {
+      list.forEach((item) => {
+        if (item && item.config_key != null) mapByKey[item.config_key] = item.config_value || ''
+      })
+    }
+    amapKey = (mapByKey.amap_key || '').trim()
+    amapSecurity = (mapByKey.amap_security_code || '').trim()
+  } catch (_) {
+    loadError.value = '读取配置失败，请稍后重试'
+    return
+  }
   if (!amapKey) {
-    console.warn('未配置 VITE_AMAP_KEY，地图选点不可用')
+    loadError.value = '请在「杂项 - 全局配置」中添加变量 amap_key（高德 Web Key）'
     return
   }
   if (amapSecurity) {
     window._AMapSecurityConfig = { securityJsCode: amapSecurity }
   }
-  AMapLoader.load({
-    key: amapKey,
-    version: '2.0',
-    plugins: ['AMap.Geocoder', 'AMap.PlaceSearch'],
-  })
-    .then((AMapInstance) => {
-      AMap = AMapInstance
-      if (!mapRef.value) return
-      const center = props.defaultCenter && props.defaultCenter.length >= 2
-        ? props.defaultCenter
-        : [116.397428, 39.90923]
-      map = new AMap.Map(mapRef.value, {
-        zoom: 15,
-        center: center,
-        viewMode: '2D',
-      })
-      geocoder = new AMap.Geocoder({ city: '全国', extensions: 'all' })
-      placeSearch = new AMap.PlaceSearch({ city: '全国' })
-      map.on('click', onMapClick)
+  await nextTick()
+  await new Promise((r) => setTimeout(r, 100))
+  if (!mapRef.value) {
+    loadError.value = '地图容器未就绪'
+    return
+  }
+  try {
+    const AMapInstance = await AMapLoader.load({
+      key: amapKey,
+      version: '2.0',
+      plugins: ['AMap.Geocoder', 'AMap.PlaceSearch'],
     })
-    .catch((e) => {
-      console.error('高德地图加载失败', e)
+    AMap = AMapInstance
+    const center = props.defaultCenter && props.defaultCenter.length >= 2
+      ? props.defaultCenter
+      : [116.397428, 39.90923]
+    map = new AMap.Map(mapRef.value, {
+      zoom: 15,
+      center: center,
+      viewMode: '2D',
     })
+    geocoder = new AMap.Geocoder({ city: '全国', extensions: 'all' })
+    placeSearch = new AMap.PlaceSearch({ city: '全国' })
+    map.on('click', onMapClick)
+  } catch (e) {
+    console.error('高德地图加载失败', e)
+    loadError.value = '地图加载失败：' + (e?.message || '请检查 amap_key、amap_security_code 是否正确')
+  }
 }
 
 function doSearch() {

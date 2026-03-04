@@ -37,6 +37,9 @@ Route::group('api', function () {
     // ========== 小程序端 ==========
     Route::post('mini/login', 'Api.Mini.AuthController/login');
     Route::get('mini/banners', 'Api.Mini.BannerController/list');
+    // 钓场 / 门店展示
+    Route::get('mini/venues', 'Api.Mini.VenueController/list');
+    Route::get('mini/venues/:id', 'Api.Mini.VenueController/detail');
     // 需登录（任一路径均可）
     Route::post('mini/upload', 'Api.Mini.UploadController/index')->middleware(\app\middleware\MiniAuth::class);
     Route::get('mini/me', 'Api.Mini.UserController/me')->middleware(\app\middleware\MiniAuth::class);

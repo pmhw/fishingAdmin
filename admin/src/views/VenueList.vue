@@ -87,17 +87,29 @@
           </div>
         </el-form-item>
         <el-divider content-position="left">位置与联系</el-divider>
+        <el-form-item label="地图选点">
+          <el-button type="primary" plain @click="openMapPicker">打开地图选点</el-button>
+          <span class="form-tip">在地图上点击选点或搜索地点后，点击弹窗内「确定」即可回填到下方表单</span>
+          <div v-if="editForm.address || editForm.longitude" class="address-preview">
+            已选：{{ editForm.address || `经度 ${editForm.longitude} 纬度 ${editForm.latitude}` }}
+          </div>
+        </el-form-item>
+        <AmapPointPicker
+          v-model="mapPickerVisible"
+          :default-center="mapPickerCenter"
+          @confirm="onMapPickerConfirm"
+        />
         <el-row :gutter="12">
-          <el-col :span="8"><el-form-item label="省"><el-input v-model="editForm.province" placeholder="选填" /></el-form-item></el-col>
-          <el-col :span="8"><el-form-item label="市"><el-input v-model="editForm.city" placeholder="选填" /></el-form-item></el-col>
-          <el-col :span="8"><el-form-item label="区/县"><el-input v-model="editForm.district" placeholder="选填" /></el-form-item></el-col>
+          <el-col :span="8"><el-form-item label="省"><el-input v-model="editForm.province" placeholder="选填或地图选点回填" /></el-form-item></el-col>
+          <el-col :span="8"><el-form-item label="市"><el-input v-model="editForm.city" placeholder="选填或地图选点回填" /></el-form-item></el-col>
+          <el-col :span="8"><el-form-item label="区/县"><el-input v-model="editForm.district" placeholder="选填或地图选点回填" /></el-form-item></el-col>
         </el-row>
         <el-form-item label="详细地址">
-          <el-input v-model="editForm.address" placeholder="选填" />
+          <el-input v-model="editForm.address" placeholder="选填或地图选点回填" />
         </el-form-item>
         <el-row :gutter="12">
-          <el-col :span="12"><el-form-item label="经度"><el-input v-model="editForm.longitude" placeholder="选填" /></el-form-item></el-col>
-          <el-col :span="12"><el-form-item label="纬度"><el-input v-model="editForm.latitude" placeholder="选填" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="经度"><el-input v-model="editForm.longitude" placeholder="选填或地图选点回填" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item label="纬度"><el-input v-model="editForm.latitude" placeholder="选填或地图选点回填" /></el-form-item></el-col>
         </el-row>
         <el-row :gutter="12">
           <el-col :span="12"><el-form-item label="联系电话"><el-input v-model="editForm.contact_phone" placeholder="选填" /></el-form-item></el-col>
@@ -138,10 +150,54 @@
           <el-col :span="12"><el-form-item label="最高价(元)"><el-input-number v-model="editForm.price_max" :min="0" :precision="2" controls-position="right" style="width:100%" /></el-form-item></el-col>
         </el-row>
         <el-form-item label="设施">
-          <el-input v-model="editForm.facilities" placeholder="逗号分隔，如 停车场,餐饮,厕所" />
+          <div class="tag-field">
+            <div class="tag-hint">如：停车场、餐饮、厕所 — 输入后按 <kbd>回车</kbd> 或点击框外自动添加，点击标签 × 删除</div>
+            <div class="tag-input-wrap">
+              <el-tag
+                v-for="(item, idx) in facilitiesTags"
+                :key="'f-' + idx"
+                closable
+                size="small"
+                class="tag-item"
+                @close="removeFacilityTag(idx)"
+              >
+                {{ item }}
+              </el-tag>
+              <el-input
+                v-model="facilityInput"
+                placeholder="输入设施名，按回车或点击外部添加"
+                size="small"
+                class="tag-input"
+                @keyup.enter="addFacilityTag"
+                @blur="addFacilityTag"
+              />
+            </div>
+          </div>
         </el-form-item>
         <el-form-item label="鱼种">
-          <el-input v-model="editForm.fish_species" placeholder="逗号分隔，如 鲫鱼,鲤鱼,草鱼" />
+          <div class="tag-field">
+            <div class="tag-hint">如：鲫鱼、鲤鱼、草鱼 — 输入后按 <kbd>回车</kbd> 或点击框外自动添加，点击标签 × 删除</div>
+            <div class="tag-input-wrap">
+              <el-tag
+                v-for="(item, idx) in fishSpeciesTags"
+                :key="'s-' + idx"
+                closable
+                size="small"
+                class="tag-item"
+                @close="removeFishSpeciesTag(idx)"
+              >
+                {{ item }}
+              </el-tag>
+              <el-input
+                v-model="fishSpeciesInput"
+                placeholder="输入鱼种名，按回车或点击外部添加"
+                size="small"
+                class="tag-input"
+                @keyup.enter="addFishSpeciesTag"
+                @blur="addFishSpeciesTag"
+              />
+            </div>
+          </div>
         </el-form-item>
         <el-divider content-position="left">状态与排序</el-divider>
         <el-row :gutter="12">
@@ -203,6 +259,39 @@ onBeforeUnmount(() => {
 
 // 营业时间范围 ["08:00", "18:00"]
 const openingHoursRange = ref([])
+// 设施、鱼种标签（回车添加，提交时逗号拼接入库）
+const facilitiesTags = ref([])
+const fishSpeciesTags = ref([])
+const facilityInput = ref('')
+const fishSpeciesInput = ref('')
+
+function addFacilityTag() {
+  const v = (facilityInput.value || '').trim()
+  if (!v) return
+  if (facilitiesTags.value.includes(v)) {
+    facilityInput.value = ''
+    return
+  }
+  facilitiesTags.value = [...facilitiesTags.value, v]
+  facilityInput.value = ''
+}
+function removeFacilityTag(index) {
+  facilitiesTags.value = facilitiesTags.value.filter((_, i) => i !== index)
+}
+function addFishSpeciesTag() {
+  const v = (fishSpeciesInput.value || '').trim()
+  if (!v) return
+  if (fishSpeciesTags.value.includes(v)) {
+    fishSpeciesInput.value = ''
+    return
+  }
+  fishSpeciesTags.value = [...fishSpeciesTags.value, v]
+  fishSpeciesInput.value = ''
+}
+function removeFishSpeciesTag(index) {
+  fishSpeciesTags.value = fishSpeciesTags.value.filter((_, i) => i !== index)
+}
+
 // 地图选点
 const mapPickerVisible = ref(false)
 const mapPickerCenter = computed(() => {
@@ -216,12 +305,13 @@ function openMapPicker() {
   mapPickerVisible.value = true
 }
 function onMapPickerConfirm(res) {
-  if (res.longitude) editForm.longitude = res.longitude
-  if (res.latitude) editForm.latitude = res.latitude
-  if (res.address) editForm.address = res.address
-  if (res.province) editForm.province = res.province
-  if (res.city) editForm.city = res.city
-  if (res.district) editForm.district = res.district
+  if (res == null) return
+  editForm.longitude = res.longitude ?? ''
+  editForm.latitude = res.latitude ?? ''
+  editForm.address = res.address ?? ''
+  editForm.province = res.province ?? ''
+  editForm.city = res.city ?? ''
+  editForm.district = res.district ?? ''
 }
 
 const editForm = reactive({
@@ -316,6 +406,10 @@ function openEdit(row) {
   const str = (editForm.opening_hours || '').trim()
   const parts = str ? str.split('-').map(s => s.trim()) : []
   openingHoursRange.value = parts.length === 2 ? parts : []
+  facilitiesTags.value = (editForm.facilities || '').split(',').map((s) => s.trim()).filter(Boolean)
+  fishSpeciesTags.value = (editForm.fish_species || '').split(',').map((s) => s.trim()).filter(Boolean)
+  facilityInput.value = ''
+  fishSpeciesInput.value = ''
   dialogVisible.value = true
   if (editId.value) {
     getVenueDetail(editId.value).then((res) => {
@@ -326,6 +420,8 @@ function openEdit(row) {
         const oh = (d.opening_hours || '').trim()
         const p = oh ? oh.split('-').map(s => s.trim()) : []
         openingHoursRange.value = p.length === 2 ? p : []
+        facilitiesTags.value = (d.facilities || '').split(',').map((s) => s.trim()).filter(Boolean)
+        fishSpeciesTags.value = (d.fish_species || '').split(',').map((s) => s.trim()).filter(Boolean)
       }
     })
   }
@@ -334,6 +430,10 @@ function openEdit(row) {
 function resetForm() {
   descriptionHtml.value = ''
   openingHoursRange.value = []
+  facilitiesTags.value = []
+  fishSpeciesTags.value = []
+  facilityInput.value = ''
+  fishSpeciesInput.value = ''
   editFormRef.value?.resetFields?.()
 }
 
@@ -346,6 +446,8 @@ async function submitEdit() {
     payload.opening_hours = Array.isArray(openingHoursRange.value) && openingHoursRange.value.length === 2
       ? openingHoursRange.value.join('-')
       : (editForm.opening_hours || '')
+    payload.facilities = Array.isArray(facilitiesTags.value) ? facilitiesTags.value.join(',') : (editForm.facilities || '')
+    payload.fish_species = Array.isArray(fishSpeciesTags.value) ? fishSpeciesTags.value.join(',') : (editForm.fish_species || '')
     if (payload.price_min === null || payload.price_min === '') payload.price_min = null
     if (payload.price_max === null || payload.price_max === '') payload.price_max = null
     if (editId.value) {
@@ -394,5 +496,13 @@ onMounted(() => fetchList())
 .rich-editor-wrap { border: 1px solid var(--el-border-color); border-radius: 4px; overflow: hidden; }
 .rich-toolbar { border-bottom: 1px solid var(--el-border-color); }
 .rich-editor { min-height: 280px; }
-.address-preview { margin-left: 12px; color: var(--el-text-color-secondary); font-size: 13px; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.form-tip { display: block; margin-top: 6px; color: var(--el-text-color-secondary); font-size: 12px; }
+.address-preview { display: block; margin-top: 6px; color: var(--el-text-color-primary); font-size: 13px; max-width: 100%; }
+.tag-field { display: flex; flex-direction: column; gap: 6px; }
+.tag-hint { font-size: 12px; color: var(--el-text-color-secondary); line-height: 1.3; }
+.tag-hint kbd { padding: 1px 4px; font-size: 11px; border-radius: 3px; background: var(--el-fill-color); border: 1px solid var(--el-border-color-lighter); }
+.tag-input-wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 4px 8px; min-height: 32px; border: 1px solid var(--el-border-color); border-radius: 4px; background: var(--el-fill-color-blank); }
+.tag-input-wrap .tag-item { margin: 0; flex-shrink: 0; }
+.tag-input-wrap .tag-input { min-width: 280px; flex: 1; }
+.tag-input-wrap .tag-input :deep(.el-input__wrapper) { box-shadow: none; padding-left: 6px; }
 </style>
