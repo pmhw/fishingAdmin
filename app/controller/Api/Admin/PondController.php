@@ -30,7 +30,7 @@ class PondController extends BaseController
         $limit   = min(max((int) $this->request->get('limit', 10), 1), 100);
         $venueId = $this->request->get('venue_id');
 
-        $query = FishingPond::with('venue:id,name')
+        $query = FishingPond::with('venue')
             ->order('sort_order', 'asc')
             ->order('id', 'desc');
 
@@ -63,7 +63,7 @@ class PondController extends BaseController
      */
     public function detail(int $id): Json
     {
-        $row = FishingPond::with('venue:id,name')->find($id);
+        $row = FishingPond::with('venue')->find($id);
         if (!$row) {
             return json(['code' => 404, 'msg' => '池塘不存在', 'data' => null]);
         }
@@ -98,7 +98,7 @@ class PondController extends BaseController
             return json(['code' => 400, 'msg' => '所选钓场不存在', 'data' => null]);
         }
         $row = FishingPond::create($data);
-        $row = FishingPond::with('venue:id,name')->find($row->id);
+        $row = FishingPond::with('venue')->find($row->id);
         $out = $row ? $row->toArray() : [];
         $out['venue_name'] = $row && $row->venue ? $row->venue->name : '';
         return json(['code' => 0, 'msg' => '创建成功', 'data' => $out]);
@@ -120,7 +120,7 @@ class PondController extends BaseController
         if (!empty($data)) {
             $row->save($data);
         }
-        $row = FishingPond::with('venue:id,name')->find($id);
+        $row = FishingPond::with('venue')->find($id);
         $out = $row->toArray();
         if (is_string($out['images'] ?? null)) {
             $out['images'] = json_decode($out['images'], true) ?: [];
