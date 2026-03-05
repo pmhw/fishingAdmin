@@ -22,6 +22,7 @@
     </el-card>
 
     <el-dialog v-model="dialogVisible" :title="editId ? '编辑角色' : '新增角色'" width="560px" @close="resetForm">
+      <div v-loading="roleEditLoading" element-loading-text="正在加载权限与配置…" class="role-edit-body">
       <el-form ref="editFormRef" :model="editForm" :rules="editRules" label-width="80px">
         <el-form-item label="角色名" prop="name">
           <el-input v-model="editForm.name" placeholder="如：运营管理员" />
@@ -61,6 +62,7 @@
           </el-form-item>
         </template>
       </el-form>
+      </div>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="submitLoading" @click="submitEdit">确定</el-button>
@@ -79,6 +81,8 @@ const loading = ref(false)
 const list = ref([])
 const permissionGroups = ref({})
 const pondOptions = ref([])
+/** 编辑角色时弹窗内加载状态（权限、池塘配置请求中） */
+const roleEditLoading = ref(false)
 const pondManagePermissionId = computed(() => {
   for (const perms of Object.values(permissionGroups.value)) {
     const p = perms.find((x) => x.code === POND_MANAGE_CODE)
@@ -144,29 +148,35 @@ async function openEdit(row) {
   editForm.permission_ids = row?.permission_ids ? [...row.permission_ids] : []
   editForm.pond_scope = 'all'
   editForm.pond_ids = []
+  roleEditLoading.value = !!editId.value
   dialogVisible.value = true
   if (editId.value) {
-    const [detailRes, pondsRes] = await Promise.all([
-      getRoleDetail(editId.value),
-      getRolePonds(editId.value),
-    ])
-    const d = detailRes?.data ?? detailRes
-    if (d) {
-      editForm.name = d.name ?? ''
-      editForm.code = d.code ?? ''
-      editForm.description = d.description ?? ''
-      const rawIds = Array.isArray(d.permission_ids) ? d.permission_ids : []
-      editForm.permission_ids = rawIds.map((id) => Number(id)).filter((n) => !Number.isNaN(n) && n > 0)
+    try {
+      const [detailRes, pondsRes] = await Promise.all([
+        getRoleDetail(editId.value),
+        getRolePonds(editId.value),
+      ])
+      const d = detailRes?.data ?? detailRes
+      if (d) {
+        editForm.name = d.name ?? ''
+        editForm.code = d.code ?? ''
+        editForm.description = d.description ?? ''
+        const rawIds = Array.isArray(d.permission_ids) ? d.permission_ids : []
+        editForm.permission_ids = rawIds.map((id) => Number(id)).filter((n) => !Number.isNaN(n) && n > 0)
+      }
+      const pondData = pondsRes?.data ?? pondsRes
+      const ids = Array.isArray(pondData?.pond_ids) ? pondData.pond_ids : (Array.isArray(pondData) ? pondData : [])
+      const pondIds = ids.map((id) => Number(id)).filter((n) => !Number.isNaN(n) && n > 0)
+      editForm.pond_scope = pondIds.length > 0 ? 'assigned' : 'all'
+      editForm.pond_ids = pondIds
+    } finally {
+      roleEditLoading.value = false
     }
-    const pondData = pondsRes?.data ?? pondsRes
-    const ids = Array.isArray(pondData?.pond_ids) ? pondData.pond_ids : (Array.isArray(pondData) ? pondData : [])
-    const pondIds = ids.map((id) => Number(id)).filter((n) => !Number.isNaN(n) && n > 0)
-    editForm.pond_scope = pondIds.length > 0 ? 'assigned' : 'all'
-    editForm.pond_ids = pondIds
   }
 }
 
 function resetForm() {
+  roleEditLoading.value = false
   editForm.name = ''
   editForm.code = ''
   editForm.description = ''
@@ -272,5 +282,8 @@ onMounted(() => {
 }
 .pond-scope-tip {
   margin-bottom: 12px;
+}
+.role-edit-body {
+  min-height: 200px;
 }
 </style>
