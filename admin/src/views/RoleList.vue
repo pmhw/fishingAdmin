@@ -37,7 +37,7 @@
             <div v-for="(perms, moduleName) in permissionGroups" :key="moduleName" class="permission-group">
               <div class="group-title">{{ getModuleLabel(moduleName) }}</div>
               <el-checkbox-group v-model="editForm.permission_ids" class="permission-list">
-                <el-checkbox v-for="p in perms" :key="p.id" :value="p.id">{{ p.name }} ({{ p.code }})</el-checkbox>
+                <el-checkbox v-for="p in perms" :key="p.id" :value="Number(p.id)">{{ p.name }} ({{ p.code }})</el-checkbox>
               </el-checkbox-group>
             </div>
           </div>
@@ -155,7 +155,8 @@ async function openEdit(row) {
       editForm.name = d.name ?? ''
       editForm.code = d.code ?? ''
       editForm.description = d.description ?? ''
-      editForm.permission_ids = Array.isArray(d.permission_ids) ? [...d.permission_ids] : []
+      const rawIds = Array.isArray(d.permission_ids) ? d.permission_ids : []
+      editForm.permission_ids = rawIds.map((id) => Number(id)).filter((n) => !Number.isNaN(n) && n > 0)
     }
     const pondData = pondsRes?.data ?? pondsRes
     const ids = Array.isArray(pondData?.pond_ids) ? pondData.pond_ids : (Array.isArray(pondData) ? pondData : [])

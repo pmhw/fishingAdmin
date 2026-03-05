@@ -35,7 +35,8 @@ class RoleController extends BaseController
             return json(['code' => 404, 'msg' => '角色不存在', 'data' => null]);
         }
         $arr = $role->toArray();
-        $arr['permission_ids'] = $role->permissions()->column('id');
+        $ids = $role->permissions()->column('id');
+        $arr['permission_ids'] = array_values(array_map('intval', is_array($ids) ? $ids : []));
         return json(['code' => 0, 'msg' => 'success', 'data' => $arr]);
     }
 
