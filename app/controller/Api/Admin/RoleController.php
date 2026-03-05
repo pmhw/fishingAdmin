@@ -97,8 +97,8 @@ class RoleController extends BaseController
         if ($permissionIds !== null) {
             $role->syncPermissions(is_array($permissionIds) ? $permissionIds : []);
         }
-        $role->load('permissions');
-        return json(['code' => 0, 'msg' => '更新成功', 'data' => $role->toArray()]);
+        $role = AdminRole::with('permissions')->find($id);
+        return json(['code' => 0, 'msg' => '更新成功', 'data' => $role ? $role->toArray() : []]);
     }
 
     /**
