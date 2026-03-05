@@ -52,4 +52,7 @@ return [
     'POST:ponds'         => 'admin.pond.manage',
     'PUT:ponds/'         => 'admin.pond.manage',
     'DELETE:ponds/'      => 'admin.pond.manage',
+    'GET:pond-regions'   => 'admin.pond.manage',
+    'POST:pond-regions'  => 'admin.pond.manage',
+    'DELETE:pond-regions/' => 'admin.pond.manage',
 ];

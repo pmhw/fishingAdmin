@@ -122,10 +122,46 @@
         <el-form-item label="排序">
           <el-input-number v-model="editForm.sort_order" :min="0" controls-position="right" style="width:100%" />
         </el-form-item>
+        <template v-if="editId">
+          <el-divider content-position="left">钓位区域</el-divider>
+          <div class="region-toolbar">
+            <span class="region-tip">如 西岸1~29、中间浮桥30~89，可添加多段序号范围</span>
+            <el-button type="primary" size="small" @click="openRegionForm()">添加区域</el-button>
+          </div>
+          <el-table :data="regionList" size="small" max-height="200" stripe class="region-table">
+            <el-table-column prop="name" label="区域名称" min-width="100" />
+            <el-table-column label="钓位序号" width="140">
+              <template #default="{ row }">{{ row.start_no }} ~ {{ row.end_no }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="80" fixed="right">
+              <template #default="{ row }">
+                <el-button link type="danger" size="small" @click="onDeleteRegion(row)">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </template>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="submitLoading" @click="submitEdit">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="regionDialogVisible" title="添加钓位区域" width="400px" @close="resetRegionForm">
+      <el-form ref="regionFormRef" :model="regionForm" :rules="regionRules" label-width="100px">
+        <el-form-item label="区域名称" prop="name">
+          <el-input v-model="regionForm.name" placeholder="如 西岸、中间浮桥" />
+        </el-form-item>
+        <el-form-item label="起始序号" prop="start_no">
+          <el-input-number v-model="regionForm.start_no" :min="0" controls-position="right" style="width:100%" />
+        </el-form-item>
+        <el-form-item label="结束序号" prop="end_no">
+          <el-input-number v-model="regionForm.end_no" :min="0" controls-position="right" style="width:100%" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="regionDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="regionSubmitLoading" @click="submitRegion">确定</el-button>
       </template>
     </el-dialog>
   </div>
@@ -134,7 +170,7 @@
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getPondList, getPondDetail, createPond, updatePond, deletePond, getVenueOptions, uploadImage } from '@/api/pond'
+import { getPondList, getPondDetail, createPond, updatePond, deletePond, getVenueOptions, getPondRegions, createPondRegion, deletePondRegion, uploadImage } from '@/api/pond'
 
 const loading = ref(false)
 const list = ref([])
@@ -149,6 +185,15 @@ const editId = ref(null)
 const formRef = ref(null)
 const submitLoading = ref(false)
 const uploading = ref(false)
+
+const regionList = ref([])
+const regionDialogVisible = ref(false)
+const regionFormRef = ref(null)
+const regionSubmitLoading = ref(false)
+const regionForm = reactive({ name: '', start_no: 0, end_no: 0 })
+const regionRules = {
+  name: [{ required: true, message: '请输入区域名称', trigger: 'blur' }],
+}
 
 const editForm = reactive({
   venue_id: null,
@@ -247,6 +292,7 @@ function openEdit(row) {
   editForm.sort_order = row?.sort_order ?? 0
   dialogVisible.value = true
   if (editId.value) {
+    fetchRegions(editId.value)
     getPondDetail(editId.value).then((res) => {
       const d = res?.data ?? res
       if (d) {
@@ -266,11 +312,69 @@ function openEdit(row) {
         editForm.sort_order = d.sort_order ?? 0
       }
     })
+  } else {
+    regionList.value = []
   }
+}
+
+async function fetchRegions(pondId) {
+  if (!pondId) return
+  try {
+    const res = await getPondRegions(pondId)
+    const data = res?.data ?? res
+    regionList.value = data?.list ?? []
+  } catch (_) {
+    regionList.value = []
+  }
+}
+
+function openRegionForm() {
+  regionForm.name = ''
+  regionForm.start_no = regionList.value.length ? Math.max(...regionList.value.map((r) => r.end_no), 0) + 1 : 1
+  regionForm.end_no = regionForm.start_no
+  regionDialogVisible.value = true
+}
+
+function resetRegionForm() {
+  regionFormRef.value?.resetFields?.()
+}
+
+async function submitRegion() {
+  await regionFormRef.value?.validate().catch(() => {})
+  if (regionForm.end_no < regionForm.start_no) {
+    ElMessage.warning('结束序号不能小于起始序号')
+    return
+  }
+  regionSubmitLoading.value = true
+  try {
+    await createPondRegion({
+      pond_id: editId.value,
+      name: regionForm.name,
+      start_no: regionForm.start_no,
+      end_no: regionForm.end_no,
+    })
+    ElMessage.success('添加成功')
+    regionDialogVisible.value = false
+    fetchRegions(editId.value)
+  } catch (_) {}
+  finally {
+    regionSubmitLoading.value = false
+  }
+}
+
+function onDeleteRegion(row) {
+  ElMessageBox.confirm(`确定删除区域「${row.name}」？`, '提示', { type: 'warning' })
+    .then(async () => {
+      await deletePondRegion(row.id)
+      ElMessage.success('已删除')
+      fetchRegions(editId.value)
+    })
+    .catch(() => {})
 }
 
 function resetForm() {
   formRef.value?.resetFields?.()
+  regionList.value = []
 }
 
 async function submitEdit() {
@@ -316,4 +420,7 @@ onMounted(() => {
 .filter-form { margin-bottom: 12px; }
 .upload-wrap { display: flex; flex-direction: column; gap: 8px; }
 .upload-preview { width: 160px; height: 90px; border-radius: 6px; border: 1px solid var(--el-border-color); cursor: pointer; }
+.region-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px; }
+.region-tip { font-size: 12px; color: var(--el-text-color-secondary); }
+.region-table { margin-top: 0; }
 </style>

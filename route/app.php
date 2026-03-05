@@ -92,6 +92,9 @@ Route::group('api', function () {
             Route::post('ponds', 'Api.Admin.PondController/create');
             Route::put('ponds/:id', 'Api.Admin.PondController/update');
             Route::delete('ponds/:id', 'Api.Admin.PondController/delete');
+            Route::get('pond-regions', 'Api.Admin.PondRegionController/list');
+            Route::post('pond-regions', 'Api.Admin.PondRegionController/create');
+            Route::delete('pond-regions/:id', 'Api.Admin.PondRegionController/delete');
         })->middleware([\app\middleware\AdminAuth::class, \app\middleware\AdminPermission::class]);
     });
 });
