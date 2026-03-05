@@ -37,9 +37,9 @@ Route::group('api', function () {
     // ========== 小程序端 ==========
     Route::post('mini/login', 'Api.Mini.AuthController/login');
     Route::get('mini/banners', 'Api.Mini.BannerController/list');
-    // 钓场 / 门店展示
-    Route::get('mini/venues', 'Api.Mini.VenueController/list');
+    // 钓场 / 门店展示（先 :id 后 list，避免 /mini/venues/1 被误匹配）
     Route::get('mini/venues/:id', 'Api.Mini.VenueController/detail');
+    Route::get('mini/venues', 'Api.Mini.VenueController/list');
     // 需登录（任一路径均可）
     Route::post('mini/upload', 'Api.Mini.UploadController/index')->middleware(\app\middleware\MiniAuth::class);
     Route::get('mini/me', 'Api.Mini.UserController/me')->middleware(\app\middleware\MiniAuth::class);
@@ -60,11 +60,13 @@ Route::group('api', function () {
             Route::get('me', 'Api.Admin.Auth/me');
             Route::post('logout', 'Api.Admin.Auth/logout');
             Route::post('upload/image', 'Api.Admin.UploadController/image');
-            Route::get('admin-users', 'Api.Admin.AdminUserController/list');
+            // admin-users：先 :id 后集合，避免 /admin-users/1 被误匹配
             Route::get('admin-users/:id', 'Api.Admin.AdminUserController/detail');
-            Route::post('admin-users', 'Api.Admin.AdminUserController/create');
             Route::put('admin-users/:id', 'Api.Admin.AdminUserController/update');
             Route::delete('admin-users/:id', 'Api.Admin.AdminUserController/delete');
+            Route::get('admin-users', 'Api.Admin.AdminUserController/list');
+            Route::post('admin-users', 'Api.Admin.AdminUserController/create');
+            // roles：先子路径 /:id/ponds 和 /:id，再 list/create
             Route::get('roles/:id/ponds', 'Api.Admin.RoleController/ponds');
             Route::put('roles/:id/ponds', 'Api.Admin.RoleController/updatePonds');
             Route::get('roles/:id', 'Api.Admin.RoleController/detail');
@@ -73,30 +75,35 @@ Route::group('api', function () {
             Route::get('roles', 'Api.Admin.RoleController/list');
             Route::post('roles', 'Api.Admin.RoleController/create');
             Route::get('permissions', 'Api.Admin.PermissionController/list');
-            Route::get('banners', 'Api.Admin.BannerController/list');
+            // banners：先 :id 后集合
             Route::get('banners/:id', 'Api.Admin.BannerController/detail');
-            Route::post('banners', 'Api.Admin.BannerController/create');
             Route::put('banners/:id', 'Api.Admin.BannerController/update');
             Route::delete('banners/:id', 'Api.Admin.BannerController/delete');
-            Route::get('configs', 'Api.Admin.SystemConfigController/list');
+            Route::get('banners', 'Api.Admin.BannerController/list');
+            Route::post('banners', 'Api.Admin.BannerController/create');
+            // configs：先 /values、/:id 后 list/create/update
             Route::get('configs/values', 'Api.Admin.SystemConfigController/values');
             Route::get('configs/:id', 'Api.Admin.SystemConfigController/detail');
-            Route::post('configs', 'Api.Admin.SystemConfigController/create');
             Route::put('configs/:id', 'Api.Admin.SystemConfigController/update');
-            Route::get('venues', 'Api.Admin.FishingVenueController/list');
-            Route::get('venues/:id', 'Api.Admin.FishingVenueController/detail');
-            Route::post('venues', 'Api.Admin.FishingVenueController/create');
-            Route::put('venues/:id', 'Api.Admin.FishingVenueController/update');
+            Route::get('configs', 'Api.Admin.SystemConfigController/list');
+            Route::post('configs', 'Api.Admin.SystemConfigController/create');
+            // venues：先 /:id/status、/:id 后 list/create/update/delete
             Route::put('venues/:id/status', 'Api.Admin.FishingVenueController/updateStatus');
+            Route::get('venues/:id', 'Api.Admin.FishingVenueController/detail');
+            Route::put('venues/:id', 'Api.Admin.FishingVenueController/update');
             Route::delete('venues/:id', 'Api.Admin.FishingVenueController/delete');
-            Route::get('ponds', 'Api.Admin.PondController/list');
+            Route::get('venues', 'Api.Admin.FishingVenueController/list');
+            Route::post('venues', 'Api.Admin.FishingVenueController/create');
+            // ponds：先 :id 后集合
             Route::get('ponds/:id', 'Api.Admin.PondController/detail');
-            Route::post('ponds', 'Api.Admin.PondController/create');
             Route::put('ponds/:id', 'Api.Admin.PondController/update');
             Route::delete('ponds/:id', 'Api.Admin.PondController/delete');
+            Route::get('ponds', 'Api.Admin.PondController/list');
+            Route::post('ponds', 'Api.Admin.PondController/create');
+            // pond-regions：先 :id 后集合
+            Route::delete('pond-regions/:id', 'Api.Admin.PondRegionController/delete');
             Route::get('pond-regions', 'Api.Admin.PondRegionController/list');
             Route::post('pond-regions', 'Api.Admin.PondRegionController/create');
-            Route::delete('pond-regions/:id', 'Api.Admin.PondRegionController/delete');
         })->middleware([\app\middleware\AdminAuth::class, \app\middleware\AdminPermission::class]);
     });
 });
