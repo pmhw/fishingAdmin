@@ -156,9 +156,12 @@ class Auth extends BaseController
     private function buildUserWithRoleAndPermissions(AdminUser $user): array
     {
         try {
-            $user->load('role');
+            $user = AdminUser::with('role')->find($user->id);
+            if (!$user) {
+                return ['permissions' => []];
+            }
         } catch (\Throwable $e) {
-            // role_id 或 admin_role 等不存在时不报错
+            return ['permissions' => []];
         }
         $userArr = $user->toArray();
         try {

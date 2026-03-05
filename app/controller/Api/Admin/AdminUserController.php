@@ -83,9 +83,9 @@ class AdminUserController extends BaseController
             $data['role_id'] = (int) $roleId;
         }
         $user = AdminUser::create($data);
-        $user->load('role');
-        $arr = $user->toArray();
-        $arr['role_name'] = $user->role ? $user->role->name : '';
+        $user = AdminUser::with('role')->find($user->id);
+        $arr = $user ? $user->toArray() : [];
+        $arr['role_name'] = $user && $user->role ? $user->role->name : '';
         return json(['code' => 0, 'msg' => '创建成功', 'data' => $arr]);
     }
 
