@@ -43,6 +43,10 @@
             <el-icon><Location /></el-icon>
             <template #title>钓场管理</template>
           </el-menu-item>
+          <el-menu-item v-if="hasPermission('admin.pond.manage')" index="/ponds">
+            <el-icon><Grid /></el-icon>
+            <template #title>池塘管理</template>
+          </el-menu-item>
         </el-sub-menu>
         <el-sub-menu v-if="showMiscMenu" index="misc">
           <template #title>
@@ -108,7 +112,7 @@ function hasPermission(code) {
 const showPermissionMenu = computed(
   () => hasPermission('admin.user.list') || hasPermission('admin.role.manage')
 )
-const showContentMenu = computed(() => hasPermission('admin.banner.manage') || hasPermission('admin.venue.manage'))
+const showContentMenu = computed(() => hasPermission('admin.banner.manage') || hasPermission('admin.venue.manage') || hasPermission('admin.pond.manage'))
 const showMiscMenu = computed(() => hasPermission('admin.config.manage'))
 
 /** 展开的子菜单（仅在有权限时包含，避免空菜单占位） */

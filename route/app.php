@@ -87,6 +87,11 @@ Route::group('api', function () {
             Route::put('venues/:id', 'Api.Admin.FishingVenueController/update');
             Route::put('venues/:id/status', 'Api.Admin.FishingVenueController/updateStatus');
             Route::delete('venues/:id', 'Api.Admin.FishingVenueController/delete');
+            Route::get('ponds', 'Api.Admin.PondController/list');
+            Route::get('ponds/:id', 'Api.Admin.PondController/detail');
+            Route::post('ponds', 'Api.Admin.PondController/create');
+            Route::put('ponds/:id', 'Api.Admin.PondController/update');
+            Route::delete('ponds/:id', 'Api.Admin.PondController/delete');
         })->middleware([\app\middleware\AdminAuth::class, \app\middleware\AdminPermission::class]);
     });
 });

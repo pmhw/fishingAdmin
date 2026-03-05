@@ -44,5 +44,12 @@ return [
     'GET:venues/'        => 'admin.venue.manage',
     'POST:venues'        => 'admin.venue.manage',
     'PUT:venues/'        => 'admin.venue.manage',
-    'DELETE:venues/'     => 'admin.venue.manage',
+    'DELETE:venues/'      => 'admin.venue.manage',
+
+    // ---------- 池塘 ----------
+    'GET:ponds'          => 'admin.pond.manage',
+    'GET:ponds/'         => 'admin.pond.manage',
+    'POST:ponds'         => 'admin.pond.manage',
+    'PUT:ponds/'         => 'admin.pond.manage',
+    'DELETE:ponds/'      => 'admin.pond.manage',
 ];
