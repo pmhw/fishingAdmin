@@ -66,6 +66,8 @@ Route::group('api', function () {
             Route::put('admin-users/:id', 'Api.Admin.AdminUserController/update');
             Route::delete('admin-users/:id', 'Api.Admin.AdminUserController/delete');
             Route::get('roles', 'Api.Admin.RoleController/list');
+            Route::get('roles/:id/ponds', 'Api.Admin.RoleController/ponds');
+            Route::put('roles/:id/ponds', 'Api.Admin.RoleController/updatePonds');
             Route::get('roles/:id', 'Api.Admin.RoleController/detail');
             Route::post('roles', 'Api.Admin.RoleController/create');
             Route::put('roles/:id', 'Api.Admin.RoleController/update');

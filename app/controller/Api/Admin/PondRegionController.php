@@ -9,10 +9,12 @@ use app\model\PondRegion;
 use think\response\Json;
 
 /**
- * 钓位区域配置（按池塘）
+ * 钓位区域配置（按池塘），受池塘数据范围约束
  */
 class PondRegionController extends BaseController
 {
+    use PondScopeTrait;
+
     /**
      * 列表 GET /api/admin/pond-regions?pond_id=1
      */
@@ -21,6 +23,9 @@ class PondRegionController extends BaseController
         $pondId = (int) $this->request->get('pond_id', 0);
         if ($pondId < 1) {
             return json(['code' => 400, 'msg' => '请传入 pond_id', 'data' => ['list' => [], 'total' => 0]]);
+        }
+        if (!$this->canAccessPond($pondId)) {
+            return json(['code' => 403, 'msg' => '无权限管理该池塘', 'data' => ['list' => [], 'total' => 0]]);
         }
         $rows = PondRegion::where('pond_id', $pondId)
             ->order('sort_order', 'asc')
@@ -55,6 +60,9 @@ class PondRegionController extends BaseController
         if (!FishingPond::find($pondId)) {
             return json(['code' => 400, 'msg' => '池塘不存在', 'data' => null]);
         }
+        if (!$this->canAccessPond($pondId)) {
+            return json(['code' => 403, 'msg' => '无权限管理该池塘', 'data' => null]);
+        }
         if ($endNo < $startNo) {
             return json(['code' => 400, 'msg' => '结束序号不能小于起始序号', 'data' => null]);
         }
@@ -77,6 +85,9 @@ class PondRegionController extends BaseController
         $row = PondRegion::find($id);
         if (!$row) {
             return json(['code' => 404, 'msg' => '钓位区域不存在', 'data' => null]);
+        }
+        if (!$this->canAccessPond((int) $row->pond_id)) {
+            return json(['code' => 403, 'msg' => '无权限管理该池塘', 'data' => null]);
         }
         $row->delete();
         return json(['code' => 0, 'msg' => '删除成功', 'data' => null]);

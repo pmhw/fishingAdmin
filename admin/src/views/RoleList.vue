@@ -42,6 +42,21 @@
             </div>
           </div>
         </el-form-item>
+        <template v-if="hasPondPermission">
+          <el-divider content-position="left">池塘管理范围</el-divider>
+          <el-form-item label="范围">
+            <el-radio-group v-model="editForm.pond_scope">
+              <el-radio value="all">全部池塘</el-radio>
+              <el-radio value="assigned">指定池塘</el-radio>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item v-if="editForm.pond_scope === 'assigned'" label="可管理池塘">
+            <el-select v-model="editForm.pond_ids" multiple placeholder="选择可管理的池塘" value-key="id" style="width:100%" filterable>
+              <el-option v-for="p in pondOptions" :key="p.id" :label="`${p.name}（${p.venue_name || ''}）`" :value="p.id" />
+            </el-select>
+            <div class="form-tip">选择「指定池塘」时，该角色只能管理下方所选池塘；不选任何池塘时保存后等同于全部池塘。</div>
+          </el-form-item>
+        </template>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -53,11 +68,24 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getRoleList, getRoleDetail, createRole, updateRole, deleteRole, getPermissionList } from '@/api/role'
+import { getRoleList, getRoleDetail, createRole, updateRole, deleteRole, getPermissionList, getRolePonds, updateRolePonds } from '@/api/role'
+import { getPondList } from '@/api/pond'
 
+const POND_MANAGE_CODE = 'admin.pond.manage'
 const loading = ref(false)
 const list = ref([])
 const permissionGroups = ref({})
+const pondOptions = ref([])
+const pondManagePermissionId = computed(() => {
+  for (const perms of Object.values(permissionGroups.value)) {
+    const p = perms.find((x) => x.code === POND_MANAGE_CODE)
+    if (p) return p.id
+  }
+  return null
+})
+const hasPondPermission = computed(() =>
+  pondManagePermissionId.value != null && editForm.permission_ids.includes(pondManagePermissionId.value)
+)
 
 const MODULE_LABELS = {
   user: '管理员',
@@ -80,6 +108,8 @@ const editForm = reactive({
   code: '',
   description: '',
   permission_ids: [],
+  pond_scope: 'all',
+  pond_ids: [],
 })
 const editRules = {
   name: [{ required: true, message: '请输入角色名', trigger: 'blur' }],
@@ -108,6 +138,8 @@ function openEdit(row) {
   editForm.description = row?.description ?? ''
   editForm.permission_ids = row?.permission_ids ? [...row.permission_ids] : []
   dialogVisible.value = true
+  editForm.pond_scope = 'all'
+  editForm.pond_ids = []
   if (editId.value) {
     getRoleDetail(editId.value).then((res) => {
       const d = res.data
@@ -115,6 +147,12 @@ function openEdit(row) {
       editForm.code = d?.code ?? ''
       editForm.description = d?.description ?? ''
       editForm.permission_ids = Array.isArray(d?.permission_ids) ? [...d.permission_ids] : []
+    })
+    getRolePonds(editId.value).then((res) => {
+      const data = res?.data ?? res
+      const ids = data?.pond_ids ?? []
+      editForm.pond_scope = Array.isArray(ids) && ids.length > 0 ? 'assigned' : 'all'
+      editForm.pond_ids = Array.isArray(ids) ? [...ids] : []
     })
   }
 }
@@ -124,6 +162,8 @@ function resetForm() {
   editForm.code = ''
   editForm.description = ''
   editForm.permission_ids = []
+  editForm.pond_scope = 'all'
+  editForm.pond_ids = []
   editFormRef.value?.resetFields?.()
 }
 
@@ -137,6 +177,10 @@ async function submitEdit() {
         description: editForm.description,
         permission_ids: editForm.permission_ids,
       })
+      if (hasPondPermission.value) {
+        const pondIds = editForm.pond_scope === 'all' ? [] : (editForm.pond_ids || [])
+        await updateRolePonds(editId.value, { pond_ids: pondIds })
+      }
       ElMessage.success('更新成功')
     } else {
       await createRole({
@@ -164,8 +208,19 @@ function onDelete(row) {
   }).catch(() => {})
 }
 
+async function loadPondOptions() {
+  try {
+    const res = await getPondList({ page: 1, limit: 500 })
+    const data = res?.data ?? res
+    pondOptions.value = data?.list ?? []
+  } catch (_) {
+    pondOptions.value = []
+  }
+}
+
 onMounted(() => {
   loadPermissions()
+  loadPondOptions()
   fetchList()
 })
 </script>
@@ -200,5 +255,10 @@ onMounted(() => {
 }
 .permission-list .el-checkbox {
   margin-right: 0;
+}
+.form-tip {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  margin-top: 4px;
 }
 </style>

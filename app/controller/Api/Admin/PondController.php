@@ -9,16 +9,23 @@ use app\model\FishingVenue;
 use think\response\Json;
 
 /**
- * 池塘管理（归属钓场）
+ * 池塘管理（归属钓场），支持按角色-池塘细分权限
  */
 class PondController extends BaseController
 {
+    use PondScopeTrait;
+
     /**
      * 列表 GET /api/admin/ponds
-     * 参数：page, limit, venue_id 可选
+     * 参数：page, limit, venue_id 可选；按角色可管理范围过滤
      */
     public function list(): Json
     {
+        $allowed = $this->getAdminAllowedPondIds();
+        if ($allowed !== null && empty($allowed)) {
+            return json(['code' => 0, 'msg' => 'success', 'data' => ['list' => [], 'total' => 0]]);
+        }
+
         $page    = (int) $this->request->get('page', 1);
         $limit   = min(max((int) $this->request->get('limit', 10), 1), 100);
         $venueId = $this->request->get('venue_id');
@@ -27,6 +34,9 @@ class PondController extends BaseController
             ->order('sort_order', 'asc')
             ->order('id', 'desc');
 
+        if ($allowed !== null) {
+            $query->whereIn('id', $allowed);
+        }
         if ($venueId !== null && $venueId !== '') {
             $query->where('venue_id', (int) $venueId);
         }
@@ -57,6 +67,9 @@ class PondController extends BaseController
         if (!$row) {
             return json(['code' => 404, 'msg' => '池塘不存在', 'data' => null]);
         }
+        if (!$this->canAccessPond((int) $row->id)) {
+            return json(['code' => 403, 'msg' => '无权限管理该池塘', 'data' => null]);
+        }
         $data = $row->toArray();
         if (is_string($data['images'] ?? null)) {
             $data['images'] = json_decode($data['images'], true) ?: [];
@@ -66,10 +79,13 @@ class PondController extends BaseController
     }
 
     /**
-     * 新增 POST /api/admin/ponds
+     * 新增 POST /api/admin/ponds（仅「全部池塘」范围可新增）
      */
     public function create(): Json
     {
+        if ($this->getAdminAllowedPondIds() !== null) {
+            return json(['code' => 403, 'msg' => '仅拥有全部池塘管理权限时可新增池塘', 'data' => null]);
+        }
         $data = $this->collectInput();
         if (empty($data['name'] ?? '')) {
             return json(['code' => 400, 'msg' => '池塘名称不能为空', 'data' => null]);
@@ -97,6 +113,9 @@ class PondController extends BaseController
         if (!$row) {
             return json(['code' => 404, 'msg' => '池塘不存在', 'data' => null]);
         }
+        if (!$this->canAccessPond((int) $row->id)) {
+            return json(['code' => 403, 'msg' => '无权限管理该池塘', 'data' => null]);
+        }
         $data = $this->collectInput(true);
         if (!empty($data)) {
             $row->save($data);
@@ -118,6 +137,9 @@ class PondController extends BaseController
         $row = FishingPond::find($id);
         if (!$row) {
             return json(['code' => 404, 'msg' => '池塘不存在', 'data' => null]);
+        }
+        if (!$this->canAccessPond((int) $row->id)) {
+            return json(['code' => 403, 'msg' => '无权限管理该池塘', 'data' => null]);
         }
         $row->delete();
         return json(['code' => 0, 'msg' => '删除成功', 'data' => null]);

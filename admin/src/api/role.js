@@ -23,3 +23,13 @@ export function deleteRole(id) {
 export function getPermissionList() {
   return request.get('/api/admin/permissions')
 }
+
+/** 角色可管理池塘 ID 列表（用于池塘权限细分） */
+export function getRolePonds(id) {
+  return request.get(`/api/admin/roles/${id}/ponds`)
+}
+
+/** 设置角色可管理池塘，pond_ids 为空=全部池塘，非空=仅这些池塘 */
+export function updateRolePonds(id, data) {
+  return request.put(`/api/admin/roles/${id}/ponds`, data)
+}

@@ -5,6 +5,7 @@ namespace app\controller\Api\Admin;
 
 use app\BaseController;
 use app\model\AdminRole;
+use app\model\AdminRolePond;
 use app\model\AdminUser;
 use think\response\Json;
 
@@ -118,7 +119,49 @@ class RoleController extends BaseController
             return json(['code' => 400, 'msg' => '该角色下还有管理员，无法删除', 'data' => null]);
         }
         $role->permissions()->detach();
+        AdminRolePond::where('role_id', $id)->delete();
         $role->delete();
         return json(['code' => 0, 'msg' => '删除成功', 'data' => null]);
+    }
+
+    /**
+     * 角色可管理池塘 ID 列表（用于权限细分）
+     * GET /api/admin/roles/:id/ponds  → { pond_ids: [1,2,3] }
+     * 空数组表示「全部池塘」，非空表示仅可管理这些池塘
+     */
+    public function ponds(int $id): Json
+    {
+        $role = AdminRole::find($id);
+        if (!$role) {
+            return json(['code' => 404, 'msg' => '角色不存在', 'data' => null]);
+        }
+        $pondIds = AdminRolePond::where('role_id', $id)->column('pond_id');
+        return json(['code' => 0, 'msg' => 'success', 'data' => ['pond_ids' => array_map('intval', $pondIds)]]);
+    }
+
+    /**
+     * 设置角色可管理池塘
+     * PUT /api/admin/roles/:id/ponds  body: pond_ids [1,2,3]
+     * 传空数组 = 管理全部池塘；传非空 = 仅管理这些池塘
+     */
+    public function updatePonds(int $id): Json
+    {
+        $role = AdminRole::find($id);
+        if (!$role) {
+            return json(['code' => 404, 'msg' => '角色不存在', 'data' => null]);
+        }
+        $pondIds = $this->request->param('pond_ids/a', []);
+        if (!is_array($pondIds)) {
+            $pondIds = [];
+        }
+        $pondIds = array_values(array_unique(array_map('intval', array_filter($pondIds))));
+        AdminRolePond::where('role_id', $id)->delete();
+        foreach ($pondIds as $pid) {
+            if ($pid > 0) {
+                AdminRolePond::create(['role_id' => $id, 'pond_id' => $pid]);
+            }
+        }
+        $saved = AdminRolePond::where('role_id', $id)->column('pond_id');
+        return json(['code' => 0, 'msg' => '保存成功', 'data' => ['pond_ids' => array_map('intval', $saved)]]);
     }
 }
