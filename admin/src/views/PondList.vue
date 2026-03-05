@@ -35,7 +35,7 @@
         <el-table-column label="操作" fixed="right" width="140">
           <template #default="{ row }">
             <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
-            <el-button link type="danger" @click="onDelete(row)">删除</el-button>
+            <el-button v-if="canDeletePonds" link type="danger" @click="onDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -179,6 +179,8 @@ const page = ref(1)
 const limit = ref(10)
 const filterVenueId = ref('')
 const venueOptions = ref([])
+/** 仅「全部池塘」权限时为 true，可显示删除按钮 */
+const canDeletePonds = ref(false)
 
 const dialogVisible = ref(false)
 const editId = ref(null)
@@ -269,6 +271,7 @@ async function fetchList() {
     const data = res?.data ?? res
     list.value = data?.list ?? []
     total.value = data?.total ?? 0
+    canDeletePonds.value = data?.can_delete ?? false
   } finally {
     loading.value = false
   }

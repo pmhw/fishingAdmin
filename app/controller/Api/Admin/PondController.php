@@ -51,10 +51,13 @@ class PondController extends BaseController
             return $arr;
         }, $paginator->items());
 
+        // 仅「全部池塘」范围允许删除，供前端隐藏删除按钮
+        $canDelete = $allowed === null;
+
         return json([
             'code' => 0,
             'msg'  => 'success',
-            'data' => ['list' => $items, 'total' => $paginator->total()],
+            'data' => ['list' => $items, 'total' => $paginator->total(), 'can_delete' => $canDelete],
         ]);
     }
 
@@ -130,10 +133,14 @@ class PondController extends BaseController
     }
 
     /**
-     * 删除 DELETE /api/admin/ponds/:id
+     * 删除 DELETE /api/admin/ponds/:id（仅「全部池塘」范围允许删除）
      */
     public function delete(int $id): Json
     {
+        $allowed = $this->getAdminAllowedPondIds();
+        if ($allowed !== null) {
+            return json(['code' => 403, 'msg' => '仅拥有全部池塘管理权限时可删除池塘', 'data' => null]);
+        }
         $row = FishingPond::find($id);
         if (!$row) {
             return json(['code' => 404, 'msg' => '池塘不存在', 'data' => null]);
