@@ -98,9 +98,9 @@ class PondController extends BaseController
             return json(['code' => 400, 'msg' => '所选钓场不存在', 'data' => null]);
         }
         $row = FishingPond::create($data);
-        $row->load('venue:id,name');
-        $out = $row->toArray();
-        $out['venue_name'] = $row->venue->name ?? '';
+        $row = FishingPond::with('venue:id,name')->find($row->id);
+        $out = $row ? $row->toArray() : [];
+        $out['venue_name'] = $row && $row->venue ? $row->venue->name : '';
         return json(['code' => 0, 'msg' => '创建成功', 'data' => $out]);
     }
 
