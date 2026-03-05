@@ -65,13 +65,13 @@ Route::group('api', function () {
             Route::post('admin-users', 'Api.Admin.AdminUserController/create');
             Route::put('admin-users/:id', 'Api.Admin.AdminUserController/update');
             Route::delete('admin-users/:id', 'Api.Admin.AdminUserController/delete');
-            Route::get('roles', 'Api.Admin.RoleController/list');
             Route::get('roles/:id/ponds', 'Api.Admin.RoleController/ponds');
             Route::put('roles/:id/ponds', 'Api.Admin.RoleController/updatePonds');
             Route::get('roles/:id', 'Api.Admin.RoleController/detail');
-            Route::post('roles', 'Api.Admin.RoleController/create');
             Route::put('roles/:id', 'Api.Admin.RoleController/update');
             Route::delete('roles/:id', 'Api.Admin.RoleController/delete');
+            Route::get('roles', 'Api.Admin.RoleController/list');
+            Route::post('roles', 'Api.Admin.RoleController/create');
             Route::get('permissions', 'Api.Admin.PermissionController/list');
             Route::get('banners', 'Api.Admin.BannerController/list');
             Route::get('banners/:id', 'Api.Admin.BannerController/detail');
