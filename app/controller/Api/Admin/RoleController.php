@@ -150,9 +150,17 @@ class RoleController extends BaseController
         if (!$role) {
             return json(['code' => 404, 'msg' => '角色不存在', 'data' => null]);
         }
-        $pondIds = $this->request->param('pond_ids/a', []);
-        if (!is_array($pondIds)) {
-            $pondIds = [];
+        $pondIds = [];
+        $raw = $this->request->getContent();
+        if ($raw !== '' && $raw !== false) {
+            $decoded = json_decode((string) $raw, true);
+            if (is_array($decoded) && isset($decoded['pond_ids']) && is_array($decoded['pond_ids'])) {
+                $pondIds = $decoded['pond_ids'];
+            }
+        }
+        if (empty($pondIds)) {
+            $fromParam = $this->request->param('pond_ids/a', []);
+            $pondIds = is_array($fromParam) ? $fromParam : [];
         }
         $pondIds = array_values(array_unique(array_map('intval', array_filter($pondIds))));
         AdminRolePond::where('role_id', $id)->delete();

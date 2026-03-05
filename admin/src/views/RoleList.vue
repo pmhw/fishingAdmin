@@ -42,16 +42,19 @@
             </div>
           </div>
         </el-form-item>
-        <template v-if="hasPondPermission">
+        <template v-if="showPondScopeBlock">
           <el-divider content-position="left">池塘管理范围</el-divider>
+          <el-alert v-if="!hasPondPermission" type="info" :closable="false" show-icon class="pond-scope-tip">
+            请先勾选上方「内容管理」中的「池塘管理」权限，再配置可管理范围。
+          </el-alert>
           <el-form-item label="范围">
-            <el-radio-group v-model="editForm.pond_scope">
+            <el-radio-group v-model="editForm.pond_scope" :disabled="!hasPondPermission">
               <el-radio value="all">全部池塘</el-radio>
               <el-radio value="assigned">指定池塘</el-radio>
             </el-radio-group>
           </el-form-item>
           <el-form-item v-if="editForm.pond_scope === 'assigned'" label="可管理池塘">
-            <el-select v-model="editForm.pond_ids" multiple placeholder="选择可管理的池塘" value-key="id" style="width:100%" filterable>
+            <el-select v-model="editForm.pond_ids" multiple placeholder="选择可管理的池塘" value-key="id" style="width:100%" filterable :disabled="!hasPondPermission">
               <el-option v-for="p in pondOptions" :key="p.id" :label="`${p.name}（${p.venue_name || ''}）`" :value="p.id" />
             </el-select>
             <div class="form-tip">选择「指定池塘」时，该角色只能管理下方所选池塘；不选任何池塘时保存后等同于全部池塘。</div>
@@ -86,6 +89,8 @@ const pondManagePermissionId = computed(() => {
 const hasPondPermission = computed(() =>
   pondManagePermissionId.value != null && editForm.permission_ids.includes(pondManagePermissionId.value)
 )
+/** 存在「池塘管理」权限时始终显示池塘范围配置块，便于配置指定池塘 */
+const showPondScopeBlock = computed(() => pondManagePermissionId.value != null)
 
 const MODULE_LABELS = {
   user: '管理员',
@@ -131,29 +136,32 @@ async function loadPermissions() {
   permissionGroups.value = res.data ?? {}
 }
 
-function openEdit(row) {
+async function openEdit(row) {
   editId.value = row?.id ?? null
   editForm.name = row?.name ?? ''
   editForm.code = row?.code ?? ''
   editForm.description = row?.description ?? ''
   editForm.permission_ids = row?.permission_ids ? [...row.permission_ids] : []
-  dialogVisible.value = true
   editForm.pond_scope = 'all'
   editForm.pond_ids = []
+  dialogVisible.value = true
   if (editId.value) {
-    getRoleDetail(editId.value).then((res) => {
-      const d = res.data
-      editForm.name = d?.name ?? ''
-      editForm.code = d?.code ?? ''
-      editForm.description = d?.description ?? ''
-      editForm.permission_ids = Array.isArray(d?.permission_ids) ? [...d.permission_ids] : []
-    })
-    getRolePonds(editId.value).then((res) => {
-      const data = res?.data ?? res
-      const ids = data?.pond_ids ?? []
-      editForm.pond_scope = Array.isArray(ids) && ids.length > 0 ? 'assigned' : 'all'
-      editForm.pond_ids = Array.isArray(ids) ? [...ids] : []
-    })
+    const [detailRes, pondsRes] = await Promise.all([
+      getRoleDetail(editId.value),
+      getRolePonds(editId.value),
+    ])
+    const d = detailRes?.data ?? detailRes
+    if (d) {
+      editForm.name = d.name ?? ''
+      editForm.code = d.code ?? ''
+      editForm.description = d.description ?? ''
+      editForm.permission_ids = Array.isArray(d.permission_ids) ? [...d.permission_ids] : []
+    }
+    const pondData = pondsRes?.data ?? pondsRes
+    const ids = Array.isArray(pondData?.pond_ids) ? pondData.pond_ids : (Array.isArray(pondData) ? pondData : [])
+    const pondIds = ids.map((id) => Number(id)).filter((n) => !Number.isNaN(n) && n > 0)
+    editForm.pond_scope = pondIds.length > 0 ? 'assigned' : 'all'
+    editForm.pond_ids = pondIds
   }
 }
 
@@ -260,5 +268,8 @@ onMounted(() => {
   font-size: 12px;
   color: var(--el-text-color-secondary);
   margin-top: 4px;
+}
+.pond-scope-tip {
+  margin-bottom: 12px;
 }
 </style>
