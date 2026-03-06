@@ -91,7 +91,7 @@ import {
 } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { useRouter } from 'vue-router'
-import { logout } from '@/api/auth'
+import { logout, getMe } from '@/api/auth'
 
 const STORAGE_KEY = 'admin_sidebar_collapsed'
 
@@ -131,10 +131,22 @@ function toggleCollapse() {
   } catch (_) {}
 }
 
-onMounted(() => {
+onMounted(async () => {
   try {
     collapsed.value = localStorage.getItem(STORAGE_KEY) === '1'
   } catch (_) {}
+  // 进入后台时拉取最新用户信息（含权限），保证分配角色/权限后菜单能正确显示
+  if (userStore.token) {
+    try {
+      const res = await getMe()
+      const userData = res?.data ?? res
+      if (userData && typeof userData === 'object') {
+        userStore.setUser(userData)
+      }
+    } catch (_) {
+      // 未登录或 token 失效时 request 会 401，可忽略
+    }
+  }
 })
 
 async function onLogout() {

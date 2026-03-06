@@ -17,9 +17,17 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  /** 仅更新用户信息（含权限），不改 token；用于进入后台时拉取最新权限以显示菜单 */
+  function setUser(u) {
+    user.value = u
+    if (token.value && u) {
+      localStorage.setItem('admin_user', JSON.stringify(u))
+    }
+  }
+
   function logout() {
     setLogin('', null)
   }
 
-  return { token, user, setLogin, logout }
+  return { token, user, setLogin, setUser, logout }
 })
