@@ -67,6 +67,16 @@ class PondRegionController extends BaseController
             return json(['code' => 400, 'msg' => '结束序号不能小于起始序号', 'data' => null]);
         }
 
+        // 同一池塘下座位序号范围不能与已有区域重叠
+        $exists = PondRegion::where('pond_id', $pondId)->select();
+        foreach ($exists as $r) {
+            $a = (int) $r->start_no;
+            $b = (int) $r->end_no;
+            if ($startNo <= $b && $endNo >= $a) {
+                return json(['code' => 400, 'msg' => "该池塘下序号 {$a}~{$b} 已被区域「{$r->name}」占用，请勿重复", 'data' => null]);
+            }
+        }
+
         $row = PondRegion::create([
             'pond_id'    => $pondId,
             'name'       => $name,
