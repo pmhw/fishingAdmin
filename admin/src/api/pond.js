@@ -40,6 +40,26 @@ export function deletePondRegion(id) {
   return request.delete(`/api/admin/pond-regions/${id}`)
 }
 
+/** 收费规则：按池塘查询 */
+export function getPondFeeRules(pondId) {
+  return request.get('/api/admin/pond-fee-rules', { params: { pond_id: pondId } })
+}
+
+/** 收费规则：添加 */
+export function createPondFeeRule(data) {
+  return request.post('/api/admin/pond-fee-rules', data)
+}
+
+/** 收费规则：编辑 */
+export function updatePondFeeRule(id, data) {
+  return request.put(`/api/admin/pond-fee-rules/${id}`, data)
+}
+
+/** 收费规则：删除 */
+export function deletePondFeeRule(id) {
+  return request.delete(`/api/admin/pond-fee-rules/${id}`)
+}
+
 /** 座位号：按池塘拉取（pond_seat） */
 export function getPondSeats(pondId) {
   return request.get(`/api/admin/ponds/${pondId}/seats`)

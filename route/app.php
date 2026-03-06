@@ -106,6 +106,11 @@ Route::group('api', function () {
             Route::delete('pond-regions/:id', 'Api.Admin.PondRegionController/delete');
             Route::get('pond-regions', 'Api.Admin.PondRegionController/list');
             Route::post('pond-regions', 'Api.Admin.PondRegionController/create');
+            // pond-fee-rules：先 :id 后集合
+            Route::delete('pond-fee-rules/:id', 'Api.Admin.PondFeeRuleController/delete');
+            Route::put('pond-fee-rules/:id', 'Api.Admin.PondFeeRuleController/update');
+            Route::get('pond-fee-rules', 'Api.Admin.PondFeeRuleController/list');
+            Route::post('pond-fee-rules', 'Api.Admin.PondFeeRuleController/create');
         })->middleware([\app\middleware\AdminAuth::class, \app\middleware\AdminPermission::class]);
     });
 });

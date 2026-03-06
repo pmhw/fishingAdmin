@@ -36,6 +36,7 @@
           <template #default="{ row }">
             <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
             <el-button link type="primary" @click="openRegionConfig(row)">钓位配置</el-button>
+            <el-button link type="primary" @click="openFeeConfig(row)">收费规则</el-button>
             <el-button v-if="canDeletePonds" link type="danger" @click="onDelete(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -199,13 +200,69 @@
         <el-button type="primary" :loading="regionSubmitLoading" @click="submitRegion">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- 收费规则配置 -->
+    <el-dialog
+      v-model="feeConfigVisible"
+      :title="'收费规则 - ' + (feeConfigPondName || '')"
+      width="640px"
+      @close="closeFeeConfig"
+    >
+      <div v-loading="feeListLoading" class="region-config-body">
+        <div class="region-toolbar">
+          <span class="region-tip">如 正钓4小时、偷驴1天等</span>
+          <el-button type="primary" size="small" @click="openFeeForm">添加规则</el-button>
+        </div>
+        <el-table :data="feeList" size="small" max-height="280" stripe class="region-table">
+          <el-table-column prop="name" label="收费名称" min-width="120" />
+          <el-table-column prop="duration" label="时长" width="100" />
+          <el-table-column label="金额(元)" width="100">
+            <template #default="{ row }">{{ row.amount }}</template>
+          </el-table-column>
+          <el-table-column label="押金(元)" width="90">
+            <template #default="{ row }">{{ row.deposit ?? 0 }}</template>
+          </el-table-column>
+          <el-table-column prop="sort_order" label="排序" width="70" />
+          <el-table-column label="操作" width="120" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" size="small" @click="openFeeForm(row)">编辑</el-button>
+              <el-button link type="danger" size="small" @click="onDeleteFeeRule(row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </el-dialog>
+
+    <el-dialog v-model="feeDialogVisible" :title="feeEditId ? '编辑收费规则' : '添加收费规则'" width="440px" @close="resetFeeForm">
+      <el-form ref="feeFormRef" :model="feeForm" :rules="feeRules" label-width="90px">
+        <el-form-item label="收费名称" prop="name">
+          <el-input v-model="feeForm.name" placeholder="如 正钓4小时" />
+        </el-form-item>
+        <el-form-item label="垂钓时长" prop="duration">
+          <el-input v-model="feeForm.duration" placeholder="如 4小时、1天" />
+        </el-form-item>
+        <el-form-item label="金额(元)" prop="amount">
+          <el-input-number v-model="feeForm.amount" :min="0" :precision="2" controls-position="right" style="width:100%" />
+        </el-form-item>
+        <el-form-item label="押金(元)" prop="deposit">
+          <el-input-number v-model="feeForm.deposit" :min="0" :precision="2" controls-position="right" style="width:100%" />
+        </el-form-item>
+        <el-form-item label="排序" prop="sort_order">
+          <el-input-number v-model="feeForm.sort_order" :min="0" controls-position="right" style="width:100%" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="feeDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="feeSubmitLoading" @click="submitFee">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getPondList, getPondDetail, createPond, updatePond, deletePond, getVenueOptions, getPondRegions, createPondRegion, deletePondRegion, getPondSeats, syncPondSeats, uploadImage } from '@/api/pond'
+import { getPondList, getPondDetail, createPond, updatePond, deletePond, getVenueOptions, getPondRegions, createPondRegion, deletePondRegion, getPondFeeRules, createPondFeeRule, updatePondFeeRule, deletePondFeeRule, getPondSeats, syncPondSeats, uploadImage } from '@/api/pond'
 
 const loading = ref(false)
 const list = ref([])
@@ -237,6 +294,27 @@ const seatSyncLoading = ref(false)
 const seatCodeMap = ref({})
 const regionRules = {
   name: [{ required: true, message: '请输入区域名称', trigger: 'blur' }],
+}
+
+/** 收费规则弹窗 */
+const feeConfigVisible = ref(false)
+const feeConfigPondId = ref(null)
+const feeConfigPondName = ref('')
+const feeList = ref([])
+const feeListLoading = ref(false)
+const feeDialogVisible = ref(false)
+const feeEditId = ref(null)
+const feeFormRef = ref(null)
+const feeSubmitLoading = ref(false)
+const feeForm = reactive({
+  name: '',
+  duration: '',
+  amount: 0,
+  deposit: 0,
+  sort_order: 0,
+})
+const feeRules = {
+  name: [{ required: true, message: '请输入收费名称', trigger: 'blur' }],
 }
 
 const editForm = reactive({
@@ -486,6 +564,97 @@ function onDeleteRegion(row) {
       await deletePondRegion(row.id)
       ElMessage.success('已删除')
       fetchRegions(regionConfigPondId.value)
+    })
+    .catch(() => {})
+}
+
+function openFeeConfig(row) {
+  feeConfigPondId.value = row.id
+  feeConfigPondName.value = row.name || ''
+  feeConfigVisible.value = true
+  feeListLoading.value = true
+  fetchFeeRules(row.id).finally(() => { feeListLoading.value = false })
+}
+
+function closeFeeConfig() {
+  feeConfigVisible.value = false
+  feeConfigPondId.value = null
+  feeConfigPondName.value = ''
+  feeList.value = []
+}
+
+async function fetchFeeRules(pondId) {
+  if (!pondId) return
+  try {
+    const res = await getPondFeeRules(pondId)
+    const data = res?.data ?? res
+    feeList.value = data?.list ?? []
+  } catch (_) {
+    feeList.value = []
+  }
+}
+
+function openFeeForm(row) {
+  if (row?.id) {
+    feeEditId.value = row.id
+    feeForm.name = row.name ?? ''
+    feeForm.duration = row.duration ?? ''
+    feeForm.amount = Number(row.amount) ?? 0
+    feeForm.deposit = Number(row.deposit) ?? 0
+    feeForm.sort_order = Number(row.sort_order) ?? 0
+  } else {
+    feeEditId.value = null
+    feeForm.name = ''
+    feeForm.duration = ''
+    feeForm.amount = 0
+    feeForm.deposit = 0
+    feeForm.sort_order = feeList.value.length ? Math.max(...feeList.value.map((r) => Number(r.sort_order) || 0), 0) + 1 : 0
+  }
+  feeDialogVisible.value = true
+}
+
+function resetFeeForm() {
+  feeFormRef.value?.resetFields?.()
+}
+
+async function submitFee() {
+  await feeFormRef.value?.validate().catch(() => {})
+  feeSubmitLoading.value = true
+  try {
+    if (feeEditId.value) {
+      await updatePondFeeRule(feeEditId.value, {
+        name: feeForm.name,
+        duration: feeForm.duration,
+        amount: feeForm.amount,
+        deposit: feeForm.deposit,
+        sort_order: feeForm.sort_order,
+      })
+      ElMessage.success('更新成功')
+    } else {
+      await createPondFeeRule({
+        pond_id: feeConfigPondId.value,
+        name: feeForm.name,
+        duration: feeForm.duration,
+        amount: feeForm.amount,
+        deposit: feeForm.deposit,
+        sort_order: feeForm.sort_order,
+      })
+      ElMessage.success('添加成功')
+    }
+    feeDialogVisible.value = false
+    fetchFeeRules(feeConfigPondId.value)
+  } catch (_) {}
+  finally {
+    feeSubmitLoading.value = false
+  }
+}
+
+function onDeleteFeeRule(row) {
+  ElMessageBox.confirm(`确定删除收费规则「${row.name}」？`, '提示', { type: 'warning' })
+    .then(async () => {
+      await deletePondFeeRule(row.id)
+      ElMessage.success('已删除')
+      fetchFeeRules(feeConfigPondId.value)
     })
     .catch(() => {})
 }
