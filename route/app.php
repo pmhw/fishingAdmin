@@ -95,6 +95,8 @@ Route::group('api', function () {
             Route::get('venues', 'Api.Admin.FishingVenueController/list');
             Route::post('venues', 'Api.Admin.FishingVenueController/create');
             // ponds：先 :id 后集合
+            Route::get('ponds/:id/seats', 'Api.Admin.PondSeatController/list');
+            Route::post('ponds/:id/seats/sync', 'Api.Admin.PondSeatController/sync');
             Route::get('ponds/:id', 'Api.Admin.PondController/detail');
             Route::put('ponds/:id', 'Api.Admin.PondController/update');
             Route::delete('ponds/:id', 'Api.Admin.PondController/delete');

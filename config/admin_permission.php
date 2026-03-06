@@ -50,6 +50,7 @@ return [
     'GET:ponds'          => 'admin.pond.manage',
     'GET:ponds/'         => 'admin.pond.manage',
     'POST:ponds'         => 'admin.pond.manage',
+    'POST:ponds/'        => 'admin.pond.manage',
     'PUT:ponds/'         => 'admin.pond.manage',
     'DELETE:ponds/'      => 'admin.pond.manage',
     'GET:pond-regions'   => 'admin.pond.manage',

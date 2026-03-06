@@ -32,9 +32,10 @@
         </el-table-column>
         <el-table-column prop="sort_order" label="排序" width="70" />
         <el-table-column prop="created_at" label="创建时间" width="170" />
-        <el-table-column label="操作" fixed="right" width="140">
+        <el-table-column label="操作" fixed="right" width="200">
           <template #default="{ row }">
             <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
+            <el-button link type="primary" @click="openRegionConfig(row)">钓位配置</el-button>
             <el-button v-if="canDeletePonds" link type="danger" @click="onDelete(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -122,29 +123,54 @@
         <el-form-item label="排序">
           <el-input-number v-model="editForm.sort_order" :min="0" controls-position="right" style="width:100%" />
         </el-form-item>
-        <template v-if="editId">
-          <el-divider content-position="left">钓位区域</el-divider>
-          <div class="region-toolbar">
-            <span class="region-tip">如 西岸1~29、中间浮桥30~89，可添加多段序号范围</span>
-            <el-button type="primary" size="small" @click="openRegionForm()">添加区域</el-button>
-          </div>
-          <el-table :data="regionList" size="small" max-height="200" stripe class="region-table">
-            <el-table-column prop="name" label="区域名称" min-width="100" />
-            <el-table-column label="钓位序号" width="140">
-              <template #default="{ row }">{{ row.start_no }} ~ {{ row.end_no }}</template>
-            </el-table-column>
-            <el-table-column label="操作" width="80" fixed="right">
-              <template #default="{ row }">
-                <el-button link type="danger" size="small" @click="onDeleteRegion(row)">删除</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </template>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="submitLoading" @click="submitEdit">确定</el-button>
       </template>
+    </el-dialog>
+
+    <!-- 钓位区域配置（独立弹窗） -->
+    <el-dialog
+      v-model="regionConfigVisible"
+      :title="'钓位区域配置 - ' + (regionConfigPondName || '')"
+      width="520px"
+      @close="closeRegionConfig"
+    >
+      <div v-loading="regionListLoading" class="region-config-body">
+        <div class="region-toolbar">
+          <span class="region-tip">如 西岸1~29、中间浮桥30~89，可添加多段序号范围</span>
+          <div class="region-toolbar-actions">
+            <el-button type="success" size="small" :loading="seatSyncLoading" @click="onSyncSeats">生成座位/二维码码值</el-button>
+            <el-button type="primary" size="small" @click="openRegionForm">添加区域</el-button>
+          </div>
+        </div>
+        <el-table :data="regionList" size="small" max-height="220" stripe class="region-table">
+          <el-table-column prop="name" label="区域名称" min-width="120" />
+          <el-table-column label="钓位序号" width="160">
+            <template #default="{ row }">{{ row.start_no }} ~ {{ row.end_no }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="80" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="danger" size="small" @click="onDeleteRegion(row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <div v-if="seatNumbersByRegion.length" class="seat-numbers-section">
+          <div class="seat-numbers-label">座位号排列（按区域）</div>
+          <div v-for="rg in seatNumbersByRegion" :key="rg.key" class="seat-region">
+            <div class="seat-region-head">
+              <span class="seat-region-name">{{ rg.name }}</span>
+              <span class="seat-region-meta">{{ rg.start }} ~ {{ rg.end }}（{{ rg.seats.length }}个）</span>
+            </div>
+            <div class="seat-numbers-wrap">
+              <el-tooltip v-for="n in rg.seats" :key="rg.key + '-' + n" :content="seatCodeMap[n] ? ('code: ' + seatCodeMap[n]) : '未生成 code'" placement="top">
+                <span class="seat-num">{{ n }}</span>
+              </el-tooltip>
+            </div>
+          </div>
+        </div>
+      </div>
     </el-dialog>
 
     <el-dialog v-model="regionDialogVisible" title="添加钓位区域" width="400px" @close="resetRegionForm">
@@ -170,7 +196,7 @@
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getPondList, getPondDetail, createPond, updatePond, deletePond, getVenueOptions, getPondRegions, createPondRegion, deletePondRegion, uploadImage } from '@/api/pond'
+import { getPondList, getPondDetail, createPond, updatePond, deletePond, getVenueOptions, getPondRegions, createPondRegion, deletePondRegion, getPondSeats, syncPondSeats, uploadImage } from '@/api/pond'
 
 const loading = ref(false)
 const list = ref([])
@@ -193,6 +219,13 @@ const regionDialogVisible = ref(false)
 const regionFormRef = ref(null)
 const regionSubmitLoading = ref(false)
 const regionForm = reactive({ name: '', start_no: 0, end_no: 0 })
+/** 钓位配置独立弹窗 */
+const regionConfigVisible = ref(false)
+const regionConfigPondId = ref(null)
+const regionConfigPondName = ref('')
+const regionListLoading = ref(false)
+const seatSyncLoading = ref(false)
+const seatCodeMap = ref({})
 const regionRules = {
   name: [{ required: true, message: '请输入区域名称', trigger: 'blur' }],
 }
@@ -233,6 +266,30 @@ const coverImageUrl = computed(() => {
   }
   const u = Array.isArray(urls) && urls.length ? urls[0] : ''
   return u ? (u.startsWith('http') ? u : (import.meta.env.VITE_STORAGE_URL ? import.meta.env.VITE_STORAGE_URL + u : u)) : ''
+})
+
+/** 根据钓位区域起止序号展开为座位号列表（按区域分组展示） */
+const seatNumbersByRegion = computed(() => {
+  const list = Array.isArray(regionList.value) ? regionList.value : []
+  return list
+    .slice()
+    .sort((a, b) => (Number(a.start_no) || 0) - (Number(b.start_no) || 0))
+    .map((r) => {
+      const start = Number(r.start_no) || 0
+      const end = Number(r.end_no) || 0
+      const min = Math.min(start, end)
+      const max = Math.max(start, end)
+      const seats = []
+      for (let i = min; i <= max; i++) seats.push(i)
+      return {
+        key: String(r.id ?? `${r.name || 'region'}-${min}-${max}`),
+        name: r.name || '未命名区域',
+        start: min,
+        end: max,
+        seats,
+      }
+    })
+    .filter((rg) => rg.seats.length > 0)
 })
 
 async function handleImageUpload({ file }) {
@@ -295,7 +352,6 @@ function openEdit(row) {
   editForm.sort_order = row?.sort_order ?? 0
   dialogVisible.value = true
   if (editId.value) {
-    fetchRegions(editId.value)
     getPondDetail(editId.value).then((res) => {
       const d = res?.data ?? res
       if (d) {
@@ -315,9 +371,26 @@ function openEdit(row) {
         editForm.sort_order = d.sort_order ?? 0
       }
     })
-  } else {
-    regionList.value = []
   }
+}
+
+function openRegionConfig(row) {
+  regionConfigPondId.value = row.id
+  regionConfigPondName.value = row.name || ''
+  regionConfigVisible.value = true
+  regionListLoading.value = true
+  seatCodeMap.value = {}
+  Promise.all([fetchRegions(row.id), fetchSeats(row.id)]).finally(() => {
+    regionListLoading.value = false
+  })
+}
+
+function closeRegionConfig() {
+  regionConfigVisible.value = false
+  regionConfigPondId.value = null
+  regionConfigPondName.value = ''
+  regionList.value = []
+  seatCodeMap.value = {}
 }
 
 async function fetchRegions(pondId) {
@@ -328,6 +401,39 @@ async function fetchRegions(pondId) {
     regionList.value = data?.list ?? []
   } catch (_) {
     regionList.value = []
+  }
+}
+
+async function fetchSeats(pondId) {
+  if (!pondId) return
+  try {
+    const res = await getPondSeats(pondId)
+    const data = res?.data ?? res
+    const list = data?.list ?? []
+    const map = {}
+    for (const s of list) {
+      const no = Number(s.seat_no)
+      if (!Number.isNaN(no)) map[no] = s.code || ''
+    }
+    seatCodeMap.value = map
+  } catch (_) {
+    seatCodeMap.value = {}
+  }
+}
+
+async function onSyncSeats() {
+  if (!regionConfigPondId.value) return
+  seatSyncLoading.value = true
+  try {
+    const res = await syncPondSeats(regionConfigPondId.value)
+    const d = res?.data ?? res
+    const data = d?.data ?? d
+    ElMessage.success(`已同步座位：总${data?.total ?? 0}，新增${data?.created ?? 0}，更新${data?.updated ?? 0}`)
+    await fetchSeats(regionConfigPondId.value)
+  } catch (_) {
+    // error already shown by request
+  } finally {
+    seatSyncLoading.value = false
   }
 }
 
@@ -351,14 +457,14 @@ async function submitRegion() {
   regionSubmitLoading.value = true
   try {
     await createPondRegion({
-      pond_id: editId.value,
+      pond_id: regionConfigPondId.value,
       name: regionForm.name,
       start_no: regionForm.start_no,
       end_no: regionForm.end_no,
     })
     ElMessage.success('添加成功')
     regionDialogVisible.value = false
-    fetchRegions(editId.value)
+    fetchRegions(regionConfigPondId.value)
   } catch (_) {}
   finally {
     regionSubmitLoading.value = false
@@ -370,14 +476,13 @@ function onDeleteRegion(row) {
     .then(async () => {
       await deletePondRegion(row.id)
       ElMessage.success('已删除')
-      fetchRegions(editId.value)
+      fetchRegions(regionConfigPondId.value)
     })
     .catch(() => {})
 }
 
 function resetForm() {
   formRef.value?.resetFields?.()
-  regionList.value = []
 }
 
 async function submitEdit() {
@@ -423,7 +528,18 @@ onMounted(() => {
 .filter-form { margin-bottom: 12px; }
 .upload-wrap { display: flex; flex-direction: column; gap: 8px; }
 .upload-preview { width: 160px; height: 90px; border-radius: 6px; border: 1px solid var(--el-border-color); cursor: pointer; }
+.region-config-body { min-height: 120px; }
 .region-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px; }
+.region-toolbar-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .region-tip { font-size: 12px; color: var(--el-text-color-secondary); }
 .region-table { margin-top: 0; }
+.seat-numbers-section { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--el-border-color-lighter); }
+.seat-numbers-label { font-size: 13px; color: var(--el-text-color-regular); margin-bottom: 10px; }
+.seat-region { margin-bottom: 14px; }
+.seat-region:last-child { margin-bottom: 0; }
+.seat-region-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.seat-region-name { font-weight: 600; color: var(--el-text-color-primary); font-size: 13px; }
+.seat-region-meta { font-size: 12px; color: var(--el-text-color-secondary); white-space: nowrap; }
+.seat-numbers-wrap { display: flex; flex-wrap: wrap; gap: 6px; max-height: 200px; overflow-y: auto; }
+.seat-num { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 26px; padding: 0 6px; font-size: 12px; border-radius: 4px; background: var(--el-fill-color-light); color: var(--el-text-color-primary); }
 </style>

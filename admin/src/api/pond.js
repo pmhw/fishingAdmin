@@ -40,4 +40,14 @@ export function deletePondRegion(id) {
   return request.delete(`/api/admin/pond-regions/${id}`)
 }
 
+/** 座位号：按池塘拉取（pond_seat） */
+export function getPondSeats(pondId) {
+  return request.get(`/api/admin/ponds/${pondId}/seats`)
+}
+
+/** 座位号：按区域一键生成/同步（写入 pond_seat） */
+export function syncPondSeats(pondId) {
+  return request.post(`/api/admin/ponds/${pondId}/seats/sync`)
+}
+
 export { uploadImage } from './venue'
