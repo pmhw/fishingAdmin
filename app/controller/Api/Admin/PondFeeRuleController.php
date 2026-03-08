@@ -39,15 +39,23 @@ class PondFeeRuleController extends BaseController
         ]);
     }
 
+    /** 时长单位 => 显示文案 */
+    private const DURATION_UNIT_LABELS = [
+        'hour' => '小时',
+        'day'  => '天',
+    ];
+
     /**
      * 添加 POST /api/admin/pond-fee-rules
-     * body: pond_id, name, duration, amount, deposit?, sort_order?
+     * body: pond_id, name, duration_value, duration_unit, amount, deposit?, sort_order?
+     * duration_unit: hour | day（计费用）
      */
     public function create(): Json
     {
         $pondId = (int) $this->request->post('pond_id', 0);
         $name = trim((string) $this->request->post('name', ''));
-        $duration = trim((string) $this->request->post('duration', ''));
+        $durationValue = $this->request->post('duration_value');
+        $durationUnit = trim((string) $this->request->post('duration_unit', ''));
         $amount = (float) $this->request->post('amount', 0);
         $deposit = (float) $this->request->post('deposit', 0);
         $sortOrder = (int) $this->request->post('sort_order', 0);
@@ -64,21 +72,32 @@ class PondFeeRuleController extends BaseController
         if (!$this->canAccessPond($pondId)) {
             return json(['code' => 403, 'msg' => '无权限管理该池塘', 'data' => null]);
         }
+        if (!array_key_exists($durationUnit, self::DURATION_UNIT_LABELS)) {
+            return json(['code' => 400, 'msg' => '请选择时长单位（小时/天）', 'data' => null]);
+        }
+        $durationValueNum = $durationValue !== null && $durationValue !== '' ? (float) $durationValue : 0;
+        if ($durationValueNum < 0) {
+            return json(['code' => 400, 'msg' => '时长不能为负数', 'data' => null]);
+        }
+
+        $durationDisplay = $durationValueNum . self::DURATION_UNIT_LABELS[$durationUnit];
 
         $row = PondFeeRule::create([
-            'pond_id'    => $pondId,
-            'name'       => $name,
-            'duration'   => $duration,
-            'amount'     => $amount,
-            'deposit'    => $deposit,
-            'sort_order' => $sortOrder,
+            'pond_id'        => $pondId,
+            'name'           => $name,
+            'duration'       => $durationDisplay,
+            'duration_value' => $durationValueNum,
+            'duration_unit'  => $durationUnit,
+            'amount'         => $amount,
+            'deposit'        => $deposit,
+            'sort_order'     => $sortOrder,
         ]);
         return json(['code' => 0, 'msg' => '添加成功', 'data' => $row->toArray()]);
     }
 
     /**
      * 编辑 PUT /api/admin/pond-fee-rules/:id
-     * body: name?, duration?, amount?, deposit?, sort_order?
+     * body: name?, duration_value?, duration_unit?, amount?, deposit?, sort_order?
      */
     public function update(int $id): Json
     {
@@ -91,16 +110,32 @@ class PondFeeRuleController extends BaseController
         }
 
         $name = $this->request->param('name');
-        $duration = $this->request->param('duration');
+        $durationValue = $this->request->param('duration_value');
+        $durationUnit = $this->request->param('duration_unit');
         $amount = $this->request->param('amount');
         $deposit = $this->request->param('deposit');
         $sortOrder = $this->request->param('sort_order');
 
-        if ($name !== null) {
+        if ($name !== null && $name !== '') {
             $row->name = trim((string) $name);
         }
-        if ($duration !== null) {
-            $row->duration = trim((string) $duration);
+        if ($durationUnit !== null && $durationUnit !== '') {
+            if (!array_key_exists($durationUnit, self::DURATION_UNIT_LABELS)) {
+                return json(['code' => 400, 'msg' => '时长单位仅支持 hour/day', 'data' => null]);
+            }
+            $row->duration_unit = $durationUnit;
+        }
+        if ($durationValue !== null && $durationValue !== '') {
+            $v = (float) $durationValue;
+            if ($v < 0) {
+                return json(['code' => 400, 'msg' => '时长不能为负数', 'data' => null]);
+            }
+            $row->duration_value = $v;
+        }
+        if ($durationValue !== null || ($durationUnit !== null && $durationUnit !== '')) {
+            $val = $row->duration_value !== null ? (float) $row->duration_value : 0;
+            $unit = $row->duration_unit ?? 'hour';
+            $row->duration = $val . (self::DURATION_UNIT_LABELS[$unit] ?? '小时');
         }
         if ($amount !== null) {
             $row->amount = (float) $amount;

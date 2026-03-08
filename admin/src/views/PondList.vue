@@ -215,7 +215,11 @@
         </div>
         <el-table :data="feeList" size="small" max-height="280" stripe class="region-table">
           <el-table-column prop="name" label="收费名称" min-width="120" />
-          <el-table-column prop="duration" label="时长" width="100" />
+          <el-table-column label="时长" width="120">
+            <template #default="{ row }">
+              {{ row.duration || (row.duration_value != null ? `${row.duration_value}${row.duration_unit === 'day' ? '天' : '小时'}` : '-') }}
+            </template>
+          </el-table-column>
           <el-table-column label="金额(元)" width="100">
             <template #default="{ row }">{{ row.amount }}</template>
           </el-table-column>
@@ -238,8 +242,14 @@
         <el-form-item label="收费名称" prop="name">
           <el-input v-model="feeForm.name" placeholder="如 正钓4小时" />
         </el-form-item>
-        <el-form-item label="垂钓时长" prop="duration">
-          <el-input v-model="feeForm.duration" placeholder="如 4小时、1天" />
+        <el-form-item label="垂钓时长" prop="duration_value">
+          <div class="duration-with-unit">
+            <el-input-number v-model="feeForm.duration_value" :min="0" :precision="2" controls-position="right" placeholder="数值" style="width: 140px" />
+            <el-select v-model="feeForm.duration_unit" placeholder="单位" style="width: 100px">
+              <el-option label="小时" value="hour" />
+              <el-option label="天" value="day" />
+            </el-select>
+          </div>
         </el-form-item>
         <el-form-item label="金额(元)" prop="amount">
           <el-input-number v-model="feeForm.amount" :min="0" :precision="2" controls-position="right" style="width:100%" />
@@ -308,13 +318,15 @@ const feeFormRef = ref(null)
 const feeSubmitLoading = ref(false)
 const feeForm = reactive({
   name: '',
-  duration: '',
+  duration_value: 0,
+  duration_unit: 'hour',
   amount: 0,
   deposit: 0,
   sort_order: 0,
 })
 const feeRules = {
   name: [{ required: true, message: '请输入收费名称', trigger: 'blur' }],
+  duration_unit: [{ required: true, message: '请选择时长单位', trigger: 'change' }],
 }
 
 const editForm = reactive({
@@ -598,14 +610,16 @@ function openFeeForm(row) {
   if (row?.id) {
     feeEditId.value = row.id
     feeForm.name = row.name ?? ''
-    feeForm.duration = row.duration ?? ''
+    feeForm.duration_value = Number(row.duration_value) ?? 0
+    feeForm.duration_unit = row.duration_unit ?? 'hour'
     feeForm.amount = Number(row.amount) ?? 0
     feeForm.deposit = Number(row.deposit) ?? 0
     feeForm.sort_order = Number(row.sort_order) ?? 0
   } else {
     feeEditId.value = null
     feeForm.name = ''
-    feeForm.duration = ''
+    feeForm.duration_value = 0
+    feeForm.duration_unit = 'hour'
     feeForm.amount = 0
     feeForm.deposit = 0
     feeForm.sort_order = feeList.value.length ? Math.max(...feeList.value.map((r) => Number(r.sort_order) || 0), 0) + 1 : 0
@@ -624,7 +638,8 @@ async function submitFee() {
     if (feeEditId.value) {
       await updatePondFeeRule(feeEditId.value, {
         name: feeForm.name,
-        duration: feeForm.duration,
+        duration_value: feeForm.duration_value,
+        duration_unit: feeForm.duration_unit,
         amount: feeForm.amount,
         deposit: feeForm.deposit,
         sort_order: feeForm.sort_order,
@@ -634,7 +649,8 @@ async function submitFee() {
       await createPondFeeRule({
         pond_id: feeConfigPondId.value,
         name: feeForm.name,
-        duration: feeForm.duration,
+        duration_value: feeForm.duration_value,
+        duration_unit: feeForm.duration_unit,
         amount: feeForm.amount,
         deposit: feeForm.deposit,
         sort_order: feeForm.sort_order,
@@ -711,6 +727,7 @@ onMounted(() => {
 .region-toolbar-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .region-tip { font-size: 12px; color: var(--el-text-color-secondary); }
 .region-table { margin-top: 0; }
+.duration-with-unit { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .seat-numbers-section { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--el-border-color-lighter); }
 .seat-numbers-label { font-size: 13px; color: var(--el-text-color-regular); margin-bottom: 10px; }
 .seat-region { margin-bottom: 14px; }
