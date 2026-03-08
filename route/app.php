@@ -111,6 +111,11 @@ Route::group('api', function () {
             Route::put('pond-fee-rules/:id', 'Api.Admin.PondFeeRuleController/update');
             Route::get('pond-fee-rules', 'Api.Admin.PondFeeRuleController/list');
             Route::post('pond-fee-rules', 'Api.Admin.PondFeeRuleController/create');
+            // pond-return-rules：先 :id 后集合
+            Route::delete('pond-return-rules/:id', 'Api.Admin.PondReturnRuleController/delete');
+            Route::put('pond-return-rules/:id', 'Api.Admin.PondReturnRuleController/update');
+            Route::get('pond-return-rules', 'Api.Admin.PondReturnRuleController/list');
+            Route::post('pond-return-rules', 'Api.Admin.PondReturnRuleController/create');
         })->middleware([\app\middleware\AdminAuth::class, \app\middleware\AdminPermission::class]);
     });
 });

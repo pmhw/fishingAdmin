@@ -60,6 +60,26 @@ export function deletePondFeeRule(id) {
   return request.delete(`/api/admin/pond-fee-rules/${id}`)
 }
 
+/** 回鱼规则：按池塘查询 */
+export function getPondReturnRules(pondId) {
+  return request.get('/api/admin/pond-return-rules', { params: { pond_id: pondId } })
+}
+
+/** 回鱼规则：添加 */
+export function createPondReturnRule(data) {
+  return request.post('/api/admin/pond-return-rules', data)
+}
+
+/** 回鱼规则：编辑 */
+export function updatePondReturnRule(id, data) {
+  return request.put(`/api/admin/pond-return-rules/${id}`, data)
+}
+
+/** 回鱼规则：删除 */
+export function deletePondReturnRule(id) {
+  return request.delete(`/api/admin/pond-return-rules/${id}`)
+}
+
 /** 座位号：按池塘拉取（pond_seat） */
 export function getPondSeats(pondId) {
   return request.get(`/api/admin/ponds/${pondId}/seats`)

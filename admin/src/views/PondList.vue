@@ -37,6 +37,7 @@
             <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
             <el-button link type="primary" @click="openRegionConfig(row)">钓位配置</el-button>
             <el-button link type="primary" @click="openFeeConfig(row)">收费规则</el-button>
+            <el-button link type="primary" @click="openReturnConfig(row)">回鱼规则</el-button>
             <el-button v-if="canDeletePonds" link type="danger" @click="onDelete(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -268,13 +269,69 @@
         <el-button type="primary" :loading="feeSubmitLoading" @click="submitFee">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- 回鱼规则配置：横向表格，表内输入 + 行内保存/删除，顶部添加 -->
+    <el-dialog
+      v-model="returnConfigVisible"
+      :title="'回鱼规则 - ' + (returnConfigPondName || '')"
+      width="900px"
+      @close="closeReturnConfig"
+    >
+      <div v-loading="returnListLoading" class="return-config-wrap">
+        <div class="region-toolbar">
+          <span class="region-tip">条数范围内按斤/按条回鱼，0 表示不限</span>
+          <el-button type="primary" size="small" @click="addReturnRow">添加</el-button>
+        </div>
+        <el-table :data="returnDisplayList" size="small" max-height="400" stripe class="return-inline-table">
+          <el-table-column label="规则名称" min-width="120">
+            <template #default="{ row }">
+              <el-input v-model="row.name" placeholder="如 鲫鱼回鱼" size="small" />
+            </template>
+          </el-table-column>
+          <el-table-column label="下限(条)" width="100">
+            <template #default="{ row }">
+              <el-input-number v-model="row.lower_limit" :min="0" controls-position="right" size="small" style="width: 100%" />
+            </template>
+          </el-table-column>
+          <el-table-column label="上限(条)" width="100">
+            <template #default="{ row }">
+              <el-input-number v-model="row.upper_limit" :min="0" controls-position="right" size="small" style="width: 100%" />
+            </template>
+          </el-table-column>
+          <el-table-column label="回鱼方式" width="110">
+            <template #default="{ row }">
+              <el-select v-model="row.return_type" placeholder="方式" size="small" style="width: 100%">
+                <el-option label="按斤" value="jin" />
+                <el-option label="按条" value="tiao" />
+              </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column label="金额(元)" width="100">
+            <template #default="{ row }">
+              <el-input-number v-model="row.amount" :min="0" :precision="2" controls-position="right" size="small" style="width: 100%" />
+            </template>
+          </el-table-column>
+          <el-table-column label="排序" width="80">
+            <template #default="{ row }">
+              <el-input-number v-model="row.sort_order" :min="0" controls-position="right" size="small" style="width: 100%" />
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="140" fixed="right">
+            <template #default="{ row }">
+              <el-button type="primary" link size="small" :loading="savingReturnKey === getReturnRowKey(row)" @click="saveReturnRow(row)">保存</el-button>
+              <el-button type="danger" link size="small" @click="deleteReturnRow(row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getPondList, getPondDetail, createPond, updatePond, deletePond, getVenueOptions, getPondRegions, createPondRegion, deletePondRegion, getPondFeeRules, createPondFeeRule, updatePondFeeRule, deletePondFeeRule, getPondSeats, syncPondSeats, uploadImage } from '@/api/pond'
+import { getPondList, getPondDetail, createPond, updatePond, deletePond, getVenueOptions, getPondRegions, createPondRegion, deletePondRegion, getPondFeeRules, createPondFeeRule, updatePondFeeRule, deletePondFeeRule, getPondReturnRules, createPondReturnRule, updatePondReturnRule, deletePondReturnRule, getPondSeats, syncPondSeats, uploadImage } from '@/api/pond'
 
 const loading = ref(false)
 const list = ref([])
@@ -329,6 +386,22 @@ const feeForm = reactive({
 const feeRules = {
   name: [{ required: true, message: '请输入收费名称', trigger: 'blur' }],
   duration_unit: [{ required: true, message: '请选择时长单位', trigger: 'change' }],
+}
+
+/** 回鱼规则弹窗：横向表内编辑 */
+const returnConfigVisible = ref(false)
+const returnConfigPondId = ref(null)
+const returnConfigPondName = ref('')
+const returnList = ref([])
+const returnNewRows = ref([])
+const returnListLoading = ref(false)
+const savingReturnKey = ref(null)
+
+const returnDisplayList = computed(() => [...returnList.value, ...returnNewRows.value])
+
+function getReturnRowKey(row) {
+  if (row._new && row._tid != null) return row._tid
+  return row.id
 }
 
 const editForm = reactive({
@@ -678,6 +751,107 @@ function onDeleteFeeRule(row) {
     .catch(() => {})
 }
 
+function openReturnConfig(row) {
+  returnConfigPondId.value = row.id
+  returnConfigPondName.value = row.name || ''
+  returnConfigVisible.value = true
+  returnNewRows.value = []
+  returnListLoading.value = true
+  fetchReturnRules(row.id).finally(() => { returnListLoading.value = false })
+}
+
+function closeReturnConfig() {
+  returnConfigVisible.value = false
+  returnConfigPondId.value = null
+  returnConfigPondName.value = ''
+  returnList.value = []
+  returnNewRows.value = []
+}
+
+async function fetchReturnRules(pondId) {
+  if (!pondId) return
+  try {
+    const res = await getPondReturnRules(pondId)
+    const data = res?.data ?? res
+    const raw = data?.list ?? []
+    returnList.value = raw.map((r) => ({
+      ...r,
+      lower_limit: Number(r.lower_limit) ?? 0,
+      upper_limit: Number(r.upper_limit) ?? 0,
+      amount: Number(r.amount) ?? 0,
+      sort_order: Number(r.sort_order) ?? 0,
+    }))
+  } catch (_) {
+    returnList.value = []
+  }
+}
+
+function addReturnRow() {
+  returnNewRows.value.push({
+    _new: true,
+    _tid: 'new_' + Date.now(),
+    name: '',
+    lower_limit: 0,
+    upper_limit: 0,
+    return_type: 'jin',
+    amount: 0,
+    sort_order: returnDisplayList.value.length,
+  })
+}
+
+async function saveReturnRow(row) {
+  if (!(row.name && String(row.name).trim())) {
+    ElMessage.warning('请输入规则名称')
+    return
+  }
+  const key = getReturnRowKey(row)
+  savingReturnKey.value = key
+  try {
+    if (row._new) {
+      await createPondReturnRule({
+        pond_id: returnConfigPondId.value,
+        name: String(row.name).trim(),
+        lower_limit: Number(row.lower_limit) || 0,
+        upper_limit: Number(row.upper_limit) || 0,
+        return_type: row.return_type || 'jin',
+        amount: Number(row.amount) || 0,
+        sort_order: Number(row.sort_order) || 0,
+      })
+      ElMessage.success('添加成功')
+      returnNewRows.value = returnNewRows.value.filter((r) => r !== row)
+      await fetchReturnRules(returnConfigPondId.value)
+    } else {
+      await updatePondReturnRule(row.id, {
+        name: String(row.name).trim(),
+        lower_limit: Number(row.lower_limit) || 0,
+        upper_limit: Number(row.upper_limit) || 0,
+        return_type: row.return_type || 'jin',
+        amount: Number(row.amount) || 0,
+        sort_order: Number(row.sort_order) || 0,
+      })
+      ElMessage.success('保存成功')
+      await fetchReturnRules(returnConfigPondId.value)
+    }
+  } catch (_) {}
+  finally {
+    savingReturnKey.value = null
+  }
+}
+
+function deleteReturnRow(row) {
+  if (row._new) {
+    returnNewRows.value = returnNewRows.value.filter((r) => r !== row)
+    return
+  }
+  ElMessageBox.confirm(`确定删除回鱼规则「${row.name}」？`, '提示', { type: 'warning' })
+    .then(async () => {
+      await deletePondReturnRule(row.id)
+      ElMessage.success('已删除')
+      fetchReturnRules(returnConfigPondId.value)
+    })
+    .catch(() => {})
+}
+
 function resetForm() {
   formRef.value?.resetFields?.()
 }
@@ -732,6 +906,8 @@ onMounted(() => {
 .region-table { margin-top: 0; }
 .duration-with-unit { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .fee-form-wrap { min-height: 200px; }
+.return-config-wrap { min-height: 120px; }
+.return-inline-table { margin-top: 0; }
 .seat-numbers-section { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--el-border-color-lighter); }
 .seat-numbers-label { font-size: 13px; color: var(--el-text-color-regular); margin-bottom: 10px; }
 .seat-region { margin-bottom: 14px; }
