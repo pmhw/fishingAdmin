@@ -237,32 +237,34 @@
       </div>
     </el-dialog>
 
-    <el-dialog v-model="feeDialogVisible" :title="feeEditId ? '编辑收费规则' : '添加收费规则'" width="440px" @close="resetFeeForm">
-      <el-form ref="feeFormRef" :model="feeForm" :rules="feeRules" label-width="90px">
-        <el-form-item label="收费名称" prop="name">
-          <el-input v-model="feeForm.name" placeholder="如 正钓4小时" />
-        </el-form-item>
-        <el-form-item label="垂钓时长" prop="duration_value">
-          <div class="duration-with-unit">
-            <el-input-number v-model="feeForm.duration_value" :min="0" :precision="2" controls-position="right" placeholder="数值" style="width: 140px" />
-            <el-select v-model="feeForm.duration_unit" placeholder="单位" style="width: 100px">
-              <el-option label="小时" value="hour" />
-              <el-option label="天" value="day" />
-            </el-select>
-          </div>
-        </el-form-item>
-        <el-form-item label="金额(元)" prop="amount">
-          <el-input-number v-model="feeForm.amount" :min="0" :precision="2" controls-position="right" style="width:100%" />
-        </el-form-item>
-        <el-form-item label="押金(元)" prop="deposit">
-          <el-input-number v-model="feeForm.deposit" :min="0" :precision="2" controls-position="right" style="width:100%" />
-        </el-form-item>
-        <el-form-item label="排序" prop="sort_order">
-          <el-input-number v-model="feeForm.sort_order" :min="0" controls-position="right" style="width:100%" />
-        </el-form-item>
-      </el-form>
+    <el-dialog v-model="feeDialogVisible" :title="feeEditId ? '编辑收费规则' : '添加收费规则'" width="440px" :close-on-click-modal="!feeSubmitLoading" @close="resetFeeForm">
+      <div v-loading="feeSubmitLoading" element-loading-text="提交中…" class="fee-form-wrap">
+        <el-form ref="feeFormRef" :model="feeForm" :rules="feeRules" label-width="90px">
+          <el-form-item label="收费名称" prop="name">
+            <el-input v-model="feeForm.name" placeholder="如 正钓4小时" />
+          </el-form-item>
+          <el-form-item label="垂钓时长" prop="duration_value">
+            <div class="duration-with-unit">
+              <el-input-number v-model="feeForm.duration_value" :min="0" :precision="2" controls-position="right" placeholder="数值" style="width: 140px" />
+              <el-select v-model="feeForm.duration_unit" placeholder="单位" style="width: 100px">
+                <el-option label="小时" value="hour" />
+                <el-option label="天" value="day" />
+              </el-select>
+            </div>
+          </el-form-item>
+          <el-form-item label="金额(元)" prop="amount">
+            <el-input-number v-model="feeForm.amount" :min="0" :precision="2" controls-position="right" style="width:100%" />
+          </el-form-item>
+          <el-form-item label="押金(元)" prop="deposit">
+            <el-input-number v-model="feeForm.deposit" :min="0" :precision="2" controls-position="right" style="width:100%" />
+          </el-form-item>
+          <el-form-item label="排序" prop="sort_order">
+            <el-input-number v-model="feeForm.sort_order" :min="0" controls-position="right" style="width:100%" />
+          </el-form-item>
+        </el-form>
+      </div>
       <template #footer>
-        <el-button @click="feeDialogVisible = false">取消</el-button>
+        <el-button :disabled="feeSubmitLoading" @click="feeDialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="feeSubmitLoading" @click="submitFee">确定</el-button>
       </template>
     </el-dialog>
@@ -632,7 +634,8 @@ function resetFeeForm() {
 }
 
 async function submitFee() {
-  await feeFormRef.value?.validate().catch(() => {})
+  const passed = await feeFormRef.value?.validate().catch(() => false)
+  if (!passed) return
   feeSubmitLoading.value = true
   try {
     if (feeEditId.value) {
@@ -728,6 +731,7 @@ onMounted(() => {
 .region-tip { font-size: 12px; color: var(--el-text-color-secondary); }
 .region-table { margin-top: 0; }
 .duration-with-unit { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.fee-form-wrap { min-height: 200px; }
 .seat-numbers-section { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--el-border-color-lighter); }
 .seat-numbers-label { font-size: 13px; color: var(--el-text-color-regular); margin-bottom: 10px; }
 .seat-region { margin-bottom: 14px; }
