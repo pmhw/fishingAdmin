@@ -1,0 +1,391 @@
+<?php
+declare (strict_types = 1);
+
+namespace app\controller\Api\Mini;
+
+use app\model\FishingOrder;
+use app\model\MiniUser;
+use app\model\PondFeeRule;
+use app\model\SystemConfig;
+use think\response\Json;
+
+/**
+ * 小程序端 - 微信支付（JSAPI，v2 统一下单）
+ *
+ * 说明：
+ * - 使用小程序登录获得的 token（MiniAuth 中间件）确定当前用户，再根据其 openid 统一下单。
+ * - 你需要在 .env 中配置：
+ *   - WECHAT_MINI_APPID       小程序 AppID
+ *   - WECHAT_PAY_MCH_ID      商户号
+ *   - WECHAT_PAY_KEY         API v2 密钥
+ *   - WECHAT_PAY_NOTIFY_URL  支付回调地址（https）
+ *
+     * 接口：
+     * - POST /api/mini/pay/wechat/jsapi   （需登录）
+     *   请求体 JSON:
+     *   {
+     *     order_no?, description, total_fee,
+     *     venue_id?, pond_id?, seat_id?, seat_no?, seat_code?,
+     *     fee_rule_id?, return_rule_id?
+     *   }
+     *   - 若 order_no 为空，则自动生成一个，并在 fishing_order 中创建新订单；
+     *   - 若 order_no 已存在，则直接使用已有订单的金额和描述，忽略本次 total_fee；
+     *   返回 data 为 wx.requestPayment 所需参数
+ *
+ * - POST /api/mini/pay/wechat/notify  （微信服务器回调，XML）
+ *   你可以在这里根据 out_trade_no 更新业务订单状态
+ */
+class PayController extends MiniBaseController
+{
+    /**
+     * 统一下单并返回小程序端支付参数
+     * POST /api/mini/pay/wechat/jsapi
+     */
+    public function jsapi(): Json
+    {
+        [$user, $error] = $this->getCurrentUserOrFail();
+        if ($error !== null) {
+            return $error;
+        }
+        /** @var MiniUser $user */
+
+        $orderNo     = trim((string) $this->request->post('order_no', ''));
+        $description = trim((string) $this->request->post('description', ''));
+        $totalFee    = (int) $this->request->post('total_fee', 0); // 单位：分
+
+        // 关联业务信息（可选）
+        $venueId      = (int) $this->request->post('venue_id', 0);
+        $pondId       = (int) $this->request->post('pond_id', 0);
+        $seatId       = (int) $this->request->post('seat_id', 0);
+        $seatNo       = (int) $this->request->post('seat_no', 0);
+        $seatCode     = trim((string) $this->request->post('seat_code', ''));
+        $feeRuleId    = (int) $this->request->post('fee_rule_id', 0);
+        $returnRuleId = (int) $this->request->post('return_rule_id', 0);
+
+        if ($description === '') {
+            return json(['code' => 400, 'msg' => '缺少订单描述', 'data' => null]);
+        }
+
+        $miniConfig = config('wechat_mini');
+        $payConfig  = config('wechat_pay');
+        $appId      = (string) ($miniConfig['appid'] ?? '');
+        $mchId      = (string) ($payConfig['mch_id'] ?? '');
+        $key        = (string) ($payConfig['key'] ?? '');
+        // 优先使用全局配置表 system_config 中的 wechat_pay_notify_url，其次使用 config/wechat_pay.php 中的 notify_url
+        $notifyUrlDb = SystemConfig::getValue('wechat_pay_notify_url', '');
+        $notifyUrl   = $notifyUrlDb !== '' ? $notifyUrlDb : (string) ($payConfig['notify_url'] ?? '');
+
+        if ($appId === '' || $mchId === '' || $key === '' || $notifyUrl === '') {
+            return json(['code' => 500, 'msg' => '微信支付未正确配置（appid/mchid/key/notify_url）', 'data' => null]);
+        }
+
+        $openid = $this->request->miniOpenid ?? '';
+        if ($openid === '') {
+            return json(['code' => 401, 'msg' => '未登录', 'data' => null]);
+        }
+
+        $clientIp = (string) $this->request->ip();
+
+        // 1. 创建或获取订单
+        if ($orderNo === '') {
+            $orderNo = date('YmdHis') . sprintf('%04d', (int) $user->id) . random_int(1000, 9999);
+        }
+
+        /** @var FishingOrder|null $order */
+        $order = FishingOrder::where('order_no', $orderNo)->find();
+        if ($order) {
+            // 所有权校验：只允许创建该订单的用户再次发起支付
+            if ((int) $order->mini_user_id !== (int) $user->id) {
+                return json(['code' => 403, 'msg' => '无权操作该订单', 'data' => null]);
+            }
+            if ($order->status !== 'pending') {
+                return json(['code' => 400, 'msg' => '订单状态已变更，无法再次发起支付', 'data' => null]);
+            }
+            // 使用已有订单金额与描述，忽略本次 total_fee，防止前端篡改
+            $totalFee    = (int) $order->amount_total;
+            $description = $order->description ?: $description;
+        } else {
+            // 首次创建订单：金额应由服务端根据计费规则计算，尽量不信任前端 total_fee
+            if ($feeRuleId > 0) {
+                /** @var PondFeeRule|null $feeRule */
+                $feeRule = PondFeeRule::find($feeRuleId);
+                if (!$feeRule) {
+                    return json(['code' => 400, 'msg' => '收费规则不存在', 'data' => null]);
+                }
+                if ($pondId > 0 && (int) $feeRule->pond_id !== $pondId) {
+                    return json(['code' => 400, 'msg' => '收费规则不属于该池塘', 'data' => null]);
+                }
+                // 以收费规则金额为准（元转分）
+                $totalFee = (int) round(((float) $feeRule->amount) * 100);
+            }
+            // 如果仍然没有金额（例如没有选择收费规则），则回退使用前端传入的 total_fee，但需校验 > 0
+            if ($totalFee <= 0) {
+                return json(['code' => 400, 'msg' => '金额必须大于 0', 'data' => null]);
+            }
+            $order = FishingOrder::create([
+                'order_no'      => $orderNo,
+                'mini_user_id'  => (int) $user->id,
+                'venue_id'      => $venueId > 0 ? $venueId : null,
+                'pond_id'       => $pondId > 0 ? $pondId : null,
+                'seat_id'       => $seatId > 0 ? $seatId : null,
+                'seat_no'       => $seatNo > 0 ? $seatNo : null,
+                'seat_code'     => $seatCode !== '' ? $seatCode : null,
+                'fee_rule_id'   => $feeRuleId > 0 ? $feeRuleId : null,
+                'return_rule_id'=> $returnRuleId > 0 ? $returnRuleId : null,
+                'description'   => $description,
+                'amount_total'  => $totalFee,
+                'amount_paid'   => 0,
+                'status'        => 'pending',
+                'pay_channel'   => 'wx_mini',
+            ]);
+        }
+
+        if ($totalFee <= 0) {
+            return json(['code' => 400, 'msg' => '订单金额异常', 'data' => null]);
+        }
+
+        // 统一下单
+        $nonceStr = bin2hex(random_bytes(16));
+        $params   = [
+            'appid'            => $appId,
+            'mch_id'           => $mchId,
+            'nonce_str'        => $nonceStr,
+            'body'             => mb_substr($description, 0, 40),
+            'out_trade_no'     => $orderNo,
+            'total_fee'        => $totalFee,
+            'spbill_create_ip' => $clientIp,
+            'notify_url'       => $notifyUrl,
+            'trade_type'       => 'JSAPI',
+            'openid'           => $openid,
+        ];
+        $params['sign'] = $this->makeSign($params, $key);
+
+        $xml = $this->arrayToXml($params);
+
+        $url = 'https://api.mch.weixin.qq.com/pay/unifiedorder';
+        $respXml = $this->postXml($url, $xml, 10);
+        if ($respXml === null) {
+            return json(['code' => 500, 'msg' => '请求微信统一下单失败', 'data' => null]);
+        }
+        $respArr = $this->xmlToArray($respXml);
+        if (!is_array($respArr) || ($respArr['return_code'] ?? '') !== 'SUCCESS') {
+            $msg = (string) ($respArr['return_msg'] ?? '统一下单失败');
+            return json(['code' => 500, 'msg' => '统一下单失败：' . $msg, 'data' => $respArr]);
+        }
+        if (($respArr['result_code'] ?? '') !== 'SUCCESS') {
+            $err = ($respArr['err_code_des'] ?? $respArr['err_code'] ?? '统一下单失败');
+            return json(['code' => 500, 'msg' => '统一下单失败：' . $err, 'data' => $respArr]);
+        }
+
+        $prepayId = (string) ($respArr['prepay_id'] ?? '');
+        if ($prepayId === '') {
+            return json(['code' => 500, 'msg' => '统一下单成功但缺少 prepay_id', 'data' => $respArr]);
+        }
+
+        // 生成小程序端支付参数
+        $timeStamp = (string) time();
+        $payNonce  = bin2hex(random_bytes(16));
+        $package   = 'prepay_id=' . $prepayId;
+        $signType  = 'MD5';
+
+        $paySignParams = [
+            'appId'     => $appId,
+            'timeStamp' => $timeStamp,
+            'nonceStr'  => $payNonce,
+            'package'   => $package,
+            'signType'  => $signType,
+        ];
+        $paySign = $this->makeSign($paySignParams, $key);
+
+        return json([
+            'code' => 0,
+            'msg'  => 'success',
+            'data' => [
+                'timeStamp' => $timeStamp,
+                'nonceStr'  => $payNonce,
+                'package'   => $package,
+                'signType'  => $signType,
+                'paySign'   => $paySign,
+                // 下面两个字段便于前端调试/查询
+                'out_trade_no' => $orderNo,
+                'prepay_id'    => $prepayId,
+            ],
+        ]);
+    }
+
+    /**
+     * 微信支付结果回调
+     * POST /api/mini/pay/wechat/notify
+     * 微信会以 XML 形式请求本接口
+     */
+    public function notify()
+    {
+        $raw = file_get_contents('php://input');
+        if ($raw === false || $raw === '') {
+            return $this->notifyResponse('FAIL', 'Empty body');
+        }
+        $data = $this->xmlToArray($raw);
+        if (!is_array($data)) {
+            return $this->notifyResponse('FAIL', 'XML parse error');
+        }
+
+        $payConfig = config('wechat_pay');
+        $key       = (string) ($payConfig['key'] ?? '');
+        if ($key === '') {
+            return $this->notifyResponse('FAIL', 'pay key not configured');
+        }
+
+        $sign = $data['sign'] ?? '';
+        unset($data['sign']);
+        $calcSign = $this->makeSign($data, $key);
+        if ($sign === '' || $sign !== $calcSign) {
+            return $this->notifyResponse('FAIL', 'Invalid sign');
+        }
+
+        if (($data['return_code'] ?? '') !== 'SUCCESS' || ($data['result_code'] ?? '') !== 'SUCCESS') {
+            // 可根据需要记录失败原因
+            return $this->notifyResponse('SUCCESS', 'OK'); // 仍然返回 SUCCESS，避免重复通知
+        }
+
+        // 校验 appid 和 mch_id 与本地配置一致
+        $miniConfig = config('wechat_mini');
+        $localAppId = (string) ($miniConfig['appid'] ?? '');
+        $localMchId = (string) ($payConfig['mch_id'] ?? '');
+        if ($localAppId !== '' && isset($data['appid']) && (string) $data['appid'] !== $localAppId) {
+            return $this->notifyResponse('FAIL', 'AppID mismatch');
+        }
+        if ($localMchId !== '' && isset($data['mch_id']) && (string) $data['mch_id'] !== $localMchId) {
+            return $this->notifyResponse('FAIL', 'MchID mismatch');
+        }
+
+        $outTradeNo    = (string) ($data['out_trade_no'] ?? '');
+        $totalFee      = (int) ($data['total_fee'] ?? 0);
+        $transactionId = (string) ($data['transaction_id'] ?? '');
+
+        if ($outTradeNo === '') {
+            return $this->notifyResponse('FAIL', 'Missing out_trade_no');
+        }
+
+        /** @var FishingOrder|null $order */
+        $order = FishingOrder::where('order_no', $outTradeNo)->find();
+        if (!$order) {
+            // 找不到订单也返回 SUCCESS，避免微信反复通知；同时可在日志中排查
+            return $this->notifyResponse('SUCCESS', 'ORDER_NOT_FOUND');
+        }
+
+        // 幂等：如果已经标记为已支付，则直接返回 SUCCESS
+        if ($order->status === 'paid') {
+            return $this->notifyResponse('SUCCESS', 'OK');
+        }
+
+        // 校验金额是否一致（不一致时记录但不反复拒绝，避免微信持续重试）
+        if ((int) $order->amount_total !== $totalFee) {
+            $order->save([
+                'raw_notify' => json_encode($data, JSON_UNESCAPED_UNICODE),
+            ]);
+            return $this->notifyResponse('SUCCESS', 'AMOUNT_MISMATCH');
+        }
+
+        $now = date('Y-m-d H:i:s');
+        $order->save([
+            'status'        => 'paid',
+            'amount_paid'   => $totalFee,
+            'pay_trade_no'  => $transactionId !== '' ? $transactionId : $order->pay_trade_no,
+            'pay_time'      => $now,
+            'raw_notify'    => json_encode($data, JSON_UNESCAPED_UNICODE),
+        ]);
+
+        return $this->notifyResponse('SUCCESS', 'OK');
+    }
+
+    /**
+     * 生成签名（MD5）
+     *
+     * @param array $params  待签名参数
+     * @param string $key    商户密钥
+     */
+    private function makeSign(array $params, string $key): string
+    {
+        ksort($params);
+        $buff = [];
+        foreach ($params as $k => $v) {
+            if ($v === '' || $v === null || $k === 'sign') {
+                continue;
+            }
+            $buff[] = $k . '=' . $v;
+        }
+        $string = implode('&', $buff) . '&key=' . $key;
+        return strtoupper(md5($string));
+    }
+
+    /**
+     * 数组转 XML
+     */
+    private function arrayToXml(array $data): string
+    {
+        $xml = '<xml>';
+        foreach ($data as $key => $value) {
+            if (is_numeric($value)) {
+                $xml .= "<{$key}>{$value}</{$key}>";
+            } else {
+                $xml .= "<{$key}><![CDATA[{$value}]]></{$key}>";
+            }
+        }
+        $xml .= '</xml>';
+        return $xml;
+    }
+
+    /**
+     * XML 转数组
+     *
+     * @return array<string,mixed>|null
+     */
+    private function xmlToArray(string $xml): ?array
+    {
+        libxml_disable_entity_loader(true);
+        $res = simplexml_load_string($xml, 'SimpleXMLElement', LIBXML_NOCDATA);
+        if ($res === false) {
+            return null;
+        }
+        return json_decode(json_encode($res, JSON_UNESCAPED_UNICODE), true);
+    }
+
+    /**
+     * 发送 XML POST 请求
+     */
+    private function postXml(string $url, string $xml, int $timeout = 10): ?string
+    {
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL            => $url,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $xml,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => $timeout,
+            CURLOPT_TIMEOUT        => $timeout,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+        ]);
+        $resp = curl_exec($ch);
+        if ($resp === false) {
+            curl_close($ch);
+            return null;
+        }
+        curl_close($ch);
+        return (string) $resp;
+    }
+
+    /**
+     * 回调响应 XML
+     */
+    private function notifyResponse(string $code, string $msg)
+    {
+        $data = [
+            'return_code' => $code,
+            'return_msg'  => $msg,
+        ];
+        $xml = $this->arrayToXml($data);
+        return response($xml, 200, ['Content-Type' => 'text/xml']);
+    }
+}
+
