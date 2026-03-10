@@ -54,7 +54,14 @@
       />
     </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="editId ? '编辑池塘' : '添加池塘'" width="560px" @close="resetForm">
+    <el-dialog
+      v-model="dialogVisible"
+      :title="editId ? '编辑池塘' : '添加池塘'"
+      width="560px"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      @close="resetForm"
+    >
       <el-form ref="formRef" :model="editForm" :rules="editRules" label-width="100px">
         <el-form-item label="所属钓场" prop="venue_id">
           <el-select v-model="editForm.venue_id" placeholder="请选择钓场" style="width:100%" :disabled="!!editId">
@@ -137,6 +144,8 @@
       v-model="regionConfigVisible"
       :title="'钓位区域配置 - ' + (regionConfigPondName || '')"
       width="520px"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
       @close="closeRegionConfig"
     >
       <div v-loading="regionListLoading" class="region-config-body">
@@ -184,7 +193,14 @@
       </div>
     </el-dialog>
 
-    <el-dialog v-model="regionDialogVisible" title="添加钓位区域" width="400px" @close="resetRegionForm">
+    <el-dialog
+      v-model="regionDialogVisible"
+      title="添加钓位区域"
+      width="400px"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      @close="resetRegionForm"
+    >
       <el-form ref="regionFormRef" :model="regionForm" :rules="regionRules" label-width="100px">
         <el-form-item label="区域名称" prop="name">
           <el-input v-model="regionForm.name" placeholder="如 西岸、中间浮桥" />
@@ -207,6 +223,8 @@
       v-model="feeConfigVisible"
       :title="'收费规则 - ' + (feeConfigPondName || '')"
       width="640px"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
       @close="closeFeeConfig"
     >
       <div v-loading="feeListLoading" class="region-config-body">
@@ -238,7 +256,14 @@
       </div>
     </el-dialog>
 
-    <el-dialog v-model="feeDialogVisible" :title="feeEditId ? '编辑收费规则' : '添加收费规则'" width="440px" :close-on-click-modal="!feeSubmitLoading" @close="resetFeeForm">
+    <el-dialog
+      v-model="feeDialogVisible"
+      :title="feeEditId ? '编辑收费规则' : '添加收费规则'"
+      width="440px"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      @close="resetFeeForm"
+    >
       <div v-loading="feeSubmitLoading" element-loading-text="提交中…" class="fee-form-wrap">
         <el-form ref="feeFormRef" :model="feeForm" :rules="feeRules" label-width="90px">
           <el-form-item label="收费名称" prop="name">
@@ -275,6 +300,8 @@
       v-model="returnConfigVisible"
       :title="'回鱼规则 - ' + (returnConfigPondName || '')"
       width="900px"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
       @close="closeReturnConfig"
     >
       <div v-loading="returnListLoading" class="return-config-wrap">

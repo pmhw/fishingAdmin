@@ -69,10 +69,19 @@ class PayController extends MiniBaseController
         $miniConfig = config('wechat_mini');
         $payConfig  = config('wechat_pay');
         $appId      = (string) ($miniConfig['appid'] ?? '');
+        // 先从环境配置读取，若 system_config 中有值则覆盖
         $mchId      = (string) ($payConfig['mch_id'] ?? '');
         $key        = (string) ($payConfig['key'] ?? '');
-        // 优先使用全局配置表 system_config 中的 wechat_pay_notify_url，其次使用 config/wechat_pay.php 中的 notify_url
-        $notifyUrlDb = SystemConfig::getValue('wechat_pay_notify_url', '');
+        $dbMchId    = SystemConfig::getValue('pay_mch_id', '');
+        $dbKey      = SystemConfig::getValue('pay_key', '');
+        if ($dbMchId !== '') {
+            $mchId = $dbMchId;
+        }
+        if ($dbKey !== '') {
+            $key = $dbKey;
+        }
+        // 优先使用全局配置表 system_config 中的 pay_notify_url，其次使用 config/wechat_pay.php 中的 notify_url
+        $notifyUrlDb = SystemConfig::getValue('pay_notify_url', '');
         $notifyUrl   = $notifyUrlDb !== '' ? $notifyUrlDb : (string) ($payConfig['notify_url'] ?? '');
 
         if ($appId === '' || $mchId === '' || $key === '' || $notifyUrl === '') {
@@ -230,7 +239,12 @@ class PayController extends MiniBaseController
         }
 
         $payConfig = config('wechat_pay');
-        $key       = (string) ($payConfig['key'] ?? '');
+        // key 也支持从 system_config 覆盖
+        $key = (string) ($payConfig['key'] ?? '');
+        $dbKey = SystemConfig::getValue('pay_key', '');
+        if ($dbKey !== '') {
+            $key = $dbKey;
+        }
         if ($key === '') {
             return $this->notifyResponse('FAIL', 'pay key not configured');
         }
