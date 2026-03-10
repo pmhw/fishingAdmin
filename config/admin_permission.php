@@ -56,4 +56,8 @@ return [
     'GET:pond-regions'   => 'admin.pond.manage',
     'POST:pond-regions'  => 'admin.pond.manage',
     'DELETE:pond-regions/' => 'admin.pond.manage',
+
+    // ---------- 交易中心：订单管理（只读） ----------
+    'GET:orders'         => 'admin.trade.order.manage',
+    'GET:orders/'        => 'admin.trade.order.manage',
 ];

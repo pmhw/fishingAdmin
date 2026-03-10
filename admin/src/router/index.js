@@ -15,6 +15,7 @@ const routes = [
       { path: 'banners', name: 'Banners', component: () => import('@/views/BannerList.vue'), meta: { title: '轮播图管理' } },
       { path: 'venues', name: 'Venues', component: () => import('@/views/VenueList.vue'), meta: { title: '钓场管理' } },
       { path: 'ponds', name: 'Ponds', component: () => import('@/views/PondList.vue'), meta: { title: '池塘管理' } },
+      { path: 'orders', name: 'Orders', component: () => import('@/views/OrderList.vue'), meta: { title: '交易中心 - 订单管理' } },
       { path: 'config', name: 'Config', component: () => import('@/views/ConfigList.vue'), meta: { title: '全局配置' } },
     ],
   },
