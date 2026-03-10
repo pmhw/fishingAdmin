@@ -356,7 +356,6 @@ class PayController extends MiniBaseController
      */
     private function xmlToArray(string $xml): ?array
     {
-        libxml_disable_entity_loader(true);
         $res = simplexml_load_string($xml, 'SimpleXMLElement', LIBXML_NOCDATA);
         if ($res === false) {
             return null;
