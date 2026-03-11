@@ -40,6 +40,8 @@ Route::group('api', function () {
     // 钓场 / 门店展示（先 :id 后 list，避免 /mini/venues/1 被误匹配）
     Route::get('mini/venues/:id', 'Api.Mini.VenueController/detail');
     Route::get('mini/venues', 'Api.Mini.VenueController/list');
+    // 位置上报（用于解析城市等）
+    Route::post('mini/location/report', 'Api.Mini.LocationController/report');
     // 支付：下单需登录，回调不需登录
     Route::post('mini/pay/wechat/jsapi', 'Api.Mini.PayController/jsapi')->middleware(\app\middleware\MiniAuth::class);
     Route::post('mini/pay/wechat/notify', 'Api.Mini.PayController/notify');
