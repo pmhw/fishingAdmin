@@ -13,19 +13,21 @@ class VenueController extends \app\BaseController
 {
     /**
      * 列表：GET /api/mini/venues
-     * 可选参数：
+     * 可选参数（支持 query 或 body，便于小程序传参）：
      * - page, limit 分页
      * - keyword     按名称/地址模糊搜索
      * - city        按城市精确匹配（如 广州市）
+     * - latitude, longitude 用户经纬度；传入且钓场有坐标时会返回 distance_m/distance_km 并按距离排序
      */
     public function list(): Json
     {
-        $page   = (int) $this->request->get('page', 1);
-        $limit  = min(max((int) $this->request->get('limit', 10), 1), 50);
-        $keyword = trim((string) $this->request->get('keyword', ''));
-        $city    = trim((string) $this->request->get('city', ''));
-        $userLat = (float) $this->request->get('latitude', 0);
-        $userLng = (float) $this->request->get('longitude', 0);
+        $page    = (int) $this->request->param('page', 1);
+        $limit   = min(max((int) $this->request->param('limit', 10), 1), 50);
+        $keyword = trim((string) $this->request->param('keyword', ''));
+        $city    = trim((string) $this->request->param('city', ''));
+        // 兼容 GET 时经纬度在 query 或 body 里（小程序 wx.request 的 data 可能放在 body，ThinkPHP GET 时 param 不含 body）
+        $userLat = (float) ($this->request->param('latitude') ?? $this->request->get('latitude') ?? $this->request->post('latitude') ?? $this->request->put('latitude') ?? 0);
+        $userLng = (float) ($this->request->param('longitude') ?? $this->request->get('longitude') ?? $this->request->post('longitude') ?? $this->request->put('longitude') ?? 0);
 
         $query = FishingVenue::where('status', 1);
 
