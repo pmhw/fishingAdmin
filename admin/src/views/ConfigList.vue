@@ -18,7 +18,17 @@
       <el-table v-loading="loading" :data="list" stripe>
         <el-table-column prop="id" label="ID" width="70" />
         <el-table-column prop="config_key" label="变量(key)" min-width="160" show-overflow-tooltip />
-        <el-table-column prop="config_value" label="值(value)" min-width="200" show-overflow-tooltip />
+        <el-table-column label="值(value)" min-width="220">
+          <template #default="{ row }">
+            <span>{{ showValueMap[row.id] ? (row.config_value || '-') : '********' }}</span>
+            <el-button link type="primary" @click="toggleShowValue(row)">
+              <el-icon>
+                <View v-if="!showValueMap[row.id]" />
+                <Hide v-else />
+              </el-icon>
+            </el-button>
+          </template>
+        </el-table-column>
         <el-table-column prop="remark" label="备注" min-width="180" show-overflow-tooltip />
         <el-table-column prop="updated_at" label="更新时间" width="170" />
         <el-table-column label="操作" fixed="right" width="100">
@@ -66,6 +76,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { View, Hide } from '@element-plus/icons-vue'
 import { getConfigList, getConfigDetail, createConfig, updateConfig } from '@/api/config'
 
 const loading = ref(false)
@@ -85,6 +96,15 @@ const editForm = reactive({
 })
 const editRules = {
   config_key: [{ required: true, message: '请输入变量名', trigger: 'blur' }],
+}
+
+// 是否显示某条配置的真实值，默认全部隐藏，用 id 做 key
+const showValueMap = ref({})
+
+function toggleShowValue(row) {
+  const id = row?.id
+  if (!id) return
+  showValueMap.value[id] = !showValueMap.value[id]
 }
 
 async function fetchList() {

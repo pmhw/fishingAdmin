@@ -48,6 +48,16 @@
             <template #title>池塘管理</template>
           </el-menu-item>
         </el-sub-menu>
+        <el-sub-menu v-if="showTradeMenu" index="trade">
+          <template #title>
+            <el-icon><Grid /></el-icon>
+            <span>交易中心</span>
+          </template>
+          <el-menu-item v-if="hasPermission('admin.trade.order.manage')" index="/orders">
+            <el-icon><Document /></el-icon>
+            <template #title>订单管理</template>
+          </el-menu-item>
+        </el-sub-menu>
         <el-sub-menu v-if="showMiscMenu" index="misc">
           <template #title>
             <el-icon><Grid /></el-icon>
@@ -112,7 +122,10 @@ function hasPermission(code) {
 const showPermissionMenu = computed(
   () => hasPermission('admin.user.list') || hasPermission('admin.role.manage')
 )
-const showContentMenu = computed(() => hasPermission('admin.banner.manage') || hasPermission('admin.venue.manage') || hasPermission('admin.pond.manage'))
+const showContentMenu = computed(
+  () => hasPermission('admin.banner.manage') || hasPermission('admin.venue.manage') || hasPermission('admin.pond.manage')
+)
+const showTradeMenu = computed(() => hasPermission('admin.trade.order.manage'))
 const showMiscMenu = computed(() => hasPermission('admin.config.manage'))
 
 /** 展开的子菜单（仅在有权限时包含，避免空菜单占位） */
@@ -120,6 +133,7 @@ const defaultOpeneds = computed(() => {
   const opens = []
   if (showPermissionMenu.value) opens.push('permission')
   if (showContentMenu.value) opens.push('content')
+  if (showTradeMenu.value) opens.push('trade')
   if (showMiscMenu.value) opens.push('misc')
   return opens
 })
