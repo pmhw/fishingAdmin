@@ -31,8 +31,11 @@ class LocationController extends BaseController
             return json(['code' => 400, 'msg' => '请传入有效的经纬度', 'data' => null]);
         }
 
-        // 优先从 system_config 读取高德 key（与前端 AmapPointPicker 使用的 key 共用）
-        $amapKey = SystemConfig::getValue('amap_key', '');
+        // 优先从 system_config 读取高德「服务端」key（amap_server_key），没有则回退到 amap_key
+        $amapKey = SystemConfig::getValue('amap_server_key', '');
+        if ($amapKey === '') {
+            $amapKey = SystemConfig::getValue('amap_key', '');
+        }
         if ($amapKey === '') {
             return json(['code' => 500, 'msg' => '尚未配置 amap_key，请在「全局配置」中添加', 'data' => null]);
         }
