@@ -34,10 +34,10 @@ class LocationController extends BaseController
         // 优先从 system_config 读取高德「服务端」key（amap_server_key），没有则回退到 amap_key
         $amapKey = SystemConfig::getValue('amap_server_key', '');
         if ($amapKey === '') {
-            $amapKey = SystemConfig::getValue('amap_key', '');
+            $amapKey = SystemConfig::getValue('amap_key_webfw', '');
         }
         if ($amapKey === '') {
-            return json(['code' => 500, 'msg' => '尚未配置 amap_key，请在「全局配置」中添加', 'data' => null]);
+            return json(['code' => 500, 'msg' => '尚未配置 amap_key_webfw，请在「全局配置」中添加', 'data' => null]);
         }
 
         $location = $lng . ',' . $lat; // 高德经纬度顺序：lng,lat
