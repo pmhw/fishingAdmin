@@ -297,7 +297,7 @@ class VenueController extends \app\BaseController
             $seatStatsByPond = [];
             if (!empty($pondIds)) {
                 $seatStats = PondSeat::whereIn('pond_id', $pondIds)
-                    ->fieldRaw('pond_id, COUNT(*) AS total_seat, SUM(CASE WHEN status = \"in_use\" THEN 1 ELSE 0 END) AS used_seat')
+                    ->fieldRaw("pond_id, COUNT(*) AS total_seat, SUM(CASE WHEN status = 'in_use' THEN 1 ELSE 0 END) AS used_seat")
                     ->group('pond_id')
                     ->select();
                 foreach ($seatStats as $stat) {
