@@ -4,6 +4,9 @@ declare (strict_types = 1);
 namespace app\controller\Api\Mini;
 
 use app\model\FishingVenue;
+use app\model\FishingPond;
+use app\model\PondFeeRule;
+use app\model\PondSeat;
 use think\response\Json;
 
 /**
@@ -174,7 +177,7 @@ class VenueController extends \app\BaseController
 
     /**
      * 详情：GET /api/mini/venues/:id
-     * 仅允许访问已上架(status=1)的门店
+     * 原始详情，返回钓场表全部字段（兼容老版本）
      */
     public function detail(int $id): Json
     {
@@ -200,6 +203,207 @@ class VenueController extends \app\BaseController
         }
 
         return json(['code' => 0, 'msg' => 'success', 'data' => $data]);
+    }
+
+    /**
+     * 钓场详情（新版结构）：GET /api/mini/venues/:id/spot
+     * 返回小程序展示用的 spot 结构
+     *
+     * 可选参数（query/body）：
+     * - latitude, longitude 用户经纬度，用于计算距离展示文案
+     */
+    public function spot(int $id): Json
+    {
+        $row = FishingVenue::where('id', $id)
+            ->where('status', 1)
+            ->find();
+
+        if (!$row) {
+            return json(['code' => 404, 'msg' => '门店不存在或未上架', 'data' => null]);
+        }
+
+        // 浏览量 +1（无需严格一致性）
+        try {
+            $row->where('id', $id)->inc('view_count')->update();
+        } catch (\Throwable $e) {
+            // 忽略统计失败
+        }
+
+        $venue = $row->toArray();
+
+        // 顶部轮播图
+        $images = [];
+        if (is_string($venue['images'] ?? null) && $venue['images'] !== '') {
+            $decoded = json_decode($venue['images'], true);
+            if (is_array($decoded)) {
+                $images = array_values(array_filter($decoded, static function ($v) {
+                    return (string) $v !== '';
+                }));
+            }
+        }
+        if (empty($images) && !empty($venue['cover_image'] ?? '')) {
+            $images = [(string) $venue['cover_image']];
+        }
+
+        // 设施标签
+        $facilities = [];
+        if (!empty($venue['facilities'] ?? '')) {
+            $decoded = json_decode((string) $venue['facilities'], true);
+            if (is_array($decoded)) {
+                $facilities = array_values(array_filter(array_map('strval', $decoded), static function ($v) {
+                    return trim($v) !== '';
+                }));
+            } else {
+                $parts = preg_split('/[，,]/u', (string) $venue['facilities']);
+                $facilities = array_values(array_filter(array_map('trim', $parts), static function ($v) {
+                    return $v !== '';
+                }));
+            }
+        }
+
+        // 用户经纬度（兼容 query/body）
+        $userLat = (float) ($this->request->param('latitude') ?? $this->request->get('latitude') ?? $this->request->post('latitude') ?? $this->request->put('latitude') ?? 0);
+        $userLng = (float) ($this->request->param('longitude') ?? $this->request->get('longitude') ?? $this->request->post('longitude') ?? $this->request->put('longitude') ?? 0);
+        $venueLat = isset($venue['latitude']) ? (float) $venue['latitude'] : 0.0;
+        $venueLng = isset($venue['longitude']) ? (float) $venue['longitude'] : 0.0;
+
+        $distanceText = null;
+        if ($userLat && $userLng && $venueLat && $venueLng) {
+            $distanceM = $this->calcDistanceMeters($userLat, $userLng, $venueLat, $venueLng);
+            if ($distanceM < 1000) {
+                $distanceText = (int) round($distanceM) . 'm';
+            } else {
+                $km = $distanceM / 1000;
+                $distanceText = round($km, 1) . 'km';
+            }
+        }
+
+        // 关联池塘列表
+        $pondRows = FishingPond::where('venue_id', $id)
+            ->order('sort_order', 'asc')
+            ->order('id', 'asc')
+            ->select();
+
+        $ponds = [];
+        $totalSeat = 0;
+        $totalSeatAll = 0;
+
+        if (!$pondRows->isEmpty()) {
+            $pondIds = array_map(static function ($p) {
+                return (int) $p['id'];
+            }, $pondRows->toArray());
+
+            // 钓位统计：每个池塘总钓位数 + 使用中数量
+            $seatStatsByPond = [];
+            if (!empty($pondIds)) {
+                $seatStats = PondSeat::whereIn('pond_id', $pondIds)
+                    ->fieldRaw('pond_id, COUNT(*) AS total_seat, SUM(CASE WHEN status = \"in_use\" THEN 1 ELSE 0 END) AS used_seat')
+                    ->group('pond_id')
+                    ->select();
+                foreach ($seatStats as $stat) {
+                    $seatStatsByPond[(int) $stat->pond_id] = [
+                        'total' => (int) ($stat->total_seat ?? 0),
+                        'used'  => (int) ($stat->used_seat ?? 0),
+                    ];
+                }
+            }
+
+            // 预加载收费规则，避免 N+1
+            $feeRulesByPond = [];
+            if (!empty($pondIds)) {
+                $feeRuleRows = PondFeeRule::whereIn('pond_id', $pondIds)
+                    ->order('sort_order', 'asc')
+                    ->order('id', 'asc')
+                    ->select();
+                foreach ($feeRuleRows as $fr) {
+                    $pondId = (int) $fr->pond_id;
+                    if (!isset($feeRulesByPond[$pondId])) {
+                        $feeRulesByPond[$pondId] = [];
+                    }
+                    $amount = (float) ($fr->amount ?? 0);
+                    $priceText = ($amount > 0 ? rtrim(rtrim(number_format($amount, 2, '.', ''), '0'), '.') : '0') . '元';
+                    $feeRulesByPond[$pondId][] = [
+                        'name'  => (string) $fr->name,
+                        'price' => $priceText,
+                    ];
+                }
+            }
+
+            foreach ($pondRows as $pond) {
+                $pondArr = $pond->toArray();
+                $pondId = (int) $pondArr['id'];
+
+                $seatTotal = $seatStatsByPond[$pondId]['total'] ?? (int) ($pondArr['seat_count'] ?? 0);
+                $seatUsed  = $seatStatsByPond[$pondId]['used'] ?? 0;
+
+                $totalSeatAll += $seatTotal;
+                $totalSeat += $seatUsed;
+
+                // 鱼种标签
+                $fishTypes = [];
+                if (!empty($pondArr['fish_species'] ?? '')) {
+                    $parts = preg_split('/[，,]/u', (string) $pondArr['fish_species']);
+                    $fishTypes = array_values(array_filter(array_map('trim', $parts), static function ($v) {
+                        return $v !== '';
+                    }));
+                }
+
+                // 池塘类型、状态文案
+                $typeLabel = match ($pondArr['pond_type'] ?? '') {
+                    FishingPond::TYPE_BLACK_PIT => '黑坑',
+                    FishingPond::TYPE_JIN_TANG  => '斤塘',
+                    FishingPond::TYPE_PRACTICE  => '练杆塘',
+                    default                     => '',
+                };
+                $statusLabel = match ($pondArr['status'] ?? '') {
+                    FishingPond::STATUS_OPEN   => '开放中',
+                    FishingPond::STATUS_CLOSED => '关闭',
+                    default                    => '',
+                };
+
+                $ponds[] = [
+                    'id'        => $pondId,
+                    'name'      => (string) $pondArr['name'],
+                    'status'    => $statusLabel,
+                    'area'      => $pondArr['area_mu'] !== null ? ((string) $pondArr['area_mu'] . '亩') : '',
+                    'depth'     => (string) ($pondArr['water_depth'] ?? ''),
+                    'type'      => $typeLabel,
+                    'rodLimit'  => (string) ($pondArr['rod_rule'] ?? ''),
+                    'baitRule'  => (string) ($pondArr['bait_rule'] ?? ''),
+                    'seat'      => $seatUsed,
+                    'seatTotal' => $seatTotal,
+                    'fishTypes' => $fishTypes,
+                    'feeRules'  => $feeRulesByPond[$pondId] ?? [],
+                ];
+            }
+        }
+
+        $venueStatusLabel = match ((int) ($venue['status'] ?? 0)) {
+            1       => '营业中',
+            default => '休息中',
+        };
+
+        $spot = [
+            'id'          => (int) $venue['id'],
+            'name'        => (string) $venue['name'],
+            'images'      => $images,
+            'status'      => $venueStatusLabel,
+            'rating'      => null,
+            'distance'    => $distanceText,
+            'seat'        => $totalSeat,
+            'seatTotal'   => $totalSeatAll,
+            'description' => (string) ($venue['description'] ?? ''),
+            'openTime'    => (string) ($venue['opening_hours'] ?? ''),
+            'phone'       => (string) ($venue['contact_phone'] ?? ''),
+            'latitude'    => $venueLat ?: null,
+            'longitude'   => $venueLng ?: null,
+            'address'     => (string) ($venue['address'] ?? ''),
+            'facilities'  => $facilities,
+            'feeds'       => [],
+            'ponds'       => $ponds,
+        ];
+
+        return json(['code' => 0, 'msg' => 'success', 'data' => ['spot' => $spot]]);
     }
 }
 

@@ -37,7 +37,8 @@ Route::group('api', function () {
     // ========== 小程序端 ==========
     Route::post('mini/login', 'Api.Mini.AuthController/login');
     Route::get('mini/banners', 'Api.Mini.BannerController/list');
-    // 钓场 / 门店展示（先 :id 后 list，避免 /mini/venues/1 被误匹配）
+    // 钓场 / 门店展示（先具体路径，再 :id，再 list，避免误匹配）
+    Route::get('mini/venues/:id/spot', 'Api.Mini.VenueController/spot');
     Route::get('mini/venues/:id', 'Api.Mini.VenueController/detail');
     Route::get('mini/venues', 'Api.Mini.VenueController/list');
     // 位置上报（用于解析城市等）
