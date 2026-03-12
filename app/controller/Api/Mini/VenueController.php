@@ -323,8 +323,9 @@ class VenueController extends \app\BaseController
                     $amount = (float) ($fr->amount ?? 0);
                     $priceText = ($amount > 0 ? rtrim(rtrim(number_format($amount, 2, '.', ''), '0'), '.') : '0') . '元';
                     $feeRulesByPond[$pondId][] = [
-                        'name'  => (string) $fr->name,
-                        'price' => $priceText,
+                        'name'     => (string) $fr->name,
+                        'duration' => (string) ($fr->duration ?? ''),
+                        'price'    => $priceText,
                     ];
                 }
             }
