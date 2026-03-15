@@ -80,6 +80,26 @@ export function deletePondReturnRule(id) {
   return request.delete(`/api/admin/pond-return-rules/${id}`)
 }
 
+/** 放鱼记录：按池塘查询 */
+export function getPondFeedLogs(pondId) {
+  return request.get('/api/admin/pond-feed-logs', { params: { pond_id: pondId } })
+}
+
+/** 放鱼记录：添加 */
+export function createPondFeedLog(data) {
+  return request.post('/api/admin/pond-feed-logs', data)
+}
+
+/** 放鱼记录：编辑 */
+export function updatePondFeedLog(id, data) {
+  return request.put(`/api/admin/pond-feed-logs/${id}`, data)
+}
+
+/** 放鱼记录：删除 */
+export function deletePondFeedLog(id) {
+  return request.delete(`/api/admin/pond-feed-logs/${id}`)
+}
+
 /** 座位号：按池塘拉取（pond_seat） */
 export function getPondSeats(pondId) {
   return request.get(`/api/admin/ponds/${pondId}/seats`)

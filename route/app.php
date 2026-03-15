@@ -122,6 +122,11 @@ Route::group('api', function () {
             Route::put('pond-return-rules/:id', 'Api.Admin.PondReturnRuleController/update');
             Route::get('pond-return-rules', 'Api.Admin.PondReturnRuleController/list');
             Route::post('pond-return-rules', 'Api.Admin.PondReturnRuleController/create');
+            // pond-feed-logs：放鱼记录管理
+            Route::delete('pond-feed-logs/:id', 'Api.Admin.PondFeedLogController/delete');
+            Route::put('pond-feed-logs/:id', 'Api.Admin.PondFeedLogController/update');
+            Route::get('pond-feed-logs', 'Api.Admin.PondFeedLogController/list');
+            Route::post('pond-feed-logs', 'Api.Admin.PondFeedLogController/create');
             // orders：订单管理（只读）
             Route::get('orders', 'Api.Admin.FishingOrderController/list');
         })->middleware([\app\middleware\AdminAuth::class, \app\middleware\AdminPermission::class]);

@@ -32,12 +32,13 @@
         </el-table-column>
         <el-table-column prop="sort_order" label="排序" width="70" />
         <el-table-column prop="created_at" label="创建时间" width="170" />
-        <el-table-column label="操作" fixed="right" width="200">
+        <el-table-column label="操作" fixed="right" width="260">
           <template #default="{ row }">
             <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
             <el-button link type="primary" @click="openRegionConfig(row)">钓位配置</el-button>
             <el-button link type="primary" @click="openFeeConfig(row)">收费规则</el-button>
             <el-button link type="primary" @click="openReturnConfig(row)">回鱼规则</el-button>
+            <el-button link type="primary" @click="openFeedConfig(row)">放鱼记录</el-button>
             <el-button v-if="canDeletePonds" link type="danger" @click="onDelete(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -352,13 +353,140 @@
         </el-table>
       </div>
     </el-dialog>
+
+    <!-- 放鱼记录管理 -->
+    <el-dialog
+      v-model="feedConfigVisible"
+      :title="'放鱼记录 - ' + (feedConfigPondName || '')"
+      width="760px"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      @close="closeFeedConfig"
+    >
+      <div v-loading="feedListLoading" class="region-config-body">
+        <div class="region-toolbar">
+          <span class="region-tip">记录每次放鱼的时间、说明和图片</span>
+          <el-button type="primary" size="small" @click="openFeedForm()">新增记录</el-button>
+        </div>
+        <el-table :data="feedList" size="small" max-height="320" stripe>
+          <el-table-column prop="feed_time" label="放鱼时间" width="160" />
+          <el-table-column prop="title" label="标题" min-width="120" show-overflow-tooltip />
+          <el-table-column label="说明" min-width="200" show-overflow-tooltip>
+            <template #default="{ row }">
+              {{ row.content }}
+            </template>
+          </el-table-column>
+          <el-table-column label="图片" width="120">
+            <template #default="{ row }">
+              <el-image
+                v-if="row.images && row.images.length"
+                :src="formatStorageUrl(row.images[0])"
+                :preview-src-list="row.images.map(formatStorageUrl)"
+                preview-teleported
+                fit="cover"
+                style="width:60px;height:60px;border-radius:4px"
+              />
+              <span v-else style="color:#999">-</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="sort_order" label="排序" width="70" />
+          <el-table-column label="操作" width="140" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" size="small" @click="openFeedForm(row)">编辑</el-button>
+              <el-button link type="danger" size="small" @click="onDeleteFeed(row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </el-dialog>
+
+    <!-- 放鱼记录表单 -->
+    <el-dialog
+      v-model="feedDialogVisible"
+      :title="feedEditId ? '编辑放鱼记录' : '新增放鱼记录'"
+      width="540px"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      @close="resetFeedForm"
+    >
+      <div v-loading="feedSubmitLoading" element-loading-text="提交中…" class="fee-form-wrap">
+        <el-form ref="feedFormRef" :model="feedForm" :rules="feedRules" label-width="90px">
+          <el-form-item label="标题" prop="title">
+            <el-input v-model="feedForm.title" placeholder="如 今日放鱼公告（可选）" />
+          </el-form-item>
+          <el-form-item label="放鱼时间" prop="feed_time">
+            <el-date-picker
+              v-model="feedForm.feed_time"
+              type="datetime"
+              value-format="YYYY-MM-DD HH:mm:ss"
+              placeholder="选填，不填则按创建时间"
+              style="width: 100%"
+            />
+          </el-form-item>
+          <el-form-item label="说明" prop="content">
+            <el-input v-model="feedForm.content" type="textarea" :rows="3" placeholder="本次放鱼说明，如 品种、数量等" />
+          </el-form-item>
+          <el-form-item label="图片">
+            <div class="upload-multi-wrap">
+              <div v-if="feedForm.images && feedForm.images.length" class="thumb-list">
+                <div v-for="(img, idx) in feedForm.images" :key="img + idx" class="thumb-item">
+                  <el-image
+                    :src="formatStorageUrl(img)"
+                    :preview-src-list="feedForm.images.map(formatStorageUrl)"
+                    preview-teleported
+                    fit="cover"
+                    style="width:68px;height:68px;border-radius:4px"
+                  />
+                  <span class="thumb-remove" @click="removeFeedImage(idx)">×</span>
+                </div>
+              </div>
+              <el-upload :show-file-list="false" accept="image/*" :http-request="handleFeedImageUpload">
+                <el-button type="primary" :loading="feedUploading">上传图片</el-button>
+              </el-upload>
+            </div>
+          </el-form-item>
+          <el-form-item label="排序" prop="sort_order">
+            <el-input-number v-model="feedForm.sort_order" :min="0" controls-position="right" style="width:100%" />
+          </el-form-item>
+        </el-form>
+      </div>
+      <template #footer>
+        <el-button :disabled="feedSubmitLoading" @click="feedDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="feedSubmitLoading" @click="submitFeed">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getPondList, getPondDetail, createPond, updatePond, deletePond, getVenueOptions, getPondRegions, createPondRegion, deletePondRegion, getPondFeeRules, createPondFeeRule, updatePondFeeRule, deletePondFeeRule, getPondReturnRules, createPondReturnRule, updatePondReturnRule, deletePondReturnRule, getPondSeats, syncPondSeats, uploadImage } from '@/api/pond'
+import {
+  getPondList,
+  getPondDetail,
+  createPond,
+  updatePond,
+  deletePond,
+  getVenueOptions,
+  getPondRegions,
+  createPondRegion,
+  deletePondRegion,
+  getPondFeeRules,
+  createPondFeeRule,
+  updatePondFeeRule,
+  deletePondFeeRule,
+  getPondReturnRules,
+  createPondReturnRule,
+  updatePondReturnRule,
+  deletePondReturnRule,
+  getPondFeedLogs,
+  createPondFeedLog,
+  updatePondFeedLog,
+  deletePondFeedLog,
+  getPondSeats,
+  syncPondSeats,
+  uploadImage,
+} from '@/api/pond'
 
 const loading = ref(false)
 const list = ref([])
@@ -453,9 +581,170 @@ const editRules = {
   name: [{ required: true, message: '请输入池塘名称', trigger: 'blur' }],
 }
 
+/** 放鱼记录弹窗 */
+const feedConfigVisible = ref(false)
+const feedConfigPondId = ref(null)
+const feedConfigPondName = ref('')
+const feedList = ref([])
+const feedListLoading = ref(false)
+const feedDialogVisible = ref(false)
+const feedEditId = ref(null)
+const feedFormRef = ref(null)
+const feedSubmitLoading = ref(false)
+const feedUploading = ref(false)
+const feedForm = reactive({
+  pond_id: null,
+  title: '',
+  content: '',
+  images: [],
+  feed_time: '',
+  sort_order: 0,
+})
+const feedRules = {
+  content: [{ required: true, message: '请输入放鱼说明', trigger: 'blur' }],
+}
+
 function pondTypeLabel(type) {
   const map = { black_pit: '黑坑', jin_tang: '斤塘', practice: '练杆塘' }
   return map[type] || type
+}
+
+function formatStorageUrl(u) {
+  if (!u) return ''
+  if (u.startsWith('http')) return u
+  const base = import.meta.env.VITE_STORAGE_URL || ''
+  return base + u
+}
+
+function openFeedConfig(row) {
+  feedConfigPondId.value = row.id
+  feedConfigPondName.value = row.name
+  feedConfigVisible.value = true
+  loadFeedList()
+}
+
+function closeFeedConfig() {
+  feedConfigVisible.value = false
+  feedConfigPondId.value = null
+  feedConfigPondName.value = ''
+  feedList.value = []
+}
+
+async function loadFeedList() {
+  if (!feedConfigPondId.value) return
+  try {
+    feedListLoading.value = true
+    const res = await getPondFeedLogs(feedConfigPondId.value)
+    feedList.value = res.data?.data?.list || []
+  } catch (e) {
+    console.error(e)
+    ElMessage.error('加载放鱼记录失败')
+  } finally {
+    feedListLoading.value = false
+  }
+}
+
+function openFeedForm(row) {
+  if (!feedConfigPondId.value) {
+    ElMessage.error('请先选择池塘')
+    return
+  }
+  if (row) {
+    feedEditId.value = row.id
+    feedForm.pond_id = row.pond_id
+    feedForm.title = row.title || ''
+    feedForm.content = row.content || ''
+    feedForm.images = Array.isArray(row.images) ? [...row.images] : []
+    feedForm.feed_time = row.feed_time || ''
+    feedForm.sort_order = row.sort_order ?? 0
+  } else {
+    feedEditId.value = null
+    feedForm.pond_id = feedConfigPondId.value
+    feedForm.title = ''
+    feedForm.content = ''
+    feedForm.images = []
+    feedForm.feed_time = ''
+    feedForm.sort_order = 0
+  }
+  feedDialogVisible.value = true
+}
+
+function resetFeedForm() {
+  feedDialogVisible.value = false
+  feedEditId.value = null
+  if (feedFormRef.value) {
+    feedFormRef.value.clearValidate()
+  }
+}
+
+async function submitFeed() {
+  if (!feedFormRef.value) return
+  await feedFormRef.value.validate()
+  try {
+    feedSubmitLoading.value = true
+    const payload = {
+      pond_id: feedForm.pond_id,
+      title: feedForm.title,
+      content: feedForm.content,
+      images: feedForm.images,
+      feed_time: feedForm.feed_time,
+      sort_order: feedForm.sort_order,
+    }
+    if (feedEditId.value) {
+      await updatePondFeedLog(feedEditId.value, payload)
+      ElMessage.success('更新成功')
+    } else {
+      await createPondFeedLog(payload)
+      ElMessage.success('添加成功')
+    }
+    feedDialogVisible.value = false
+    loadFeedList()
+  } catch (e) {
+    console.error(e)
+  } finally {
+    feedSubmitLoading.value = false
+  }
+}
+
+async function onDeleteFeed(row) {
+  try {
+    await ElMessageBox.confirm('确定删除该放鱼记录？', '提示', { type: 'warning' })
+  } catch {
+    return
+  }
+  try {
+    await deletePondFeedLog(row.id)
+    ElMessage.success('删除成功')
+    loadFeedList()
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+async function handleFeedImageUpload({ file }) {
+  try {
+    feedUploading.value = true
+    const res = await uploadImage(file)
+    const url = res.data?.data?.url || ''
+    if (!url) {
+      ElMessage.error('上传失败')
+      return
+    }
+    if (!Array.isArray(feedForm.images)) {
+      feedForm.images = []
+    }
+    feedForm.images.push(url)
+  } catch (e) {
+    console.error(e)
+    ElMessage.error('上传失败')
+  } finally {
+    feedUploading.value = false
+  }
+}
+
+function removeFeedImage(idx) {
+  if (!Array.isArray(feedForm.images)) return
+  feedForm.images.splice(idx, 1)
 }
 
 const coverImageUrl = computed(() => {

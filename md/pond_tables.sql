@@ -92,6 +92,27 @@ CREATE TABLE IF NOT EXISTS `pond_return_rule` (
   CONSTRAINT `fk_return_pond` FOREIGN KEY (`pond_id`) REFERENCES `fishing_pond` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='池塘回鱼规则表（条数范围）';
 
+-- --------------------------------------------
+-- 5. 池塘放鱼记录表（pond_feed_log）
+--    关联池塘，支持文字描述 + 多张图片
+-- --------------------------------------------
+CREATE TABLE IF NOT EXISTS `pond_feed_log` (
+  `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `pond_id` INT(11) UNSIGNED NOT NULL COMMENT '所属池塘 fishing_pond.id',
+  `title` VARCHAR(100) NOT NULL DEFAULT '' COMMENT '标题，如 放鱼公告',
+  `content` TEXT COMMENT '放鱼说明/文字描述',
+  `images` TEXT COMMENT '图片列表，JSON 数组，如 [\"/storage/feed/1.jpg\",\"/storage/feed/2.jpg\"]',
+  `feed_time` DATETIME DEFAULT NULL COMMENT '放鱼时间（不填则用创建时间）',
+  `sort_order` INT(11) NOT NULL DEFAULT 0 COMMENT '排序，越小越靠前',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_pond_id` (`pond_id`),
+  KEY `idx_feed_time` (`feed_time`),
+  KEY `idx_sort_order` (`sort_order`),
+  CONSTRAINT `fk_feed_pond` FOREIGN KEY (`pond_id`) REFERENCES `fishing_pond` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='池塘放鱼记录表（文本+多图）';
+
 -- ============================================
 -- 后台权限：池塘管理（需先执行 admin_role_permission.sql）
 -- ============================================
