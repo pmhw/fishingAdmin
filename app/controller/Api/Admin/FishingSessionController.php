@@ -11,6 +11,7 @@ use app\model\MiniUser;
 use app\model\PondSeat;
 use app\model\PondFeeRule;
 use app\model\FishingOrder;
+use app\model\SystemConfig;
 use think\response\Json;
 
 /**
@@ -257,11 +258,15 @@ class FishingSessionController extends BaseController
         $amountYuanNeed = round($needPayFen / 100, 2);
         $miniPayPath = '/pages/pay/index?order_no=' . $orderNo . '&amount=' . $amountYuanNeed;
 
+        // 生成对应的小程序码二维码，便于收银扫码进入支付页（失败时返回 null，不影响主流程）
+        $miniQrUrl = $this->generateMiniProgramQr($orderNo);
+
         $resp = [
             'balance_deduct' => round($balanceDeductFen / 100, 2),
             'need_pay'       => round($needPayFen / 100, 2),
             'order'          => $order ? $order->toArray() : null,
             'mini_pay_path'  => $miniPayPath,
+            'mini_qr_url'    => $miniQrUrl,
         ];
 
         return json(['code' => 0, 'msg' => 'success', 'data' => $resp]);
@@ -317,6 +322,99 @@ class FishingSessionController extends BaseController
         $session->save();
 
         return json(['code' => 0, 'msg' => '开钓单已取消', 'data' => $session->toArray()]);
+    }
+
+    /**
+     * 为后台手动开单生成对应的小程序码二维码
+     * 使用小程序接口 getwxacodeunlimit，page 固定为 pages/pay/index，scene 携带订单号
+     *
+     * @param string $orderNo
+     * @return string|null 返回二维码图片的相对访问路径（例如 /storage/mini_qr/202603/01/xxxx.png）
+     */
+    private function generateMiniProgramQr(string $orderNo): ?string
+    {
+        $miniConfig = config('wechat_mini');
+        $appId  = (string) ($miniConfig['appid'] ?? '');
+        $secret = (string) ($miniConfig['secret'] ?? '');
+        if ($appId === '' || $secret === '') {
+            return null;
+        }
+
+        // 若 system_config 中配置了小程序 appid/secret，则优先使用
+        $cfgAppId  = SystemConfig::getValue('mini_appid', '');
+        $cfgSecret = SystemConfig::getValue('mini_secret', '');
+        if ($cfgAppId !== '') {
+            $appId = $cfgAppId;
+        }
+        if ($cfgSecret !== '') {
+            $secret = $cfgSecret;
+        }
+
+        // 获取 access_token（简单实现：每次获取一次；如需优化可改为缓存）
+        $tokenUrl = sprintf(
+            'https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=%s&secret=%s',
+            urlencode($appId),
+            urlencode($secret)
+        );
+        $tokenJson = @file_get_contents($tokenUrl);
+        if (!$tokenJson) {
+            return null;
+        }
+        $tokenArr = json_decode($tokenJson, true);
+        if (!is_array($tokenArr) || empty($tokenArr['access_token'])) {
+            return null;
+        }
+        $accessToken = (string) $tokenArr['access_token'];
+
+        // 构造小程序码参数
+        $page = 'pages/pay/index';
+        // scene 长度限制 32，只携带订单号足够
+        $scene = 'o_' . $orderNo;
+
+        $postData = json_encode([
+            'page'        => $page,
+            'scene'       => $scene,
+            'check_path'  => false,
+            'env_version' => 'release',
+        ], JSON_UNESCAPED_UNICODE);
+
+        $qrUrl = 'https://api.weixin.qq.com/wxa/getwxacodeunlimit?access_token=' . urlencode($accessToken);
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL            => $qrUrl,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $postData,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT        => 10,
+        ]);
+        $resp = curl_exec($ch);
+        $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+        curl_close($ch);
+
+        if ($resp === false || !$resp) {
+            return null;
+        }
+        // 如果返回的是 JSON，说明调用失败
+        if (is_string($contentType) && stripos($contentType, 'json') !== false) {
+            return null;
+        }
+
+        // 保存到 public/storage/mini_qr/ 目录
+        $subDir = date('Ym') . '/' . date('d');
+        $baseDir = public_path() . 'storage' . DIRECTORY_SEPARATOR . 'mini_qr' . DIRECTORY_SEPARATOR . $subDir;
+        if (!is_dir($baseDir) && !@mkdir($baseDir, 0777, true) && !is_dir($baseDir)) {
+            return null;
+        }
+        $fileName = $orderNo . '.png';
+        $filePath = $baseDir . DIRECTORY_SEPARATOR . $fileName;
+        if (@file_put_contents($filePath, $resp) === false) {
+            return null;
+        }
+
+        // 对外访问路径（假设 public/storage 映射为 /storage）
+        $relativePath = '/storage/mini_qr/' . $subDir . '/' . $fileName;
+        return $relativePath;
     }
 }
 

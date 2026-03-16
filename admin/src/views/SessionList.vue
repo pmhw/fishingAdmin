@@ -158,6 +158,22 @@
         <el-button type="primary" :loading="createSubmitting" @click="submitCreate">确定</el-button>
       </template>
     </el-dialog>
+    <el-dialog
+    v-model="payQrDialogVisible"
+    title="扫码支付"
+    width="360px"
+    :close-on-click-modal="false"
+  >
+    <div style="text-align: center;">
+      <div style="margin-bottom: 8px;">待支付金额：<strong>{{ formatMoney(payQrInfo.needPay) }}</strong> 元</div>
+      <div v-if="payQrInfo.miniQrUrl">
+        <img :src="payQrInfo.miniQrUrl" alt="小程序码" style="width: 260px; height: 260px;" />
+      </div>
+      <div v-else style="font-size: 12px; color: #888;">
+        小程序码生成失败，请使用路径：{{ payQrInfo.miniPayPath }}
+      </div>
+    </div>
+  </el-dialog>
   </div>
 </template>
 
@@ -185,6 +201,12 @@ const filters = reactive({
 const createDialogVisible = ref(false)
 const createFormRef = ref(null)
 const createSubmitting = ref(false)
+const payQrDialogVisible = ref(false)
+const payQrInfo = reactive({
+  needPay: 0,
+  miniPayPath: '',
+  miniQrUrl: '',
+})
 const createForm = reactive({
   mini_user_id: '',
   venue_id: '',
@@ -379,11 +401,18 @@ async function submitCreate() {
     const miniPayPath = data?.mini_pay_path
     const needPay = data?.need_pay ?? 0
     const deducted = data?.balance_deduct ?? 0
-    let msg = `开钓单创建成功。余额抵扣：${deducted} 元`
-    if (needPay > 0 && miniPayPath) {
-      msg += `，还需微信支付：${needPay} 元。\n小程序支付路径：${miniPayPath}`
+    const miniQrUrl = data?.mini_qr_url || ''
+
+    ElMessage.success(`开钓订单创建成功。余额抵扣：${deducted} 元，待支付：${needPay} 元`)
+
+    // 弹出支付二维码对话框（如果生成成功）
+    if (needPay > 0 && (miniQrUrl || miniPayPath)) {
+      payQrInfo.needPay = needPay
+      payQrInfo.miniPayPath = miniPayPath || ''
+      payQrInfo.miniQrUrl = miniQrUrl || ''
+      payQrDialogVisible.value = true
     }
-    ElMessage.success(msg)
+
     createDialogVisible.value = false
     fetchList()
   } catch (e) {
