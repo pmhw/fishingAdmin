@@ -34,10 +34,8 @@ class OrderController extends MiniBaseController
             return json(['code' => 404, 'msg' => '订单不存在', 'data' => null]);
         }
 
-        // 所有权校验：仅允许创建该订单的用户查询
-        if ((int) $order->mini_user_id !== (int) $user->id) {
-            return json(['code' => 403, 'msg' => '无权查看该订单', 'data' => null]);
-        }
+        // 这里不再强制校验 mini_user_id 与当前登录用户一致，
+        // 以便支持“收银员扫码顾客订单”这类场景，仅要求已登录即可。
 
         $arr = $order->toArray();
         $amountTotal = (int) ($arr['amount_total'] ?? 0);
