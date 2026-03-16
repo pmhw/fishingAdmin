@@ -54,6 +54,8 @@ Route::group('api', function () {
     Route::post('mini/profile', 'Api.Mini.UserController/profile')->middleware(\app\middleware\MiniAuth::class);
     Route::put('mini/user/profile', 'Api.Mini.UserController/profile')->middleware(\app\middleware\MiniAuth::class);
     Route::post('mini/user/profile', 'Api.Mini.UserController/profile')->middleware(\app\middleware\MiniAuth::class);
+    // 小程序订单查询（支付页用）
+    Route::get('mini/orders/:order_no', 'Api.Mini.OrderController/show')->middleware(\app\middleware\MiniAuth::class);
 
     // ========== 后台管理 ==========
     Route::group('admin', function () {
