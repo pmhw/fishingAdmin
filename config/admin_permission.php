@@ -56,8 +56,27 @@ return [
     'GET:pond-regions'   => 'admin.pond.manage',
     'POST:pond-regions'  => 'admin.pond.manage',
     'DELETE:pond-regions/' => 'admin.pond.manage',
+    'GET:pond-feed-logs'    => 'admin.pond.manage',
+    'GET:pond-feed-logs/'   => 'admin.pond.manage',
+    'POST:pond-feed-logs'   => 'admin.pond.manage',
+    'PUT:pond-feed-logs/'   => 'admin.pond.manage',
+    'DELETE:pond-feed-logs/' => 'admin.pond.manage',
 
     // ---------- 交易中心：订单管理（只读） ----------
     'GET:orders'         => 'admin.trade.order.manage',
     'GET:orders/'        => 'admin.trade.order.manage',
+
+    // ---------- 经营管理：开钓/回鱼/卖鱼 ----------
+    'GET:sessions'         => 'admin.biz.session.manage',
+    'GET:sessions/'        => 'admin.biz.session.manage',
+    'GET:pond-return-logs'    => 'admin.biz.return.manage',
+    'GET:pond-return-logs/'   => 'admin.biz.return.manage',
+    'POST:pond-return-logs'   => 'admin.biz.return.manage',
+    'PUT:pond-return-logs/'   => 'admin.biz.return.manage',
+    'DELETE:pond-return-logs/' => 'admin.biz.return.manage',
+    'GET:fish-trade-logs'    => 'admin.biz.trade.manage',
+    'GET:fish-trade-logs/'   => 'admin.biz.trade.manage',
+    'POST:fish-trade-logs'   => 'admin.biz.trade.manage',
+    'PUT:fish-trade-logs/'   => 'admin.biz.trade.manage',
+    'DELETE:fish-trade-logs/' => 'admin.biz.trade.manage',
 ];

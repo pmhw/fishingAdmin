@@ -428,21 +428,36 @@
           </el-form-item>
           <el-form-item label="图片">
             <div class="upload-multi-wrap">
-              <div v-if="feedForm.images && feedForm.images.length" class="thumb-list">
-                <div v-for="(img, idx) in feedForm.images" :key="img + idx" class="thumb-item">
+              <div class="thumb-list">
+                <div
+                  v-for="(img, idx) in feedForm.images"
+                  :key="idx"
+                  class="thumb-item"
+                >
                   <el-image
-                    :src="formatStorageUrl(img)"
-                    :preview-src-list="feedForm.images.map(formatStorageUrl)"
+                    :src="img.preview || formatStorageUrl(img.url)"
+                    :preview-src-list="feedForm.images.map((i) => i.preview || formatStorageUrl(i.url))"
                     preview-teleported
                     fit="cover"
-                    style="width:68px;height:68px;border-radius:4px"
+                    style="width:86px;height:86px;border-radius:4px"
                   />
                   <span class="thumb-remove" @click="removeFeedImage(idx)">×</span>
                 </div>
+                <!-- 仿微信朋友圈：最后一个是 + 卡片，达到上限后不显示；仅选择文件，不立即上传 -->
+                <el-upload
+                  v-if="feedForm.images.length < 9"
+                  class="thumb-item upload-add-card"
+                  :show-file-list="false"
+                  accept="image/*"
+                  :auto-upload="false"
+                  :on-change="handleFeedFileChange"
+                >
+                  <div class="upload-add-inner">
+                    <span class="upload-add-icon">＋</span>
+                    <span class="upload-add-text">添加图片</span>
+                  </div>
+                </el-upload>
               </div>
-              <el-upload :show-file-list="false" accept="image/*" :http-request="handleFeedImageUpload">
-                <el-button type="primary" :loading="feedUploading">上传图片</el-button>
-              </el-upload>
             </div>
           </el-form-item>
           <el-form-item label="排序" prop="sort_order">
@@ -596,6 +611,7 @@ const feedForm = reactive({
   pond_id: null,
   title: '',
   content: '',
+  /** images: { url: string, file?: File, preview?: string, isNew?: boolean }[] */
   images: [],
   feed_time: '',
   sort_order: 0,
@@ -635,7 +651,8 @@ async function loadFeedList() {
   try {
     feedListLoading.value = true
     const res = await getPondFeedLogs(feedConfigPondId.value)
-    feedList.value = res.data?.data?.list || []
+    const data = res?.data ?? res
+    feedList.value = data?.list || []
   } catch (e) {
     console.error(e)
     ElMessage.error('加载放鱼记录失败')
@@ -654,7 +671,14 @@ function openFeedForm(row) {
     feedForm.pond_id = row.pond_id
     feedForm.title = row.title || ''
     feedForm.content = row.content || ''
-    feedForm.images = Array.isArray(row.images) ? [...row.images] : []
+    feedForm.images = Array.isArray(row.images)
+      ? row.images.map((u) => ({
+          url: u,
+          file: null,
+          preview: formatStorageUrl(u),
+          isNew: false,
+        }))
+      : []
     feedForm.feed_time = row.feed_time || ''
     feedForm.sort_order = row.sort_order ?? 0
   } else {
@@ -682,11 +706,32 @@ async function submitFeed() {
   await feedFormRef.value.validate()
   try {
     feedSubmitLoading.value = true
+    // 先把新增的本地文件统一上传，拿到线上 URL
+    for (const img of feedForm.images) {
+      if (img.isNew && img.file) {
+        try {
+          const res = await uploadImage(img.file)
+          const url = res?.data?.url ?? res?.url ?? ''
+          if (!url) {
+            throw new Error('empty url')
+          }
+          img.url = url
+          img.preview = formatStorageUrl(url)
+          img.isNew = false
+        } catch (e) {
+          console.error(e)
+          ElMessage.error('有图片上传失败，请稍后重试')
+          feedSubmitLoading.value = false
+          return
+        }
+      }
+    }
+
     const payload = {
       pond_id: feedForm.pond_id,
       title: feedForm.title,
       content: feedForm.content,
-      images: feedForm.images,
+      images: feedForm.images.map((img) => img.url).filter((u) => u),
       feed_time: feedForm.feed_time,
       sort_order: feedForm.sort_order,
     }
@@ -721,29 +766,24 @@ async function onDeleteFeed(row) {
   }
 }
 
-async function handleFeedImageUpload({ file }) {
-  try {
-    feedUploading.value = true
-    const res = await uploadImage(file)
-    const url = res.data?.data?.url || ''
-    if (!url) {
-      ElMessage.error('上传失败')
-      return
-    }
-    if (!Array.isArray(feedForm.images)) {
-      feedForm.images = []
-    }
-    feedForm.images.push(url)
-  } catch (e) {
-    console.error(e)
-    ElMessage.error('上传失败')
-  } finally {
-    feedUploading.value = false
-  }
+function handleFeedFileChange(uploadFile) {
+  const file = uploadFile.raw
+  if (!file) return
+  const preview = URL.createObjectURL(file)
+  feedForm.images.push({
+    url: '',
+    file,
+    preview,
+    isNew: true,
+  })
 }
 
 function removeFeedImage(idx) {
   if (!Array.isArray(feedForm.images)) return
+  const img = feedForm.images[idx]
+  if (img && img.preview && img.preview.startsWith('blob:')) {
+    URL.revokeObjectURL(img.preview)
+  }
   feedForm.images.splice(idx, 1)
 }
 

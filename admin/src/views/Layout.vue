@@ -58,6 +58,24 @@
             <template #title>订单管理</template>
           </el-menu-item>
         </el-sub-menu>
+        <el-sub-menu v-if="showBizMenu" index="biz">
+          <template #title>
+            <el-icon><Grid /></el-icon>
+            <span>经营管理</span>
+          </template>
+          <el-menu-item v-if="hasPermission('admin.biz.session.manage')" index="/sessions">
+            <el-icon><Document /></el-icon>
+            <template #title>开钓单</template>
+          </el-menu-item>
+          <el-menu-item v-if="hasPermission('admin.biz.return.manage')" index="/return-logs">
+            <el-icon><Document /></el-icon>
+            <template #title>回鱼流水</template>
+          </el-menu-item>
+          <el-menu-item v-if="hasPermission('admin.biz.trade.manage')" index="/fish-trades">
+            <el-icon><Document /></el-icon>
+            <template #title>卖鱼/收鱼流水</template>
+          </el-menu-item>
+        </el-sub-menu>
         <el-sub-menu v-if="showMiscMenu" index="misc">
           <template #title>
             <el-icon><Grid /></el-icon>
@@ -126,6 +144,12 @@ const showContentMenu = computed(
   () => hasPermission('admin.banner.manage') || hasPermission('admin.venue.manage') || hasPermission('admin.pond.manage')
 )
 const showTradeMenu = computed(() => hasPermission('admin.trade.order.manage'))
+const showBizMenu = computed(
+  () =>
+    hasPermission('admin.biz.session.manage') ||
+    hasPermission('admin.biz.return.manage') ||
+    hasPermission('admin.biz.trade.manage')
+)
 const showMiscMenu = computed(() => hasPermission('admin.config.manage'))
 
 /** 展开的子菜单（仅在有权限时包含，避免空菜单占位） */
@@ -134,6 +158,7 @@ const defaultOpeneds = computed(() => {
   if (showPermissionMenu.value) opens.push('permission')
   if (showContentMenu.value) opens.push('content')
   if (showTradeMenu.value) opens.push('trade')
+  if (showBizMenu.value) opens.push('biz')
   if (showMiscMenu.value) opens.push('misc')
   return opens
 })

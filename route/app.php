@@ -127,6 +127,19 @@ Route::group('api', function () {
             Route::put('pond-feed-logs/:id', 'Api.Admin.PondFeedLogController/update');
             Route::get('pond-feed-logs', 'Api.Admin.PondFeedLogController/list');
             Route::post('pond-feed-logs', 'Api.Admin.PondFeedLogController/create');
+            // sessions：开钓单（经营链路）
+            Route::get('sessions/:id', 'Api.Admin.FishingSessionController/detail');
+            Route::get('sessions', 'Api.Admin.FishingSessionController/list');
+            // pond-return-logs：回鱼流水（经营链路）
+            Route::delete('pond-return-logs/:id', 'Api.Admin.PondReturnLogController/delete');
+            Route::put('pond-return-logs/:id', 'Api.Admin.PondReturnLogController/update');
+            Route::get('pond-return-logs', 'Api.Admin.PondReturnLogController/list');
+            Route::post('pond-return-logs', 'Api.Admin.PondReturnLogController/create');
+            // fish-trade-logs：卖鱼/收鱼流水（经营链路）
+            Route::delete('fish-trade-logs/:id', 'Api.Admin.FishTradeLogController/delete');
+            Route::put('fish-trade-logs/:id', 'Api.Admin.FishTradeLogController/update');
+            Route::get('fish-trade-logs', 'Api.Admin.FishTradeLogController/list');
+            Route::post('fish-trade-logs', 'Api.Admin.FishTradeLogController/create');
             // orders：订单管理（只读）
             Route::get('orders', 'Api.Admin.FishingOrderController/list');
         })->middleware([\app\middleware\AdminAuth::class, \app\middleware\AdminPermission::class]);

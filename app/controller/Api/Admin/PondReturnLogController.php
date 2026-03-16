@@ -1,0 +1,152 @@
+<?php
+declare (strict_types = 1);
+
+namespace app\controller\Api\Admin;
+
+use app\BaseController;
+use app\model\FishingSession;
+use app\model\PondReturnLog;
+use think\response\Json;
+
+/**
+ * 回鱼流水（经营链路）：列表、添加、编辑、删除
+ */
+class PondReturnLogController extends BaseController
+{
+    use PondScopeTrait;
+
+    /**
+     * 列表 GET /api/admin/pond-return-logs
+     * 可选参数：
+     * - page, limit
+     * - session_id
+     * - pond_id
+     */
+    public function list(): Json
+    {
+        $allowed = $this->getAdminAllowedPondIds();
+        if ($allowed !== null && empty($allowed)) {
+            return json(['code' => 0, 'msg' => 'success', 'data' => ['list' => [], 'total' => 0]]);
+        }
+
+        $page = max((int) $this->request->get('page', 1), 1);
+        $limit = min(max((int) $this->request->get('limit', 10), 1), 100);
+        $sessionId = (int) $this->request->get('session_id', 0);
+        $pondId = (int) $this->request->get('pond_id', 0);
+
+        $query = PondReturnLog::order('id', 'desc');
+        if ($sessionId > 0) {
+            $query->where('session_id', $sessionId);
+        }
+        if ($pondId > 0) {
+            $query->where('pond_id', $pondId);
+        }
+        if ($allowed !== null) {
+            $query->whereIn('pond_id', $allowed);
+        }
+
+        $paginator = $query->paginate(['list_rows' => $limit, 'page' => $page]);
+        $list = array_map(static fn($r) => $r->toArray(), $paginator->items());
+
+        return json(['code' => 0, 'msg' => 'success', 'data' => ['list' => $list, 'total' => $paginator->total()]]);
+    }
+
+    /**
+     * 添加 POST /api/admin/pond-return-logs
+     * body: session_id, return_type, qty, unit_price, amount, return_rule_id?, remark?
+     */
+    public function create(): Json
+    {
+        $sessionId = (int) $this->request->post('session_id', 0);
+        $returnType = trim((string) $this->request->post('return_type', 'jin'));
+        $qty = (float) $this->request->post('qty', 0);
+        $unitPrice = (float) $this->request->post('unit_price', 0);
+        $amount = (float) $this->request->post('amount', 0);
+        $returnRuleId = $this->request->post('return_rule_id');
+        $remark = trim((string) $this->request->post('remark', ''));
+
+        if ($sessionId < 1) {
+            return json(['code' => 400, 'msg' => '请传入 session_id', 'data' => null]);
+        }
+        /** @var FishingSession|null $session */
+        $session = FishingSession::find($sessionId);
+        if (!$session) {
+            return json(['code' => 404, 'msg' => '开钓单不存在', 'data' => null]);
+        }
+        if (!$this->canAccessPond((int) $session->pond_id)) {
+            return json(['code' => 403, 'msg' => '无权限管理该池塘', 'data' => null]);
+        }
+        if (!in_array($returnType, ['jin', 'tiao'], true)) {
+            return json(['code' => 400, 'msg' => 'return_type 仅支持 jin/tiao', 'data' => null]);
+        }
+
+        $row = PondReturnLog::create([
+            'session_id'      => $sessionId,
+            'venue_id'        => (int) $session->venue_id,
+            'pond_id'         => (int) $session->pond_id,
+            'return_rule_id'  => $returnRuleId === '' || $returnRuleId === null ? null : (int) $returnRuleId,
+            'return_type'     => $returnType,
+            'qty'             => $qty,
+            'unit_price'      => $unitPrice,
+            'amount'          => $amount,
+            'remark'          => $remark,
+        ]);
+
+        return json(['code' => 0, 'msg' => '添加成功', 'data' => $row->toArray()]);
+    }
+
+    /**
+     * 编辑 PUT /api/admin/pond-return-logs/:id
+     */
+    public function update(int $id): Json
+    {
+        $row = PondReturnLog::find($id);
+        if (!$row) {
+            return json(['code' => 404, 'msg' => '回鱼流水不存在', 'data' => null]);
+        }
+        if (!$this->canAccessPond((int) $row->pond_id)) {
+            return json(['code' => 403, 'msg' => '无权限管理该池塘', 'data' => null]);
+        }
+
+        $returnType = $this->request->param('return_type');
+        $qty = $this->request->param('qty');
+        $unitPrice = $this->request->param('unit_price');
+        $amount = $this->request->param('amount');
+        $returnRuleId = $this->request->param('return_rule_id');
+        $remark = $this->request->param('remark');
+
+        if ($returnType !== null && $returnType !== '') {
+            if (!in_array($returnType, ['jin', 'tiao'], true)) {
+                return json(['code' => 400, 'msg' => 'return_type 仅支持 jin/tiao', 'data' => null]);
+            }
+            $row->return_type = $returnType;
+        }
+        if ($qty !== null) $row->qty = (float) $qty;
+        if ($unitPrice !== null) $row->unit_price = (float) $unitPrice;
+        if ($amount !== null) $row->amount = (float) $amount;
+        if ($returnRuleId !== null) {
+            $row->return_rule_id = $returnRuleId === '' ? null : (int) $returnRuleId;
+        }
+        if ($remark !== null) $row->remark = trim((string) $remark);
+
+        $row->save();
+        return json(['code' => 0, 'msg' => '更新成功', 'data' => $row->toArray()]);
+    }
+
+    /**
+     * 删除 DELETE /api/admin/pond-return-logs/:id
+     */
+    public function delete(int $id): Json
+    {
+        $row = PondReturnLog::find($id);
+        if (!$row) {
+            return json(['code' => 404, 'msg' => '回鱼流水不存在', 'data' => null]);
+        }
+        if (!$this->canAccessPond((int) $row->pond_id)) {
+            return json(['code' => 403, 'msg' => '无权限管理该池塘', 'data' => null]);
+        }
+        $row->delete();
+        return json(['code' => 0, 'msg' => '删除成功', 'data' => null]);
+    }
+}
+
