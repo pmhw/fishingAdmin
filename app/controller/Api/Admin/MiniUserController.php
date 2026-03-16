@@ -26,9 +26,9 @@ class MiniUserController extends BaseController
         if ($keyword !== '') {
             $like = '%' . $keyword . '%';
             $query->where(function ($q) use ($like) {
-                $q->whereLike('nickname', $like)
-                  ->whereOrLike('openid', $like)
-                  ->whereOrLike('mobile', $like);
+                $q->where('nickname', 'like', $like)
+                  ->whereOr('openid', 'like', $like)
+                  ->whereOr('mobile', 'like', $like);
             });
         }
 
