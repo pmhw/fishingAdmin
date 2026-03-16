@@ -416,8 +416,20 @@ async function submitCreate(env) {
     const needPay = data?.need_pay ?? 0
     const deducted = data?.balance_deduct ?? 0
     const miniQrUrl = data?.mini_qr_url || ''
+    const feeAmount = data?.fee_amount ?? null
+    const feeDeposit = data?.fee_deposit ?? null
+    const depositEffective = data?.deposit_effective ?? null
+    const depositWaived = !!data?.deposit_waived
 
-    ElMessage.success(`开钓订单创建成功。余额抵扣：${deducted} 元，待支付：${needPay} 元`)
+    let msg = `开钓订单创建成功。余额抵扣：${deducted} 元，待支付：${needPay} 元`
+    if (feeAmount != null && feeDeposit != null) {
+      msg += `\n钓费：${feeAmount} 元，押金：${feeDeposit} 元`
+    }
+    if (depositWaived) {
+      msg += `（会员免押金，本次实际收取押金 ${depositEffective ?? 0} 元）`
+    }
+
+    ElMessage.success(msg)
 
     // 弹出支付二维码对话框（如果生成成功）
     if (needPay > 0 && (miniQrUrl || miniPayPath)) {

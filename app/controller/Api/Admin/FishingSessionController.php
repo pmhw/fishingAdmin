@@ -207,8 +207,16 @@ class FishingSessionController extends BaseController
         }
 
         // 应收金额、押金：严格按收费规则计算（不允许自定义）
-        $amountFen = (int) round(((float) ($fee->amount ?? 0)) * 100);
-        $depositTotalFen = (int) round(((float) ($fee->deposit ?? 0)) * 100);
+        // 对于会员（is_vip=1 且勾选了 use_balance），押金可视为减免，仅收取钓费部分
+        $amountFen = (int) round(((float) ($fee->amount ?? 0)) * 100);       // 钓费
+        $depositRawFen = (int) round(((float) ($fee->deposit ?? 0)) * 100);  // 原始押金
+        $depositTotalFen = $depositRawFen;
+        $depositWaived = false;
+        if ((int) ($user->is_vip ?? 0) === 1 && $useBalance && $depositRawFen > 0) {
+            // 会员使用余额抵扣时，押金不再收取
+            $depositTotalFen = 0;
+            $depositWaived = true;
+        }
         $amountTotalFen = max(0, $amountFen + $depositTotalFen);
 
         // 自动到期时间：start_time + duration_value/unit
@@ -311,11 +319,17 @@ class FishingSessionController extends BaseController
         }
 
         $resp = [
-            'balance_deduct' => round($balanceDeductFen / 100, 2),
-            'need_pay'       => round($needPayFen / 100, 2),
-            'order'          => $order ? $order->toArray() : null,
-            'mini_pay_path'  => $miniPayPath,
-            'mini_qr_url'    => $miniQrUrl,
+            'balance_deduct'      => round($balanceDeductFen / 100, 2),
+            'need_pay'            => round($needPayFen / 100, 2),
+            'order'               => $order ? $order->toArray() : null,
+            'mini_pay_path'       => $miniPayPath,
+            'mini_qr_url'         => $miniQrUrl,
+            // 费用拆分信息，便于前端提示“会员免押金”等
+            'fee_amount'          => round($amountFen / 100, 2),          // 钓费
+            'fee_deposit'         => round($depositRawFen / 100, 2),      // 原始押金
+            'deposit_effective'   => round($depositTotalFen / 100, 2),    // 实际收取的押金（会员可能为 0）
+            'deposit_waived'      => $depositWaived,
+            'payable_total'       => round($amountTotalFen / 100, 2),     // 需要实际支付的总金额（钓费 + 实际押金）
         ];
 
         return json(['code' => 0, 'msg' => 'success', 'data' => $resp]);
