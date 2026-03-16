@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace app\controller\Api\Mini;
 
 use app\model\FishingPond;
+use app\model\FishingSession;
 use app\model\PondFeeRule;
 use app\model\PondSeat;
 use think\response\Json;
@@ -57,16 +58,25 @@ class PondController extends MiniBaseController
             ];
         }
 
-        // 钓位：id, name（如 "1 号"）, code
+        // 当前池塘下进行中开钓单占用的钓位 id 列表
+        $occupiedSeatIds = FishingSession::where('pond_id', $id)
+            ->where('status', 'ongoing')
+            ->whereNotNull('seat_id')
+            ->where('seat_id', '>', 0)
+            ->column('seat_id');
+        $occupiedSeatIds = array_flip(array_map('intval', $occupiedSeatIds));
+
+        // 钓位：id, name（如 "1 号"）, code, occupied（是否被占用）
         $seats = PondSeat::where('pond_id', $id)->order('seat_no', 'asc')->select();
         foreach ($seats as $row) {
             $name = $row->seat_no !== null && $row->seat_no !== ''
                 ? ($row->seat_no . ' 号')
                 : ((string) ($row->code ?? ''));
             $data['seats'][] = [
-                'id'   => (int) $row->id,
-                'name' => $name,
-                'code' => (string) ($row->code ?? ''),
+                'id'       => (int) $row->id,
+                'name'     => $name,
+                'code'     => (string) ($row->code ?? ''),
+                'occupied' => isset($occupiedSeatIds[(int) $row->id]),
             ];
         }
 
