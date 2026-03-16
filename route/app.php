@@ -142,6 +142,8 @@ Route::group('api', function () {
             Route::post('fish-trade-logs', 'Api.Admin.FishTradeLogController/create');
             // orders：订单管理（只读）
             Route::get('orders', 'Api.Admin.FishingOrderController/list');
+            // mini-users：小程序用户（用于后台搜索）
+            Route::get('mini-users', 'Api.Admin.MiniUserController/list');
         })->middleware([\app\middleware\AdminAuth::class, \app\middleware\AdminPermission::class]);
     });
 });

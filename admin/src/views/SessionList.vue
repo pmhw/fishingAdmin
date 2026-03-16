@@ -89,8 +89,24 @@
     >
       <div v-loading="createSubmitting" element-loading-text="提交中…">
         <el-form ref="createFormRef" :model="createForm" :rules="createRules" label-width="110px">
-          <el-form-item label="小程序用户ID" prop="mini_user_id">
-            <el-input v-model="createForm.mini_user_id" placeholder="mini_user.id（暂用纯数字）" />
+          <el-form-item label="小程序用户" prop="mini_user_id">
+            <el-select
+              v-model="createForm.mini_user_id"
+              filterable
+              remote
+              reserve-keyword
+              placeholder="搜索昵称 / openid / 手机号"
+              :remote-method="onSearchMiniUser"
+              :loading="searchingMiniUser"
+              style="width: 100%"
+            >
+              <el-option
+                v-for="u in miniUserOptions"
+                :key="u.id"
+                :label="formatMiniUserLabel(u)"
+                :value="String(u.id)"
+              />
+            </el-select>
           </el-form-item>
           <el-form-item label="钓场" prop="venue_id">
             <el-select v-model="createForm.venue_id" placeholder="请选择钓场" style="width:100%" @change="onCreateVenueChange">
@@ -145,6 +161,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getSessionList, createSession } from '@/api/session'
 import { getVenueOptions, getPondList, getPondSeats, getPondFeeRules } from '@/api/pond'
+import { searchMiniUsers } from '@/api/miniUser'
 
 const router = useRouter()
 const loading = ref(false)
@@ -174,7 +191,7 @@ const createForm = reactive({
   remark: '',
 })
 const createRules = {
-  mini_user_id: [{ required: true, message: '请输入小程序用户ID', trigger: 'blur' }],
+  mini_user_id: [{ required: true, message: '请选择小程序用户', trigger: 'change' }],
   venue_id: [{ required: true, message: '请选择钓场', trigger: 'change' }],
   pond_id: [{ required: true, message: '请选择池塘', trigger: 'change' }],
 }
@@ -183,6 +200,8 @@ const venueOptions = ref([])
 const pondOptions = ref([])
 const seatOptions = ref([])
 const feeRuleOptions = ref([])
+const miniUserOptions = ref([])
+const searchingMiniUser = ref(false)
 
 function statusLabel(status) {
   const map = { ongoing: '进行中', finished: '已结束', settled: '已结算', cancelled: '已取消' }
@@ -254,6 +273,7 @@ function resetCreateForm() {
   pondOptions.value = []
   seatOptions.value = []
   feeRuleOptions.value = []
+  miniUserOptions.value = []
 }
 
 async function loadVenues() {
@@ -342,6 +362,29 @@ onMounted(() => {
   fetchList()
   loadVenues()
 })
+
+function formatMiniUserLabel(u) {
+  const parts = []
+  if (u.nickname) parts.push(u.nickname)
+  if (u.mobile) parts.push(u.mobile)
+  if (u.openid) parts.push(u.openid.slice(0, 8) + '...')
+  return parts.join(' / ')
+}
+
+async function onSearchMiniUser(query) {
+  if (!query) {
+    miniUserOptions.value = []
+    return
+  }
+  searchingMiniUser.value = true
+  try {
+    const res = await searchMiniUsers({ keyword: query, limit: 20 })
+    const data = res?.data ?? res
+    miniUserOptions.value = data?.list ?? []
+  } finally {
+    searchingMiniUser.value = false
+  }
+}
 </script>
 
 <style scoped>

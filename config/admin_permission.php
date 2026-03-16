@@ -80,4 +80,7 @@ return [
     'POST:fish-trade-logs'   => 'admin.biz.trade.manage',
     'PUT:fish-trade-logs/'   => 'admin.biz.trade.manage',
     'DELETE:fish-trade-logs/' => 'admin.biz.trade.manage',
+
+    // ---------- 小程序用户查询（仅用于经营相关页面选择用户） ----------
+    'GET:mini-users'        => 'admin.biz.session.manage',
 ];
