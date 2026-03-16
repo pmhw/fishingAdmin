@@ -50,6 +50,15 @@ class OrderController extends MiniBaseController
         // 兼容字段名：amount（用于支付页展示）
         $arr['amount'] = $arr['need_pay_yuan'];
 
+        // 关联用户 openid（便于前端做额外校验或展示）
+        $orderUser = $order->user;
+        $orderOpenid = $orderUser ? (string) $orderUser->openid : null;
+        $arr['mini_user_openid'] = $orderOpenid;
+
+        // 与当前登录用户 openid 做比对，仅返回标记，不直接 403
+        $currentOpenid = (string) ($user->openid ?? '');
+        $arr['openid_match'] = ($orderOpenid !== null && $orderOpenid !== '' && $orderOpenid === $currentOpenid);
+
         return json([
             'code' => 0,
             'msg'  => 'success',

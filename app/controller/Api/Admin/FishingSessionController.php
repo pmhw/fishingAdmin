@@ -236,33 +236,58 @@ class FishingSessionController extends BaseController
             }
         }
 
-        // 此处不再直接创建开钓单，而是仅创建待支付订单，
-        // 真正的 fishing_session 在支付成功回调中生成（开单前必须先支付）。
+        // 生成订单：
+        // - 若 needPayFen > 0：创建待支付微信订单（amount_total = 需微信支付部分）；
+        // - 若 needPayFen == 0：说明已完全用余额抵扣，也生成一条余额订单供用户查看（amount_total = 应收总额，已支付）。
 
         $orderNo = 'O' . date('YmdHis') . mt_rand(1000, 9999);
-        $order = FishingOrder::create([
-            'order_no'     => $orderNo,
-            'mini_user_id' => $miniUserId,
-            'venue_id'     => $venueId,
-            'pond_id'      => $pondId,
-            'seat_id'      => $seatId ?: null,
-            'seat_no'      => $seatNo,
-            'seat_code'    => $seatCode,
-            'fee_rule_id'  => $feeRuleId,
-            'description'  => '开钓单预付款',
-            'amount_total' => $needPayFen,
-            'amount_paid'  => 0,
-            'status'       => 'pending',
-            'pay_channel'  => 'wx_mini',
-        ]);
+        if ($needPayFen > 0) {
+            $order = FishingOrder::create([
+                'order_no'     => $orderNo,
+                'mini_user_id' => $miniUserId,
+                'venue_id'     => $venueId,
+                'pond_id'      => $pondId,
+                'seat_id'      => $seatId ?: null,
+                'seat_no'      => $seatNo,
+                'seat_code'    => $seatCode,
+                'fee_rule_id'  => $feeRuleId,
+                'description'  => '开钓单预付款',
+                'amount_total' => $needPayFen,   // 仅记录需微信支付部分
+                'amount_paid'  => 0,
+                'status'       => 'pending',
+                'pay_channel'  => 'wx_mini',
+            ]);
+        } else {
+            // 全额由余额支付的订单：amount_total 记录应收总额，amount_paid 记录全部已支付金额
+            $order = FishingOrder::create([
+                'order_no'     => $orderNo,
+                'mini_user_id' => $miniUserId,
+                'venue_id'     => $venueId,
+                'pond_id'      => $pondId,
+                'seat_id'      => $seatId ?: null,
+                'seat_no'      => $seatNo,
+                'seat_code'    => $seatCode,
+                'fee_rule_id'  => $feeRuleId,
+                'description'  => '开钓单余额支付',
+                'amount_total' => $amountTotalFen,
+                'amount_paid'  => $amountTotalFen,
+                'status'       => 'paid',
+                'pay_channel'  => 'balance',
+            ]);
+        }
 
         $amountYuanNeed = round($needPayFen / 100, 2);
         $amountStr = number_format($amountYuanNeed, 2, '.', '');
-        $miniPayPath = '/pages/pay/index?order_no=' . $orderNo . '&amount=' . $amountStr;
+        $miniPayPath = $needPayFen > 0
+            ? '/pages/pay/index?order_no=' . $orderNo . '&amount=' . $amountStr
+            : null;
 
-        // 生成对应的小程序码二维码，便于收银扫码进入支付页（失败时返回 null，不影响主流程）
-        // 注意：scene 有 32 字节限制，这里只把 order_no 放入 scene，金额通过页面逻辑或订单接口获取
-        $miniQrUrl = $this->generateMiniProgramQr($orderNo, $qrEnv);
+        // 仅在存在需微信支付金额时生成小程序码二维码
+        $miniQrUrl = null;
+        if ($needPayFen > 0) {
+            // 注意：scene 有 32 字节限制，这里只把 order_no 放入 scene，金额通过页面逻辑或订单接口获取
+            $miniQrUrl = $this->generateMiniProgramQr($orderNo, $qrEnv);
+        }
 
         $resp = [
             'balance_deduct' => round($balanceDeductFen / 100, 2),
