@@ -4,6 +4,7 @@ declare (strict_types = 1);
 namespace app\middleware;
 
 use app\controller\Api\Mini\AuthController;
+use app\service\SessionExpireService;
 use Closure;
 use think\Request;
 use think\Response;
@@ -24,6 +25,8 @@ class MiniAuth
             return json(['code' => 401, 'msg' => '未登录或登录已过期', 'data' => null]);
         }
         $request->miniOpenid = $openid;
+        // 兜底：定时任务失效时，小程序请求顺带触发一次到期检查（节流）
+        SessionExpireService::tick();
         return $next($request);
     }
 }

@@ -123,8 +123,8 @@
               <el-option v-for="s in seatOptions" :key="s.id" :label="`#${s.seat_no} (${s.code || ''})`" :value="String(s.id)" />
             </el-select>
           </el-form-item>
-          <el-form-item label="收费规则">
-            <el-select v-model="createForm.fee_rule_id" placeholder="可选（正钓/偷驴）" style="width:100%">
+          <el-form-item label="收费规则" prop="fee_rule_id">
+            <el-select v-model="createForm.fee_rule_id" placeholder="请选择（正钓/偷驴）" style="width:100%">
               <el-option
                 v-for="f in feeRuleOptions"
                 :key="f.id"
@@ -132,12 +132,6 @@
                 :value="String(f.id)"
               />
             </el-select>
-          </el-form-item>
-          <el-form-item label="应收金额(元)">
-            <el-input v-model="createForm.amount_total" placeholder="留空则按收费规则金额" />
-          </el-form-item>
-          <el-form-item label="押金(元)">
-            <el-input v-model="createForm.deposit_total" placeholder="可选" />
           </el-form-item>
           <el-form-item label="会员余额抵扣">
             <el-switch v-model="createForm.use_balance" />
@@ -185,8 +179,6 @@ const createForm = reactive({
   pond_id: '',
   seat_id: '',
   fee_rule_id: '',
-  amount_total: '',
-  deposit_total: '',
   use_balance: true,
   remark: '',
 })
@@ -194,6 +186,7 @@ const createRules = {
   mini_user_id: [{ required: true, message: '请选择小程序用户', trigger: 'change' }],
   venue_id: [{ required: true, message: '请选择钓场', trigger: 'change' }],
   pond_id: [{ required: true, message: '请选择池塘', trigger: 'change' }],
+  fee_rule_id: [{ required: true, message: '请选择收费规则', trigger: 'change' }],
 }
 
 const venueOptions = ref([])

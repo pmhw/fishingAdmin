@@ -130,6 +130,7 @@ Route::group('api', function () {
             // sessions：开钓单（经营链路）
             Route::get('sessions/:id', 'Api.Admin.FishingSessionController/detail');
             Route::get('sessions', 'Api.Admin.FishingSessionController/list');
+            Route::post('sessions', 'Api.Admin.FishingSessionController/create');
             // pond-return-logs：回鱼流水（经营链路）
             Route::delete('pond-return-logs/:id', 'Api.Admin.PondReturnLogController/delete');
             Route::put('pond-return-logs/:id', 'Api.Admin.PondReturnLogController/update');

@@ -4,6 +4,7 @@ declare (strict_types = 1);
 namespace app\middleware;
 
 use app\controller\Api\Admin\Auth;
+use app\service\SessionExpireService;
 use Closure;
 use think\Request;
 use think\Response;
@@ -24,6 +25,8 @@ class AdminAuth
             return json(['code' => 401, 'msg' => '未登录或登录已过期', 'data' => null]);
         }
         $request->adminId = $adminId;
+        // 兜底：定时任务失效时，后台请求顺带触发一次到期检查（节流）
+        SessionExpireService::tick();
         return $next($request);
     }
 }

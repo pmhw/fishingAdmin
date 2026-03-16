@@ -130,7 +130,7 @@ class FishingSessionController extends BaseController
 
     /**
      * 手动开钓单：POST /api/admin/sessions
-     * body: mini_user_id, venue_id, pond_id, seat_id?, fee_rule_id?, amount_total?(元), deposit_total?(元), use_balance?, remark?
+     * body: mini_user_id, venue_id, pond_id, seat_id?, fee_rule_id, use_balance?, remark?
      */
     public function create(): Json
     {
@@ -139,8 +139,6 @@ class FishingSessionController extends BaseController
         $pondId     = (int) $this->request->post('pond_id', 0);
         $seatId     = (int) $this->request->post('seat_id', 0);
         $feeRuleId  = (int) $this->request->post('fee_rule_id', 0);
-        $amountYuan = $this->request->post('amount_total');
-        $depositYuan = $this->request->post('deposit_total');
         $useBalance = (bool) $this->request->post('use_balance', false);
         $remark     = trim((string) $this->request->post('remark', ''));
 
@@ -179,22 +177,47 @@ class FishingSessionController extends BaseController
             }
             $seatNo = (int) $seat->seat_no;
             $seatCode = (string) $seat->code;
-        }
 
-        // 计算应收金额（分）
-        $amountTotalFen = 0;
-        if ($amountYuan !== null && $amountYuan !== '') {
-            $amountTotalFen = (int) round(((float) $amountYuan) * 100);
-        } elseif ($feeRuleId > 0) {
-            /** @var PondFeeRule|null $fee */
-            $fee = PondFeeRule::find($feeRuleId);
-            if ($fee && (int) $fee->amount > 0) {
-                $amountTotalFen = (int) round(((float) $fee->amount) * 100);
+            // 校验该钓位是否已有未结束的开钓单，避免重复绑定
+            $exists = FishingSession::where('seat_id', $seatId)
+                ->where('status', 'ongoing')
+                ->find();
+            if ($exists) {
+                return json([
+                    'code' => 400,
+                    'msg'  => '该钓位当前已有开钓单，不能重复绑定，请先结束或取消原开钓单',
+                    'data' => null,
+                ]);
             }
         }
-        $depositTotalFen = 0;
-        if ($depositYuan !== null && $depositYuan !== '') {
-            $depositTotalFen = (int) round(((float) $depositYuan) * 100);
+
+        if ($feeRuleId < 1) {
+            return json(['code' => 400, 'msg' => '请选择收费规则（正钓/偷驴）', 'data' => null]);
+        }
+
+        /** @var PondFeeRule|null $fee */
+        $fee = PondFeeRule::find($feeRuleId);
+        if (!$fee) {
+            return json(['code' => 404, 'msg' => '收费规则不存在', 'data' => null]);
+        }
+        if ((int) $fee->pond_id !== $pondId) {
+            return json(['code' => 400, 'msg' => '收费规则不属于当前池塘', 'data' => null]);
+        }
+
+        // 应收金额、押金：严格按收费规则计算（不允许自定义）
+        $amountFen = (int) round(((float) ($fee->amount ?? 0)) * 100);
+        $depositTotalFen = (int) round(((float) ($fee->deposit ?? 0)) * 100);
+        $amountTotalFen = max(0, $amountFen + $depositTotalFen);
+
+        // 自动到期时间：start_time + duration_value/unit
+        $expireTime = null;
+        $val = $fee->duration_value !== null ? (float) $fee->duration_value : 0;
+        $unit = (string) ($fee->duration_unit ?? '');
+        if ($val > 0 && ($unit === 'hour' || $unit === 'day')) {
+            $seconds = $unit === 'day' ? (int) round($val * 86400) : (int) round($val * 3600);
+            if ($seconds > 0) {
+                $expireTime = date('Y-m-d H:i:s', time() + $seconds);
+            }
         }
 
         // 会员余额抵扣
@@ -223,9 +246,10 @@ class FishingSessionController extends BaseController
             'seat_id'      => $seatId ?: null,
             'seat_no'      => $seatNo,
             'seat_code'    => $seatCode,
-            'fee_rule_id'  => $feeRuleId ?: null,
+            'fee_rule_id'  => $feeRuleId,
             'order_id'     => null,
             'start_time'   => date('Y-m-d H:i:s'),
+            'expire_time'  => $expireTime,
             'status'       => 'ongoing',
             'amount_total' => $amountTotalFen,
             'amount_paid'  => $balanceDeductFen,
@@ -247,7 +271,7 @@ class FishingSessionController extends BaseController
                 'seat_id'      => $seatId ?: null,
                 'seat_no'      => $seatNo,
                 'seat_code'    => $seatCode,
-                'fee_rule_id'  => $feeRuleId ?: null,
+                'fee_rule_id'  => $feeRuleId,
                 'description'  => '开钓单 ' . $sessionNo,
                 'amount_total' => $needPayFen,
                 'amount_paid'  => 0,
