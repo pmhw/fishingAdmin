@@ -234,12 +234,12 @@ class FishingSessionController extends BaseController
             }
         }
 
-        // 生成 session_no
-        $sessionNo = 'S' . date('YmdHis') . mt_rand(1000, 9999);
+        // 此处不再直接创建开钓单，而是仅创建待支付订单，
+        // 真正的 fishing_session 在支付成功回调中生成（开单前必须先支付）。
 
-        /** @var FishingSession $session */
-        $session = FishingSession::create([
-            'session_no'   => $sessionNo,
+        $orderNo = 'O' . date('YmdHis') . mt_rand(1000, 9999);
+        $order = FishingOrder::create([
+            'order_no'     => $orderNo,
             'mini_user_id' => $miniUserId,
             'venue_id'     => $venueId,
             'pond_id'      => $pondId,
@@ -247,57 +247,21 @@ class FishingSessionController extends BaseController
             'seat_no'      => $seatNo,
             'seat_code'    => $seatCode,
             'fee_rule_id'  => $feeRuleId,
-            'order_id'     => null,
-            'start_time'   => date('Y-m-d H:i:s'),
-            'expire_time'  => $expireTime,
-            'status'       => 'ongoing',
-            'amount_total' => $amountTotalFen,
-            'amount_paid'  => $balanceDeductFen,
-            'deposit_total'=> $depositTotalFen,
-            'remark'       => $remark,
+            'description'  => '开钓单预付款',
+            'amount_total' => $needPayFen,
+            'amount_paid'  => 0,
+            'status'       => 'pending',
+            'pay_channel'  => 'wx_mini',
         ]);
 
-        $order = null;
-        $miniPayPath = null;
-
-        if ($needPayFen > 0) {
-            // 创建订单（只记录金额和关联，具体支付仍走小程序 jsapi 接口）
-            $orderNo = 'O' . date('YmdHis') . mt_rand(1000, 9999);
-            $order = FishingOrder::create([
-                'order_no'     => $orderNo,
-                'mini_user_id' => $miniUserId,
-                'venue_id'     => $venueId,
-                'pond_id'      => $pondId,
-                'seat_id'      => $seatId ?: null,
-                'seat_no'      => $seatNo,
-                'seat_code'    => $seatCode,
-                'fee_rule_id'  => $feeRuleId,
-                'description'  => '开钓单 ' . $sessionNo,
-                'amount_total' => $needPayFen,
-                'amount_paid'  => 0,
-                'status'       => 'pending',
-                'pay_channel'  => 'wx_mini',
-            ]);
-            // 反写 session.order_id
-            $session->order_id = $order->id;
-            $session->save();
-
-            $amountYuanNeed = round($needPayFen / 100, 2);
-            // 小程序端支付页路由约定
-            $miniPayPath = '/pages/pay/index?session_id=' . $session->id . '&order_no=' . $orderNo . '&amount=' . $amountYuanNeed;
-        }
-
-        $sessionArr = $session->toArray();
-        $sessionArr['amount_total_yuan'] = round($amountTotalFen / 100, 2);
-        $sessionArr['amount_paid_yuan'] = round($sessionArr['amount_paid'] / 100, 2);
-        $sessionArr['deposit_total_yuan'] = round($depositTotalFen / 100, 2);
+        $amountYuanNeed = round($needPayFen / 100, 2);
+        $miniPayPath = '/pages/pay/index?order_no=' . $orderNo . '&amount=' . $amountYuanNeed;
 
         $resp = [
-            'session'           => $sessionArr,
-            'balance_deduct'    => round($balanceDeductFen / 100, 2),
-            'need_pay'          => round($needPayFen / 100, 2),
-            'order'             => $order ? $order->toArray() : null,
-            'mini_pay_path'     => $miniPayPath,
+            'balance_deduct' => round($balanceDeductFen / 100, 2),
+            'need_pay'       => round($needPayFen / 100, 2),
+            'order'          => $order ? $order->toArray() : null,
+            'mini_pay_path'  => $miniPayPath,
         ];
 
         return json(['code' => 0, 'msg' => 'success', 'data' => $resp]);

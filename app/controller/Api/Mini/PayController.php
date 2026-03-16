@@ -4,6 +4,9 @@ declare (strict_types = 1);
 namespace app\controller\Api\Mini;
 
 use app\model\FishingOrder;
+use app\model\FishingSession;
+use app\model\FishingPond;
+use app\model\PondSeat;
 use app\model\MiniUser;
 use app\model\PondFeeRule;
 use app\model\SystemConfig;
@@ -309,6 +312,13 @@ class PayController extends MiniBaseController
             'raw_notify'    => json_encode($data, JSON_UNESCAPED_UNICODE),
         ]);
 
+        // 若该订单用于开钓单预付款，则在支付成功后创建 fishing_session（开单前必须先支付）
+        try {
+            $this->createSessionAfterPaid($order);
+        } catch (\Throwable $e) {
+            // 业务异常不影响向微信返回 SUCCESS，避免重复回调
+        }
+
         return $this->notifyResponse('SUCCESS', 'OK');
     }
 
@@ -399,6 +409,124 @@ class PayController extends MiniBaseController
         ];
         $xml = $this->arrayToXml($data);
         return response($xml, 200, ['Content-Type' => 'text/xml']);
+    }
+
+    /**
+     * 根据已支付订单创建开钓单 session（仅针对“开钓单预付款”类型订单）
+     *
+     * @param FishingOrder $order
+     */
+    private function createSessionAfterPaid(FishingOrder $order): void
+    {
+        // 仅对描述中包含“开钓单预付款”的订单处理，避免影响其他业务订单
+        $desc = (string) ($order->description ?? '');
+        if ($desc === '' || mb_strpos($desc, '开钓单预付款') === false) {
+            return;
+        }
+
+        $miniUserId = (int) ($order->mini_user_id ?? 0);
+        $venueId    = (int) ($order->venue_id ?? 0);
+        $pondId     = (int) ($order->pond_id ?? 0);
+        $seatId     = (int) ($order->seat_id ?? 0);
+        $seatNo     = (int) ($order->seat_no ?? 0);
+        $seatCode   = (string) ($order->seat_code ?? '');
+        $feeRuleId  = (int) ($order->fee_rule_id ?? 0);
+
+        if ($miniUserId < 1 || $venueId < 1 || $pondId < 1 || $feeRuleId < 1) {
+            return;
+        }
+
+        // 校验池塘、钓位、收费规则是否存在且关联正确
+        /** @var FishingPond|null $pond */
+        $pond = FishingPond::find($pondId);
+        if (!$pond) {
+            return;
+        }
+        if ((int) $pond->venue_id !== $venueId) {
+            return;
+        }
+
+        $seatNoVal = $seatNo > 0 ? $seatNo : null;
+        $seatCodeVal = $seatCode !== '' ? $seatCode : null;
+        if ($seatId > 0) {
+            /** @var PondSeat|null $seat */
+            $seat = PondSeat::find($seatId);
+            if (!$seat) {
+                return;
+            }
+            if ((int) $seat->pond_id !== $pondId) {
+                return;
+            }
+            $seatNoVal = (int) $seat->seat_no;
+            $seatCodeVal = (string) $seat->code;
+
+            // 再次校验该钓位是否已有未结束的开钓单，避免重复占用
+            $exists = FishingSession::where('seat_id', $seatId)
+                ->where('status', 'ongoing')
+                ->find();
+            if ($exists) {
+                return;
+            }
+        }
+
+        /** @var PondFeeRule|null $fee */
+        $fee = PondFeeRule::find($feeRuleId);
+        if (!$fee || (int) $fee->pond_id !== $pondId) {
+            return;
+        }
+
+        // 计算应收金额（规则金额 + 押金）
+        $amountFen = (int) round(((float) ($fee->amount ?? 0)) * 100);
+        $depositFen = (int) round(((float) ($fee->deposit ?? 0)) * 100);
+        $amountTotalFen = max(0, $amountFen + $depositFen);
+
+        // 订单金额为需支付部分，余额抵扣 = 应收 - 需付（如为会员并使用余额）
+        $needPayFen = (int) ($order->amount_total ?? 0);
+        $balanceDeductFen = max(0, $amountTotalFen - $needPayFen);
+        $amountPaidFen = $needPayFen + $balanceDeductFen;
+
+        // 自动到期时间
+        $expireTime = null;
+        $val = $fee->duration_value !== null ? (float) $fee->duration_value : 0;
+        $unit = (string) ($fee->duration_unit ?? '');
+        if ($val > 0 && ($unit === 'hour' || $unit === 'day')) {
+            $seconds = $unit === 'day' ? (int) round($val * 86400) : (int) round($val * 3600);
+            if ($seconds > 0) {
+                $expireTime = date('Y-m-d H:i:s', time() + $seconds);
+            }
+        }
+
+        // 幂等：避免重复为同一订单创建多个 session（如果 order 表有 session_id，可在此判断）
+
+        $sessionNo = 'S' . date('YmdHis') . mt_rand(1000, 9999);
+        $session = FishingSession::create([
+            'session_no'   => $sessionNo,
+            'mini_user_id' => $miniUserId,
+            'venue_id'     => $venueId,
+            'pond_id'      => $pondId,
+            'seat_id'      => $seatId ?: null,
+            'seat_no'      => $seatNoVal,
+            'seat_code'    => $seatCodeVal,
+            'fee_rule_id'  => $feeRuleId,
+            'order_id'     => $order->id,
+            'start_time'   => date('Y-m-d H:i:s'),
+            'expire_time'  => $expireTime,
+            'status'       => 'ongoing',
+            'amount_total' => $amountTotalFen,
+            'amount_paid'  => $amountPaidFen,
+            'deposit_total'=> $depositFen,
+            'remark'       => '支付成功自动开钓单',
+        ]);
+
+        // 如表结构支持，可反写 session_id 到订单，方便关联（此处仅在字段存在时设置）
+        try {
+            if ($order->hasField('session_id')) {
+                $order->session_id = $session->id;
+                $order->save();
+            }
+        } catch (\Throwable $e) {
+            // 忽略该错误
+        }
     }
 }
 
