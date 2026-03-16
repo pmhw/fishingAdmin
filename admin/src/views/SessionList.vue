@@ -259,8 +259,6 @@ function resetCreateForm() {
   createForm.pond_id = ''
   createForm.seat_id = ''
   createForm.fee_rule_id = ''
-  createForm.amount_total = ''
-  createForm.deposit_total = ''
   createForm.use_balance = true
   createForm.remark = ''
   pondOptions.value = []
@@ -326,9 +324,7 @@ async function submitCreate() {
       venue_id: Number(createForm.venue_id),
       pond_id: Number(createForm.pond_id),
       seat_id: createForm.seat_id ? Number(createForm.seat_id) : undefined,
-      fee_rule_id: createForm.fee_rule_id ? Number(createForm.fee_rule_id) : undefined,
-      amount_total: createForm.amount_total || undefined,
-      deposit_total: createForm.deposit_total || undefined,
+      fee_rule_id: Number(createForm.fee_rule_id),
       use_balance: createForm.use_balance,
       remark: createForm.remark || '',
     }
