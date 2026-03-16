@@ -257,10 +257,11 @@ class FishingSessionController extends BaseController
         ]);
 
         $amountYuanNeed = round($needPayFen / 100, 2);
-        $miniPayPath = '/pages/pay/index?order_no=' . $orderNo . '&amount=' . $amountYuanNeed;
+        $amountStr = number_format($amountYuanNeed, 2, '.', '');
+        $miniPayPath = '/pages/pay/index?order_no=' . $orderNo . '&amount=' . $amountStr;
 
         // 生成对应的小程序码二维码，便于收银扫码进入支付页（失败时返回 null，不影响主流程）
-        $miniQrUrl = $this->generateMiniProgramQr($orderNo, $qrEnv);
+        $miniQrUrl = $this->generateMiniProgramQr($orderNo, $amountStr, $qrEnv);
 
         $resp = [
             'balance_deduct' => round($balanceDeductFen / 100, 2),
@@ -330,10 +331,11 @@ class FishingSessionController extends BaseController
      * 使用小程序接口 getwxacodeunlimit，page 固定为 pages/pay/index，scene 携带订单号
      *
      * @param string $orderNo
-     * @param string $envVersion trial|release
+     * @param string $amountYuan   金额字符串，如 "68.00"
+     * @param string $envVersion   trial|release
      * @return string|null 返回二维码图片的相对访问路径（例如 /storage/mini_qr/202603/01/xxxx.png）
      */
-    private function generateMiniProgramQr(string $orderNo, string $envVersion = 'trial'): ?string
+    private function generateMiniProgramQr(string $orderNo, string $amountYuan, string $envVersion = 'trial'): ?string
     {
         $miniConfig = config('wechat_mini');
         $appId  = (string) ($miniConfig['appid'] ?? '');
@@ -370,8 +372,11 @@ class FishingSessionController extends BaseController
 
         // 构造小程序码参数
         $page = 'pages/pay/index';
-        // scene 长度限制 32，只携带订单号足够
-        $scene = 'o_' . $orderNo;
+        // scene 长度限制 32，将 order_no 和 amount 一起编码进去，便于小程序端还原
+        $scene = http_build_query([
+            'order_no' => $orderNo,
+            'amount'   => $amountYuan,
+        ]);
 
         // env_version：trial（测试版）或 release（正式版），默认为 trial
         $env = $envVersion === 'release' ? 'release' : 'trial';
