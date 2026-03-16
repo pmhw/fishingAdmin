@@ -70,6 +70,8 @@ return [
     'GET:sessions'         => 'admin.biz.session.manage',
     'GET:sessions/'        => 'admin.biz.session.manage',
     'POST:sessions'        => 'admin.biz.session.manage',
+    'PUT:sessions/finish'  => 'admin.biz.session.manage',
+    'PUT:sessions/cancel'  => 'admin.biz.session.manage',
     'GET:pond-return-logs'    => 'admin.biz.return.manage',
     'GET:pond-return-logs/'   => 'admin.biz.return.manage',
     'POST:pond-return-logs'   => 'admin.biz.return.manage',

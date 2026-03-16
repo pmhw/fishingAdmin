@@ -12,4 +12,12 @@ export function createSession(data) {
   return request.post('/api/admin/sessions', data)
 }
 
+export function finishSession(id) {
+  return request.put(`/api/admin/sessions/${id}/finish`)
+}
+
+export function cancelSession(id) {
+  return request.put(`/api/admin/sessions/${id}/cancel`)
+}
+
 

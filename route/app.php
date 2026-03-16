@@ -131,6 +131,8 @@ Route::group('api', function () {
             Route::get('sessions/:id', 'Api.Admin.FishingSessionController/detail');
             Route::get('sessions', 'Api.Admin.FishingSessionController/list');
             Route::post('sessions', 'Api.Admin.FishingSessionController/create');
+            Route::put('sessions/:id/finish', 'Api.Admin.FishingSessionController/finish');
+            Route::put('sessions/:id/cancel', 'Api.Admin.FishingSessionController/cancel');
             // pond-return-logs：回鱼流水（经营链路）
             Route::delete('pond-return-logs/:id', 'Api.Admin.PondReturnLogController/delete');
             Route::put('pond-return-logs/:id', 'Api.Admin.PondReturnLogController/update');

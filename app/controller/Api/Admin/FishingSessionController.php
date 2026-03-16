@@ -266,5 +266,57 @@ class FishingSessionController extends BaseController
 
         return json(['code' => 0, 'msg' => 'success', 'data' => $resp]);
     }
+
+    /**
+     * 管理端手动结束开钓单（设为 finished 并写入 end_time）
+     * PUT /api/admin/sessions/:id/finish
+     */
+    public function finish(int $id): Json
+    {
+        /** @var FishingSession|null $session */
+        $session = FishingSession::find($id);
+        if (!$session) {
+            return json(['code' => 404, 'msg' => '开钓单不存在', 'data' => null]);
+        }
+        if (!$this->canAccessPond((int) $session->pond_id)) {
+            return json(['code' => 403, 'msg' => '无权限操作该池塘开钓单', 'data' => null]);
+        }
+        if ($session->status !== 'ongoing') {
+            return json(['code' => 400, 'msg' => '仅进行中的开钓单可结束', 'data' => null]);
+        }
+
+        $now = date('Y-m-d H:i:s');
+        $session->status = 'finished';
+        $session->end_time = $now;
+        $session->save();
+
+        return json(['code' => 0, 'msg' => '开钓单已结束', 'data' => $session->toArray()]);
+    }
+
+    /**
+     * 管理端手动取消开钓单（设为 cancelled 并写入 end_time）
+     * PUT /api/admin/sessions/:id/cancel
+     */
+    public function cancel(int $id): Json
+    {
+        /** @var FishingSession|null $session */
+        $session = FishingSession::find($id);
+        if (!$session) {
+            return json(['code' => 404, 'msg' => '开钓单不存在', 'data' => null]);
+        }
+        if (!$this->canAccessPond((int) $session->pond_id)) {
+            return json(['code' => 403, 'msg' => '无权限操作该池塘开钓单', 'data' => null]);
+        }
+        if ($session->status !== 'ongoing') {
+            return json(['code' => 400, 'msg' => '仅进行中的开钓单可取消', 'data' => null]);
+        }
+
+        $now = date('Y-m-d H:i:s');
+        $session->status = 'cancelled';
+        $session->end_time = $now;
+        $session->save();
+
+        return json(['code' => 0, 'msg' => '开钓单已取消', 'data' => $session->toArray()]);
+    }
 }
 

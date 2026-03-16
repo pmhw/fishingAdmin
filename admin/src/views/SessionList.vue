@@ -59,10 +59,22 @@
         </el-table-column>
         <el-table-column prop="start_time" label="开始时间" width="170" />
         <el-table-column prop="end_time" label="结束时间" width="170" />
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="260" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="goReturnLogs(row)">回鱼流水</el-button>
             <el-button link type="primary" @click="goFishTrades(row)">卖鱼流水</el-button>
+            <el-button
+              v-if="row.status === 'ongoing'"
+              link
+              type="danger"
+              @click="finishSessionRow(row)"
+            >结束</el-button>
+            <el-button
+              v-if="row.status === 'ongoing'"
+              link
+              type="warning"
+              @click="cancelSessionRow(row)"
+            >取消</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -152,8 +164,8 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import { getSessionList, createSession } from '@/api/session'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { getSessionList, createSession, finishSession, cancelSession } from '@/api/session'
 import { getVenueOptions, getPondList, getPondSeats, getPondFeeRules } from '@/api/pond'
 import { searchMiniUsers } from '@/api/miniUser'
 
@@ -243,6 +255,40 @@ function goReturnLogs(row) {
 
 function goFishTrades(row) {
   router.push({ path: '/fish-trades', query: { session_id: row.id, pond_id: row.pond_id || '' } })
+}
+
+async function finishSessionRow(row) {
+  try {
+    await ElMessageBox.confirm(`确认结束开钓单「${row.session_no}」吗？`, '提示', {
+      type: 'warning',
+    })
+  } catch {
+    return
+  }
+  try {
+    await finishSession(row.id)
+    ElMessage.success('开钓单已结束')
+    fetchList()
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+async function cancelSessionRow(row) {
+  try {
+    await ElMessageBox.confirm(`确认取消开钓单「${row.session_no}」吗？`, '提示', {
+      type: 'warning',
+    })
+  } catch {
+    return
+  }
+  try {
+    await cancelSession(row.id)
+    ElMessage.success('开钓单已取消')
+    fetchList()
+  } catch (e) {
+    console.error(e)
+  }
 }
 
 function openCreateDialog() {
