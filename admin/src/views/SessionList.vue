@@ -148,6 +148,12 @@
           <el-form-item label="会员余额抵扣">
             <el-switch v-model="createForm.use_balance" />
           </el-form-item>
+          <el-form-item label="二维码环境">
+            <el-radio-group v-model="createForm.qr_env">
+              <el-radio-button label="trial">测试版</el-radio-button>
+              <el-radio-button label="release">正式版</el-radio-button>
+            </el-radio-group>
+          </el-form-item>
           <el-form-item label="备注">
             <el-input v-model="createForm.remark" type="textarea" :rows="2" placeholder="选填" />
           </el-form-item>
@@ -214,6 +220,7 @@ const createForm = reactive({
   seat_id: '',
   fee_rule_id: '',
   use_balance: true,
+  qr_env: 'trial',
   remark: '',
 })
 const createRules = {
@@ -394,6 +401,7 @@ async function submitCreate() {
       seat_id: createForm.seat_id ? Number(createForm.seat_id) : undefined,
       fee_rule_id: Number(createForm.fee_rule_id),
       use_balance: createForm.use_balance,
+      qr_env: createForm.qr_env || 'trial',
       remark: createForm.remark || '',
     }
     const res = await createSession(payload)

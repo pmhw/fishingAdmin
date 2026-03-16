@@ -141,6 +141,7 @@ class FishingSessionController extends BaseController
         $seatId     = (int) $this->request->post('seat_id', 0);
         $feeRuleId  = (int) $this->request->post('fee_rule_id', 0);
         $useBalance = (bool) $this->request->post('use_balance', false);
+        $qrEnv      = (string) $this->request->post('qr_env', 'trial'); // trial 或 release
         $remark     = trim((string) $this->request->post('remark', ''));
 
         if ($miniUserId < 1) {
@@ -259,7 +260,7 @@ class FishingSessionController extends BaseController
         $miniPayPath = '/pages/pay/index?order_no=' . $orderNo . '&amount=' . $amountYuanNeed;
 
         // 生成对应的小程序码二维码，便于收银扫码进入支付页（失败时返回 null，不影响主流程）
-        $miniQrUrl = $this->generateMiniProgramQr($orderNo);
+        $miniQrUrl = $this->generateMiniProgramQr($orderNo, $qrEnv);
 
         $resp = [
             'balance_deduct' => round($balanceDeductFen / 100, 2),
@@ -329,9 +330,10 @@ class FishingSessionController extends BaseController
      * 使用小程序接口 getwxacodeunlimit，page 固定为 pages/pay/index，scene 携带订单号
      *
      * @param string $orderNo
+     * @param string $envVersion trial|release
      * @return string|null 返回二维码图片的相对访问路径（例如 /storage/mini_qr/202603/01/xxxx.png）
      */
-    private function generateMiniProgramQr(string $orderNo): ?string
+    private function generateMiniProgramQr(string $orderNo, string $envVersion = 'trial'): ?string
     {
         $miniConfig = config('wechat_mini');
         $appId  = (string) ($miniConfig['appid'] ?? '');
@@ -371,11 +373,13 @@ class FishingSessionController extends BaseController
         // scene 长度限制 32，只携带订单号足够
         $scene = 'o_' . $orderNo;
 
+        // env_version：trial（测试版）或 release（正式版），默认为 trial
+        $env = $envVersion === 'release' ? 'release' : 'trial';
         $postData = json_encode([
             'page'        => $page,
             'scene'       => $scene,
             'check_path'  => false,
-            'env_version' => 'release',
+            'env_version' => $env,
         ], JSON_UNESCAPED_UNICODE);
 
         $qrUrl = 'https://api.weixin.qq.com/wxa/getwxacodeunlimit?access_token=' . urlencode($accessToken);
