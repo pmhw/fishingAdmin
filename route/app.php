@@ -41,6 +41,8 @@ Route::group('api', function () {
     Route::get('mini/venues/:id/spot', 'Api.Mini.VenueController/spot');
     Route::get('mini/venues/:id', 'Api.Mini.VenueController/detail');
     Route::get('mini/venues', 'Api.Mini.VenueController/list');
+    // 池塘详情（收费规则 + 钓位，用于开卡页）
+    Route::get('mini/ponds/:id', 'Api.Mini.PondController/detail');
     // 位置上报（用于解析城市等）
     Route::post('mini/location/report', 'Api.Mini.LocationController/report');
     // 支付：下单需登录，回调不需登录
@@ -56,6 +58,8 @@ Route::group('api', function () {
     Route::post('mini/user/profile', 'Api.Mini.UserController/profile')->middleware(\app\middleware\MiniAuth::class);
     // 小程序订单查询（支付页用）
     Route::get('mini/orders/:order_no', 'Api.Mini.OrderController/show')->middleware(\app\middleware\MiniAuth::class);
+    // 小程序端开钓单（开卡）
+    Route::post('mini/sessions', 'Api.Mini.SessionController/create')->middleware(\app\middleware\MiniAuth::class);
 
     // ========== 后台管理 ==========
     Route::group('admin', function () {
