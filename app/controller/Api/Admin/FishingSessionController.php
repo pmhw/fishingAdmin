@@ -237,8 +237,8 @@ class FishingSessionController extends BaseController
         }
 
         // 生成订单：
-        // - 若 needPayFen > 0：创建待支付微信订单（amount_total = 需微信支付部分）；
-        // - 若 needPayFen == 0：说明已完全用余额抵扣，也生成一条余额订单供用户查看（amount_total = 应收总额，已支付）。
+        // - 若 needPayFen > 0：创建待支付微信订单（amount_total = 需微信支付部分），开钓单由微信回调中创建；
+        // - 若 needPayFen == 0：说明已完全用余额抵扣，生成一条余额订单并立即创建开钓单。
 
         $orderNo = 'O' . date('YmdHis') . mt_rand(1000, 9999);
         if ($needPayFen > 0) {
@@ -273,6 +273,27 @@ class FishingSessionController extends BaseController
                 'amount_paid'  => $amountTotalFen,
                 'status'       => 'paid',
                 'pay_channel'  => 'balance',
+            ]);
+
+            // 余额已全额支付的场景：立即创建开钓单，座位直接占用
+            $sessionNo = 'S' . date('YmdHis') . mt_rand(1000, 9999);
+            FishingSession::create([
+                'session_no'   => $sessionNo,
+                'mini_user_id' => $miniUserId,
+                'venue_id'     => $venueId,
+                'pond_id'      => $pondId,
+                'seat_id'      => $seatId ?: null,
+                'seat_no'      => $seatNo,
+                'seat_code'    => $seatCode,
+                'fee_rule_id'  => $feeRuleId,
+                'order_id'     => $order->id,
+                'start_time'   => date('Y-m-d H:i:s'),
+                'expire_time'  => $expireTime,
+                'status'       => 'ongoing',
+                'amount_total' => $amountTotalFen,
+                'amount_paid'  => $amountTotalFen,
+                'deposit_total'=> $depositTotalFen,
+                'remark'       => $remark !== '' ? $remark : '余额支付自动开钓单',
             ]);
         }
 
