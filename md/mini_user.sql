@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS `mini_user` (
   `openid` VARCHAR(64) NOT NULL COMMENT '微信 openid',
   `unionid` VARCHAR(64) DEFAULT NULL COMMENT '微信 unionid（如有）',
   `nickname` VARCHAR(60) DEFAULT NULL COMMENT '昵称',
+  `is_vip` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否会员：0-否 1-是',
+  `balance` DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '账户余额（元）',
   `avatar` VARCHAR(255) DEFAULT NULL COMMENT '头像 URL',
   `gender` TINYINT(1) DEFAULT 0 COMMENT '性别：0-未知 1-男 2-女',
   `country` VARCHAR(50) DEFAULT NULL COMMENT '国家',

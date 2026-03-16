@@ -69,6 +69,7 @@ return [
     // ---------- 经营管理：开钓/回鱼/卖鱼 ----------
     'GET:sessions'         => 'admin.biz.session.manage',
     'GET:sessions/'        => 'admin.biz.session.manage',
+    'POST:sessions'        => 'admin.biz.session.manage',
     'GET:pond-return-logs'    => 'admin.biz.return.manage',
     'GET:pond-return-logs/'   => 'admin.biz.return.manage',
     'POST:pond-return-logs'   => 'admin.biz.return.manage',

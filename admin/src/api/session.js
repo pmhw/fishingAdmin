@@ -8,3 +8,8 @@ export function getSessionDetail(id) {
   return request.get(`/api/admin/sessions/${id}`)
 }
 
+export function createSession(data) {
+  return request.post('/api/admin/sessions', data)
+}
+
+
