@@ -59,6 +59,15 @@ class OrderController extends MiniBaseController
         $currentOpenid = (string) ($user->openid ?? '');
         $arr['openid_match'] = ($orderOpenid !== null && $orderOpenid !== '' && $orderOpenid === $currentOpenid);
 
+        // 支付状态统一字段（供支付页轮询判断）
+        $status = (string) ($arr['status'] ?? '');
+        $isPaid = ($status === 'paid') || ($amountTotal > 0 && $amountPaid >= $amountTotal);
+        $arr['is_paid'] = $isPaid;
+        $arr['pay_status'] = $status;
+        $arr['status_text'] = $status === 'paid'
+            ? '已支付'
+            : ($status === 'pending' ? '待支付' : ($status !== '' ? $status : '未知'));
+
         return json([
             'code' => 0,
             'msg'  => 'success',
