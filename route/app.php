@@ -115,9 +115,9 @@ Route::group('api', function () {
             // ponds：先 :id 后集合
             Route::get('ponds/:id/seats', 'Api.Admin.PondSeatController/list');
             Route::post('ponds/:id/seats/sync', 'Api.Admin.PondSeatController/sync');
-            Route::post('ponds/:id/seats/qrcodes', 'Api.Admin.PondSeatController/generateQrcodes');
             Route::post('ponds/:id/seats/qrcodes/zip', 'Api.Admin.PondSeatController/downloadQrcodesZip');
             Route::delete('ponds/:id/seats/qrcodes/cleanup', 'Api.Admin.PondSeatController/cleanupQrcodes');
+            Route::post('ponds/:id/seats/qrcodes', 'Api.Admin.PondSeatController/generateQrcodes');
             Route::get('ponds/:id', 'Api.Admin.PondController/detail');
             Route::put('ponds/:id', 'Api.Admin.PondController/update');
             Route::delete('ponds/:id', 'Api.Admin.PondController/delete');

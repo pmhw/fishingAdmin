@@ -976,25 +976,18 @@ async function onSyncSeats() {
 async function onDownloadSeatZip() {
   if (!regionConfigPondId.value) return
   seatZipLoading.value = true
-  const win = window.open('about:blank', '_blank')
   try {
     const res = await downloadPondSeatQrsZip(regionConfigPondId.value)
     const d = res?.data ?? res
     const data = d?.data ?? d
     const url = data?.zip_url
     if (url) {
-      if (win && !win.closed) {
-        win.location.href = url
-      } else {
-        window.location.href = url
-      }
+      window.location.href = url
       ElMessage.success(`已生成ZIP（${data?.files ?? 0}张）`)
     } else {
-      if (win && !win.closed) win.close()
       ElMessage.warning('生成ZIP失败：未返回下载地址')
     }
   } catch (_) {
-    if (win && !win.closed) win.close()
   } finally {
     seatZipLoading.value = false
   }
