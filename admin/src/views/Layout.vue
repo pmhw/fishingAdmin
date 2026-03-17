@@ -2,7 +2,7 @@
   <el-container class="layout">
     <el-aside :width="asideWidth" class="aside" :class="{ 'aside--collapsed': collapsed }">
       <div class="logo">
-        <span v-show="!collapsed">fishingAdmin</span>
+        <span v-show="!collapsed">fishingAdmin 1.0.0</span>
         <span v-show="collapsed" class="logo-short">F</span>
       </div>
       <el-menu
