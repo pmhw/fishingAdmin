@@ -154,8 +154,6 @@
           <span class="region-tip">如 西岸1~29、中间浮桥30~89，可添加多段序号范围</span>
           <div class="region-toolbar-actions">
             <el-button type="success" size="small" :loading="seatSyncLoading" @click="onSyncSeats">同步座位号</el-button>
-            <el-button type="success" size="small" :loading="seatQrTrialLoading" @click="onGenerateSeatQrs('trial')">生成体验版二维码</el-button>
-            <el-button type="success" size="small" :loading="seatQrReleaseLoading" @click="onGenerateSeatQrs('release')">生成正式版二维码</el-button>
             <el-button type="primary" size="small" :loading="seatZipLoading" @click="onDownloadSeatZip">下载二维码ZIP</el-button>
             <el-button type="danger" size="small" plain :loading="seatCleanupLoading" @click="onCleanupSeatQrs">清理二维码</el-button>
             <el-button type="primary" size="small" @click="openRegionForm">添加区域</el-button>
@@ -504,7 +502,6 @@ import {
   deletePondFeedLog,
   getPondSeats,
   syncPondSeats,
-  generatePondSeatQrcodes,
   downloadPondSeatQrsZip,
   cleanupPondSeatQrs,
   uploadImage,
@@ -537,8 +534,6 @@ const regionConfigPondId = ref(null)
 const regionConfigPondName = ref('')
 const regionListLoading = ref(false)
 const seatSyncLoading = ref(false)
-const seatQrTrialLoading = ref(false)
-const seatQrReleaseLoading = ref(false)
 const seatZipLoading = ref(false)
 const seatCleanupLoading = ref(false)
 const seatCodeMap = ref({})
@@ -975,26 +970,6 @@ async function onSyncSeats() {
     // error already shown by request
   } finally {
     seatSyncLoading.value = false
-  }
-}
-
-async function onGenerateSeatQrs(envVersion) {
-  if (!regionConfigPondId.value) return
-  const isRelease = envVersion === 'release'
-  if (isRelease) seatQrReleaseLoading.value = true
-  else seatQrTrialLoading.value = true
-  try {
-    const res = await generatePondSeatQrcodes(regionConfigPondId.value, {
-      page: 'pages/session-open/index',
-      env_version: isRelease ? 'release' : 'trial',
-    })
-    const d = res?.data ?? res
-    const data = d?.data ?? d
-    ElMessage.success(`已生成二维码：总${data?.total ?? 0}，失败${data?.fail ?? 0}（${isRelease ? '正式版' : '体验版'}）`)
-  } catch (_) {
-  } finally {
-    if (isRelease) seatQrReleaseLoading.value = false
-    else seatQrTrialLoading.value = false
   }
 }
 

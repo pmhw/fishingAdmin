@@ -110,11 +110,6 @@ export function syncPondSeats(pondId) {
   return request.post(`/api/admin/ponds/${pondId}/seats/sync`)
 }
 
-/** 座位二维码：批量生成小程序码（seat_qr png） */
-export function generatePondSeatQrcodes(pondId, data) {
-  return request.post(`/api/admin/ponds/${pondId}/seats/qrcodes`, data)
-}
-
 /** 座位二维码：打包 zip 下载 */
 export function downloadPondSeatQrsZip(pondId) {
   return request.post(`/api/admin/ponds/${pondId}/seats/qrcodes/zip`)

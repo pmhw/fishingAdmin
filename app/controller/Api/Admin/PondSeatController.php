@@ -178,7 +178,8 @@ class PondSeatController extends BaseController
     }
 
     /**
-     * 打包下载：将该池塘已生成的座位二维码打包为 zip
+     * 打包下载：将该池塘座位二维码打包为 zip
+     * 如尚未生成二维码，会自动按正式版 env_version=release 先生成一遍
      * POST /api/admin/ponds/:id/seats/qrcodes/zip
      */
     public function downloadQrcodesZip(int $id): Json
@@ -187,16 +188,38 @@ class PondSeatController extends BaseController
         if ($pondId < 1) {
             return json(['code' => 400, 'msg' => 'pond_id 不合法', 'data' => null]);
         }
-        if (!FishingPond::find($pondId)) {
+        /** @var FishingPond|null $pond */
+        $pond = FishingPond::find($pondId);
+        if (!$pond) {
             return json(['code' => 404, 'msg' => '池塘不存在', 'data' => null]);
         }
         if (!$this->canAccessPond($pondId)) {
             return json(['code' => 403, 'msg' => '无权限管理该池塘', 'data' => null]);
         }
 
+        // 若还未生成二维码，则自动按正式版生成一遍
         $srcDir = public_path() . 'storage' . DIRECTORY_SEPARATOR . 'seat_qr' . DIRECTORY_SEPARATOR . $pondId;
+        $needGenerate = true;
+        if (is_dir($srcDir)) {
+            $it = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($srcDir, \FilesystemIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::LEAVES_ONLY
+            );
+            foreach ($it as $file) {
+                /** @var \SplFileInfo $file */
+                if ($file->isFile() && strtolower($file->getExtension()) === 'png') {
+                    $needGenerate = false;
+                    break;
+                }
+            }
+        }
+        if ($needGenerate) {
+            $this->generateQrcodesInternal($pond, 'release');
+        }
+
+        // 再次确认目录存在
         if (!is_dir($srcDir)) {
-            return json(['code' => 400, 'msg' => '该池塘尚未生成二维码，请先生成', 'data' => null]);
+            return json(['code' => 400, 'msg' => '该池塘尚未生成二维码，请检查数据', 'data' => null]);
         }
 
         $zipDir = public_path() . 'storage' . DIRECTORY_SEPARATOR . 'seat_qr_zip' . DIRECTORY_SEPARATOR . $pondId;
@@ -248,6 +271,58 @@ class PondSeatController extends BaseController
         $zipPathUrl = '/storage/seat_qr_zip/' . $pondId . '/' . rawurlencode($zipName);
         $zipUrl = rtrim($this->request->domain(), '/') . $zipPathUrl;
         return json(['code' => 0, 'msg' => 'success', 'data' => ['zip_url' => $zipUrl, 'zip_path' => $zipPathUrl, 'files' => $fileCount]]);
+    }
+
+    /**
+     * 内部方法：按指定环境批量生成二维码图片到本地目录
+     */
+    private function generateQrcodesInternal(FishingPond $pond, string $envVersion = 'release'): void
+    {
+        $pondId = (int) $pond->id;
+        $seats = PondSeat::where('pond_id', $pondId)->order('seat_no', 'asc')->select()->all();
+        if (empty($seats)) {
+            return;
+        }
+
+        $venueId = (int) ($pond->venue_id ?? 0);
+        $venueName = '';
+        if ($venueId > 0) {
+            /** @var FishingVenue|null $venue */
+            $venue = FishingVenue::find($venueId);
+            $venueName = $venue ? (string) ($venue->name ?? '') : '';
+        }
+        $pondName = (string) ($pond->name ?? '');
+        $venueNameSafe = $this->safeFileName($venueName !== '' ? $venueName : ('venue_' . $venueId));
+        $pondNameSafe = $this->safeFileName($pondName !== '' ? $pondName : ('pond_' . $pondId));
+
+        $page = 'pages/session-open/index';
+        $subDir = date('Ym') . '/' . date('d');
+        $baseDir = public_path() . 'storage' . DIRECTORY_SEPARATOR . 'seat_qr' . DIRECTORY_SEPARATOR . $pondId . DIRECTORY_SEPARATOR . $subDir;
+        if (!is_dir($baseDir) && !@mkdir($baseDir, 0777, true) && !is_dir($baseDir)) {
+            return;
+        }
+
+        foreach ($seats as $seat) {
+            $sid = (int) $seat->id;
+            if ($sid < 1) continue;
+
+            $seatNo = (int) ($seat->seat_no ?? 0);
+            $seatNoLabel = $seatNo > 0 ? (string) $seatNo : ('id' . $sid);
+            $fileNameRaw = $venueNameSafe . '-' . $pondNameSafe . '-' . $seatNoLabel . '号' . '.png';
+            $fileName = $this->safeFileName($fileNameRaw);
+            $filePath = $baseDir . DIRECTORY_SEPARATOR . $fileName;
+            if (is_file($filePath)) {
+                // 已存在则不重复生成，避免浪费
+                continue;
+            }
+
+            $scene = 'v=' . $venueId . '&p=' . $pondId . '&s=' . $sid;
+            [$png, $err] = WxMiniCodeService::getUnlimitedCode($page, $scene, $envVersion, 430);
+            if (!$png) {
+                continue;
+            }
+            @file_put_contents($filePath, $png);
+        }
     }
 
     private function safeFileName(string $name): string
