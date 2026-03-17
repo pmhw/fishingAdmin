@@ -6,6 +6,7 @@ namespace app\controller\Api\Admin;
 use app\BaseController;
 use app\model\FishingPond;
 use app\model\FishingSession;
+use app\model\FishingVenue;
 use app\model\PondRegion;
 use app\model\PondSeat;
 use app\service\WxMiniCodeService;
@@ -106,6 +107,15 @@ class PondSeatController extends BaseController
         }
 
         $venueId = (int) ($pond->venue_id ?? 0);
+        $venueName = '';
+        if ($venueId > 0) {
+            /** @var FishingVenue|null $venue */
+            $venue = FishingVenue::find($venueId);
+            $venueName = $venue ? (string) ($venue->name ?? '') : '';
+        }
+        $pondName = (string) ($pond->name ?? '');
+        $venueNameSafe = $this->safeFileName($venueName !== '' ? $venueName : ('venue_' . $venueId));
+        $pondNameSafe = $this->safeFileName($pondName !== '' ? $pondName : ('pond_' . $pondId));
         $subDir = date('Ym') . '/' . date('d');
         $baseDir = public_path() . 'storage' . DIRECTORY_SEPARATOR . 'seat_qr' . DIRECTORY_SEPARATOR . $pondId . DIRECTORY_SEPARATOR . $subDir;
         if (!is_dir($baseDir) && !@mkdir($baseDir, 0777, true) && !is_dir($baseDir)) {
@@ -135,10 +145,13 @@ class PondSeatController extends BaseController
                 continue;
             }
 
-            $fileName = 'seat_' . $sid . '.png';
+            $seatNo = (int) ($seat->seat_no ?? 0);
+            $seatNoLabel = $seatNo > 0 ? (string) $seatNo : ('id' . $sid);
+            $fileNameRaw = $venueNameSafe . '-' . $pondNameSafe . '-' . $seatNoLabel . '号' . '.png';
+            $fileName = $this->safeFileName($fileNameRaw);
             $filePath = $baseDir . DIRECTORY_SEPARATOR . $fileName;
             @file_put_contents($filePath, $png);
-            $qrUrl = '/storage/seat_qr/' . $pondId . '/' . $subDir . '/' . $fileName;
+            $qrUrl = '/storage/seat_qr/' . $pondId . '/' . $subDir . '/' . rawurlencode($fileName);
 
             $list[] = [
                 'seat_id' => $sid,
@@ -191,7 +204,19 @@ class PondSeatController extends BaseController
             return json(['code' => 500, 'msg' => '创建 zip 目录失败', 'data' => null]);
         }
 
-        $zipName = 'seat_qr_pond_' . $pondId . '_' . date('Ymd_His') . '.zip';
+        $venueId = (int) ($pond->venue_id ?? 0);
+        $venueName = '';
+        if ($venueId > 0) {
+            /** @var FishingVenue|null $venue */
+            $venue = FishingVenue::find($venueId);
+            $venueName = $venue ? (string) ($venue->name ?? '') : '';
+        }
+        $pondName = (string) ($pond->name ?? '');
+        $venueNameSafe = $this->safeFileName($venueName !== '' ? $venueName : ('venue_' . $venueId));
+        $pondNameSafe = $this->safeFileName($pondName !== '' ? $pondName : ('pond_' . $pondId));
+
+        $zipName = $venueNameSafe . '-' . $pondNameSafe . '-座位二维码' . '_' . date('Ymd_His') . '.zip';
+        $zipName = $this->safeFileName($zipName);
         $zipPath = $zipDir . DIRECTORY_SEPARATOR . $zipName;
 
         $zip = new \ZipArchive();
@@ -220,9 +245,26 @@ class PondSeatController extends BaseController
             return json(['code' => 400, 'msg' => '未找到可打包的二维码图片', 'data' => null]);
         }
 
-        $zipPathUrl = '/storage/seat_qr_zip/' . $pondId . '/' . $zipName;
+        $zipPathUrl = '/storage/seat_qr_zip/' . $pondId . '/' . rawurlencode($zipName);
         $zipUrl = rtrim($this->request->domain(), '/') . $zipPathUrl;
         return json(['code' => 0, 'msg' => 'success', 'data' => ['zip_url' => $zipUrl, 'zip_path' => $zipPathUrl, 'files' => $fileCount]]);
+    }
+
+    private function safeFileName(string $name): string
+    {
+        $name = trim($name);
+        if ($name === '') return 'file';
+        // 替换各系统不允许的文件名字符
+        $name = str_replace(["\\", "/", ":", "*", "?", "\"", "<", ">", "|"], '-', $name);
+        // 规整空白
+        $name = preg_replace('/\s+/u', ' ', $name) ?: $name;
+        $name = trim($name, " .\t\n\r\0\x0B");
+        if ($name === '') return 'file';
+        // 避免过长
+        if (mb_strlen($name, 'UTF-8') > 120) {
+            $name = mb_substr($name, 0, 120, 'UTF-8');
+        }
+        return $name;
     }
 
     /**
