@@ -81,6 +81,8 @@ Route::group('api', function () {
             // roles：先子路径 /:id/ponds 和 /:id，再 list/create
             Route::get('roles/:id/ponds', 'Api.Admin.RoleController/ponds');
             Route::put('roles/:id/ponds', 'Api.Admin.RoleController/updatePonds');
+            Route::get('roles/:id/venues', 'Api.Admin.RoleController/venues');
+            Route::put('roles/:id/venues', 'Api.Admin.RoleController/updateVenues');
             Route::get('roles/:id', 'Api.Admin.RoleController/detail');
             Route::put('roles/:id', 'Api.Admin.RoleController/update');
             Route::delete('roles/:id', 'Api.Admin.RoleController/delete');

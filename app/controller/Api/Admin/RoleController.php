@@ -6,6 +6,7 @@ namespace app\controller\Api\Admin;
 use app\BaseController;
 use app\model\AdminRole;
 use app\model\AdminRolePond;
+use app\model\AdminRoleVenue;
 use app\model\AdminUser;
 use think\response\Json;
 
@@ -121,8 +122,58 @@ class RoleController extends BaseController
         }
         $role->permissions()->detach();
         AdminRolePond::where('role_id', $id)->delete();
+        AdminRoleVenue::where('role_id', $id)->delete();
         $role->delete();
         return json(['code' => 0, 'msg' => '删除成功', 'data' => null]);
+    }
+
+    /**
+     * 角色可管理钓场 ID 列表（用于权限细分）
+     * GET /api/admin/roles/:id/venues  → { venue_ids: [1,2,3] }
+     * 空数组表示「全部钓场」，非空表示仅可管理这些钓场
+     */
+    public function venues(int $id): Json
+    {
+        $role = AdminRole::find($id);
+        if (!$role) {
+            return json(['code' => 404, 'msg' => '角色不存在', 'data' => null]);
+        }
+        $venueIds = AdminRoleVenue::where('role_id', $id)->column('venue_id');
+        return json(['code' => 0, 'msg' => 'success', 'data' => ['venue_ids' => array_map('intval', $venueIds)]]);
+    }
+
+    /**
+     * 设置角色可管理钓场
+     * PUT /api/admin/roles/:id/venues  body: venue_ids [1,2,3]
+     * 传空数组 = 管理全部钓场；传非空 = 仅管理这些钓场
+     */
+    public function updateVenues(int $id): Json
+    {
+        $role = AdminRole::find($id);
+        if (!$role) {
+            return json(['code' => 404, 'msg' => '角色不存在', 'data' => null]);
+        }
+        $venueIds = [];
+        $raw = $this->request->getContent();
+        if ($raw !== '' && $raw !== false) {
+            $decoded = json_decode((string) $raw, true);
+            if (is_array($decoded) && isset($decoded['venue_ids']) && is_array($decoded['venue_ids'])) {
+                $venueIds = $decoded['venue_ids'];
+            }
+        }
+        if (empty($venueIds)) {
+            $fromParam = $this->request->param('venue_ids/a', []);
+            $venueIds = is_array($fromParam) ? $fromParam : [];
+        }
+        $venueIds = array_values(array_unique(array_map('intval', array_filter($venueIds))));
+        AdminRoleVenue::where('role_id', $id)->delete();
+        foreach ($venueIds as $vid) {
+            if ($vid > 0) {
+                AdminRoleVenue::create(['role_id' => $id, 'venue_id' => $vid]);
+            }
+        }
+        $saved = AdminRoleVenue::where('role_id', $id)->column('venue_id');
+        return json(['code' => 0, 'msg' => '保存成功', 'data' => ['venue_ids' => array_map('intval', $saved)]]);
     }
 
     /**

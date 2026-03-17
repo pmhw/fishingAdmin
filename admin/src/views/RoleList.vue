@@ -44,21 +44,21 @@
           </div>
         </el-form-item>
         <template v-if="showPondScopeBlock">
-          <el-divider content-position="left">池塘管理范围</el-divider>
+          <el-divider content-position="left">钓场管理范围</el-divider>
           <el-alert v-if="!hasPondPermission" type="info" :closable="false" show-icon class="pond-scope-tip">
             请先勾选上方「内容管理」中的「池塘管理」权限，再配置可管理范围。
           </el-alert>
           <el-form-item label="范围">
-            <el-radio-group v-model="editForm.pond_scope" :disabled="!hasPondPermission">
-              <el-radio value="all">全部池塘</el-radio>
-              <el-radio value="assigned">指定池塘</el-radio>
+            <el-radio-group v-model="editForm.venue_scope" :disabled="!hasPondPermission">
+              <el-radio value="all">全部钓场</el-radio>
+              <el-radio value="assigned">指定钓场</el-radio>
             </el-radio-group>
           </el-form-item>
-          <el-form-item v-if="editForm.pond_scope === 'assigned'" label="可管理池塘">
-            <el-select v-model="editForm.pond_ids" multiple placeholder="选择可管理的池塘" value-key="id" style="width:100%" filterable :disabled="!hasPondPermission">
-              <el-option v-for="p in pondOptions" :key="p.id" :label="`${p.name}（${p.venue_name || ''}）`" :value="p.id" />
+          <el-form-item v-if="editForm.venue_scope === 'assigned'" label="可管理钓场">
+            <el-select v-model="editForm.venue_ids" multiple placeholder="选择可管理的钓场" value-key="id" style="width:100%" filterable :disabled="!hasPondPermission">
+              <el-option v-for="v in venueOptions" :key="v.id" :label="v.name" :value="v.id" />
             </el-select>
-            <div class="form-tip">选择「指定池塘」时，该角色只能管理下方所选池塘；不选任何池塘时保存后等同于全部池塘。</div>
+            <div class="form-tip">选择「指定钓场」时，该角色只能管理下方所选钓场；不选任何钓场时保存后等同于全部钓场。</div>
           </el-form-item>
         </template>
       </el-form>
@@ -73,14 +73,14 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getRoleList, getRoleDetail, createRole, updateRole, deleteRole, getPermissionList, getRolePonds, updateRolePonds } from '@/api/role'
-import { getPondList } from '@/api/pond'
+import { getRoleList, getRoleDetail, createRole, updateRole, deleteRole, getPermissionList, getRolePonds, updateRolePonds, getRoleVenues, updateRoleVenues } from '@/api/role'
+import { getVenueList } from '@/api/venue'
 
 const POND_MANAGE_CODE = 'admin.pond.manage'
 const loading = ref(false)
 const list = ref([])
 const permissionGroups = ref({})
-const pondOptions = ref([])
+const venueOptions = ref([])
 /** 编辑角色时弹窗内加载状态（权限、池塘配置请求中） */
 const roleEditLoading = ref(false)
 const pondManagePermissionId = computed(() => {
@@ -118,8 +118,8 @@ const editForm = reactive({
   code: '',
   description: '',
   permission_ids: [],
-  pond_scope: 'all',
-  pond_ids: [],
+  venue_scope: 'all',
+  venue_ids: [],
 })
 const editRules = {
   name: [{ required: true, message: '请输入角色名', trigger: 'blur' }],
@@ -147,15 +147,16 @@ async function openEdit(row) {
   editForm.code = row?.code ?? ''
   editForm.description = row?.description ?? ''
   editForm.permission_ids = row?.permission_ids ? [...row.permission_ids] : []
-  editForm.pond_scope = 'all'
-  editForm.pond_ids = []
+  editForm.venue_scope = 'all'
+  editForm.venue_ids = []
   roleEditLoading.value = !!editId.value
   dialogVisible.value = true
   if (editId.value) {
     try {
-      const [detailRes, pondsRes] = await Promise.all([
+      const [detailRes, pondsRes, venuesRes] = await Promise.all([
         getRoleDetail(editId.value),
         getRolePonds(editId.value),
+        getRoleVenues(editId.value),
       ])
       const d = detailRes?.data ?? detailRes
       if (d) {
@@ -165,11 +166,14 @@ async function openEdit(row) {
         const rawIds = Array.isArray(d.permission_ids) ? d.permission_ids : []
         editForm.permission_ids = rawIds.map((id) => Number(id)).filter((n) => !Number.isNaN(n) && n > 0)
       }
-      const pondData = pondsRes?.data ?? pondsRes
-      const ids = Array.isArray(pondData?.pond_ids) ? pondData.pond_ids : (Array.isArray(pondData) ? pondData : [])
-      const pondIds = ids.map((id) => Number(id)).filter((n) => !Number.isNaN(n) && n > 0)
-      editForm.pond_scope = pondIds.length > 0 ? 'assigned' : 'all'
-      editForm.pond_ids = pondIds
+      // 兼容旧配置：旧的 pond_ids 仅用于历史数据，不再在页面中编辑
+      void pondsRes
+
+      const venueData = venuesRes?.data ?? venuesRes
+      const vIds = Array.isArray(venueData?.venue_ids) ? venueData.venue_ids : (Array.isArray(venueData) ? venueData : [])
+      const venueIds = vIds.map((id) => Number(id)).filter((n) => !Number.isNaN(n) && n > 0)
+      editForm.venue_scope = venueIds.length > 0 ? 'assigned' : 'all'
+      editForm.venue_ids = venueIds
     } finally {
       roleEditLoading.value = false
     }
@@ -182,8 +186,8 @@ function resetForm() {
   editForm.code = ''
   editForm.description = ''
   editForm.permission_ids = []
-  editForm.pond_scope = 'all'
-  editForm.pond_ids = []
+  editForm.venue_scope = 'all'
+  editForm.venue_ids = []
   editFormRef.value?.resetFields?.()
 }
 
@@ -198,8 +202,8 @@ async function submitEdit() {
         permission_ids: editForm.permission_ids,
       })
       if (hasPondPermission.value) {
-        const pondIds = editForm.pond_scope === 'all' ? [] : (editForm.pond_ids || [])
-        await updateRolePonds(editId.value, { pond_ids: pondIds })
+        const venueIds = editForm.venue_scope === 'all' ? [] : (editForm.venue_ids || [])
+        await updateRoleVenues(editId.value, { venue_ids: venueIds })
       }
       ElMessage.success('更新成功')
     } else {
@@ -228,19 +232,19 @@ function onDelete(row) {
   }).catch(() => {})
 }
 
-async function loadPondOptions() {
+async function loadVenueOptions() {
   try {
-    const res = await getPondList({ page: 1, limit: 500 })
+    const res = await getVenueList({ page: 1, limit: 500 })
     const data = res?.data ?? res
-    pondOptions.value = data?.list ?? []
+    venueOptions.value = data?.list ?? []
   } catch (_) {
-    pondOptions.value = []
+    venueOptions.value = []
   }
 }
 
 onMounted(() => {
   loadPermissions()
-  loadPondOptions()
+  loadVenueOptions()
   fetchList()
 })
 </script>

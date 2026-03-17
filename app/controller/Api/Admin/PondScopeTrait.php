@@ -4,7 +4,9 @@ declare (strict_types = 1);
 namespace app\controller\Api\Admin;
 
 use app\model\AdminRolePond;
+use app\model\AdminRoleVenue;
 use app\model\AdminUser;
+use app\model\FishingPond;
 
 /**
  * 池塘数据范围：按角色-池塘关联细分权限
@@ -36,9 +38,19 @@ trait PondScopeTrait
             return []; // 无池塘管理权限
         }
         $roleId = (int) $user->role_id;
+
+        // 优先使用「钓场范围」：若配置了可管理钓场，则映射为这些钓场下的池塘集合
+        $venueIds = AdminRoleVenue::where('role_id', $roleId)->column('venue_id');
+        $venueIds = array_values(array_unique(array_map('intval', is_array($venueIds) ? $venueIds : [])));
+        if (!empty($venueIds)) {
+            $pondIds = FishingPond::whereIn('venue_id', $venueIds)->column('id');
+            return array_values(array_unique(array_map('intval', is_array($pondIds) ? $pondIds : [])));
+        }
+
+        // 兼容旧逻辑：按「池塘范围」配置
         $pondIds = AdminRolePond::where('role_id', $roleId)->column('pond_id');
         if (empty($pondIds)) {
-            return null; // 未配置指定池塘 → 全部
+            return null; // 未配置指定范围 → 全部
         }
         return array_map('intval', $pondIds);
     }
