@@ -164,7 +164,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getFishTradeList, createFishTrade, updateFishTrade, deleteFishTrade } from '@/api/fishTrade'
@@ -180,6 +180,7 @@ const limit = ref(10)
 const filters = reactive({
   session_id: route.query.session_id ? String(route.query.session_id) : '',
   pond_id: route.query.pond_id ? String(route.query.pond_id) : '',
+  venue_id: route.query.venue_id ? String(route.query.venue_id) : '',
   trade_type: '',
 })
 
@@ -231,6 +232,7 @@ async function fetchList() {
 function resetFilters() {
   filters.session_id = ''
   filters.pond_id = ''
+  filters.venue_id = ''
   filters.trade_type = ''
   page.value = 1
   fetchList()
@@ -253,7 +255,7 @@ function openForm(row) {
       : []
   } else {
     editId.value = null
-    form.venue_id = ''
+    form.venue_id = filters.venue_id || ''
     form.pond_id = filters.pond_id || ''
     form.session_id = filters.session_id || ''
     form.trade_type = 'buy_in'
@@ -345,6 +347,17 @@ async function onDelete(row) {
   ElMessage.success('删除成功')
   fetchList()
 }
+
+// 路由 query 变化时同步到 filters，便于从开钓单跳转后「新增」能自动带入
+watch(
+  () => route.query,
+  (q) => {
+    if (q.session_id) filters.session_id = String(q.session_id)
+    if (q.pond_id) filters.pond_id = String(q.pond_id)
+    if (q.venue_id) filters.venue_id = String(q.venue_id)
+  },
+  { immediate: true }
+)
 
 onMounted(fetchList)
 </script>

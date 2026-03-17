@@ -38,6 +38,7 @@ class MiniUserController extends BaseController
             $list[] = [
                 'id'       => (int) $row->id,
                 'nickname' => (string) ($row->nickname ?? ''),
+                'avatar'   => (string) ($row->avatar ?? ''),
                 'openid'   => (string) ($row->openid ?? ''),
                 'mobile'   => (string) ($row->mobile ?? ''),
                 'is_vip'   => (int) ($row->is_vip ?? 0),

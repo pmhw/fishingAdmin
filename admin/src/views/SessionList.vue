@@ -112,12 +112,21 @@
               :loading="searchingMiniUser"
               style="width: 100%"
             >
-              <el-option
-                v-for="u in miniUserOptions"
-                :key="u.id"
-                :label="formatMiniUserLabel(u)"
-                :value="String(u.id)"
-              />
+              <el-option v-for="u in miniUserOptions" :key="u.id" :value="String(u.id)">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <el-avatar :size="24" :src="formatStorageUrl(u.avatar)" />
+                  <div style="display:flex;flex-direction:column;line-height:1.1;">
+                    <div style="font-size:13px;">
+                      <span>{{ u.nickname || '-' }}</span>
+                      <el-tag v-if="Number(u.is_vip) === 1" type="warning" size="small" style="margin-left:6px;">会员</el-tag>
+                    </div>
+                    <div style="font-size:12px;color:#888;">
+                      <span v-if="u.mobile">{{ u.mobile }}</span>
+                      <span v-else-if="u.openid">{{ (u.openid || '').slice(0, 8) + '...' }}</span>
+                    </div>
+                  </div>
+                </div>
+              </el-option>
             </el-select>
           </el-form-item>
           <el-form-item label="钓场" prop="venue_id">
@@ -289,7 +298,14 @@ function goReturnLogs(row) {
 }
 
 function goFishTrades(row) {
-  router.push({ path: '/fish-trades', query: { session_id: row.id, pond_id: row.pond_id || '' } })
+  router.push({
+    path: '/fish-trades',
+    query: {
+      session_id: row.id,
+      pond_id: row.pond_id || '',
+      venue_id: row.venue_id || '',
+    },
+  })
 }
 
 async function finishSessionRow(row) {
@@ -459,6 +475,13 @@ function formatMiniUserLabel(u) {
   if (u.mobile) parts.push(u.mobile)
   if (u.openid) parts.push(u.openid.slice(0, 8) + '...')
   return parts.join(' / ')
+}
+
+function formatStorageUrl(u) {
+  if (!u) return ''
+  if (u.startsWith('http')) return u
+  const base = import.meta.env.VITE_STORAGE_URL || ''
+  return base + u
 }
 
 async function onSearchMiniUser(query) {
