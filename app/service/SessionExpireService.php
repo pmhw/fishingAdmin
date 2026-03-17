@@ -43,7 +43,12 @@ class SessionExpireService
         // 先修复：对进行中但未写 expire_time 的开钓单，尝试按收费规则回填 expire_time
         // 这样定时任务才能对历史/异常数据生效
         $needFill = FishingSession::where('status', 'ongoing')
-            ->whereNull('expire_time')
+            ->where(function ($q) {
+                // 兼容：NULL / 空字符串 / 0000-00-00 00:00:00
+                $q->whereNull('expire_time')
+                  ->whereOr('expire_time', '=', '')
+                  ->whereOr('expire_time', '=', '0000-00-00 00:00:00');
+            })
             ->whereNotNull('fee_rule_id')
             ->where('fee_rule_id', '>', 0)
             ->order('id', 'asc')
