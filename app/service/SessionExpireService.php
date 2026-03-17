@@ -3,6 +3,7 @@ declare (strict_types = 1);
 
 namespace app\service;
 
+use app\model\PondFeeRule;
 use app\model\FishingSession;
 use think\facade\Cache;
 
@@ -38,6 +39,47 @@ class SessionExpireService
     public static function run(int $limit = 200): int
     {
         $now = date('Y-m-d H:i:s');
+
+        // 先修复：对进行中但未写 expire_time 的开钓单，尝试按收费规则回填 expire_time
+        // 这样定时任务才能对历史/异常数据生效
+        $needFill = FishingSession::where('status', 'ongoing')
+            ->whereNull('expire_time')
+            ->whereNotNull('fee_rule_id')
+            ->where('fee_rule_id', '>', 0)
+            ->order('id', 'asc')
+            ->limit($limit)
+            ->select();
+        foreach ($needFill as $s) {
+            try {
+                $feeRuleId = (int) ($s->fee_rule_id ?? 0);
+                if ($feeRuleId < 1) {
+                    continue;
+                }
+                /** @var PondFeeRule|null $fee */
+                $fee = PondFeeRule::find($feeRuleId);
+                if (!$fee) {
+                    continue;
+                }
+                $val = $fee->duration_value !== null ? (float) $fee->duration_value : 0;
+                $unit = (string) ($fee->duration_unit ?? '');
+                if ($val <= 0 || ($unit !== 'hour' && $unit !== 'day')) {
+                    continue;
+                }
+                $startTs = strtotime((string) ($s->start_time ?? ''));
+                if ($startTs <= 0) {
+                    continue;
+                }
+                $seconds = $unit === 'day' ? (int) round($val * 86400) : (int) round($val * 3600);
+                if ($seconds <= 0) {
+                    continue;
+                }
+                $s->expire_time = date('Y-m-d H:i:s', $startTs + $seconds);
+                $s->save();
+            } catch (\Throwable $e) {
+                // 忽略单条异常
+            }
+        }
+
         $rows = FishingSession::where('status', 'ongoing')
             ->whereNotNull('expire_time')
             ->where('expire_time', '<=', $now)
