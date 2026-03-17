@@ -220,8 +220,9 @@ class PondSeatController extends BaseController
             return json(['code' => 400, 'msg' => '未找到可打包的二维码图片', 'data' => null]);
         }
 
-        $zipUrl = '/storage/seat_qr_zip/' . $pondId . '/' . $zipName;
-        return json(['code' => 0, 'msg' => 'success', 'data' => ['zip_url' => $zipUrl, 'files' => $fileCount]]);
+        $zipPathUrl = '/storage/seat_qr_zip/' . $pondId . '/' . $zipName;
+        $zipUrl = rtrim($this->request->domain(), '/') . $zipPathUrl;
+        return json(['code' => 0, 'msg' => 'success', 'data' => ['zip_url' => $zipUrl, 'zip_path' => $zipPathUrl, 'files' => $fileCount]]);
     }
 
     /**
