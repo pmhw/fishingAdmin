@@ -112,7 +112,12 @@
               :loading="searchingMiniUser"
               style="width: 100%"
             >
-              <el-option v-for="u in miniUserOptions" :key="u.id" :value="String(u.id)">
+              <el-option
+                v-for="u in miniUserOptions"
+                :key="u.id"
+                :value="String(u.id)"
+                :label="formatMiniUserLabel(u)"
+              >
                 <div style="display:flex;align-items:center;gap:8px;">
                   <el-avatar :size="24" :src="formatStorageUrl(u.avatar)" />
                   <div style="display:flex;flex-direction:column;line-height:1.1;">
@@ -141,7 +146,13 @@
           </el-form-item>
           <el-form-item label="钓位">
             <el-select v-model="createForm.seat_id" placeholder="可选" style="width:100%">
-              <el-option v-for="s in seatOptions" :key="s.id" :label="`#${s.seat_no} (${s.code || ''})`" :value="String(s.id)" />
+              <el-option
+                v-for="s in seatOptions"
+                :key="s.id"
+                :value="String(s.id)"
+                :disabled="!!s.occupied"
+                :label="`#${s.seat_no} (${s.code || ''})${s.occupied ? '（已占用）' : ''}`"
+              />
             </el-select>
           </el-form-item>
           <el-form-item label="收费规则" prop="fee_rule_id">

@@ -5,6 +5,7 @@ namespace app\controller\Api\Admin;
 
 use app\BaseController;
 use app\model\FishingPond;
+use app\model\FishingSession;
 use app\model\PondRegion;
 use app\model\PondSeat;
 use think\facade\Db;
@@ -45,11 +46,26 @@ class PondSeatController extends BaseController
             ->order('id', 'asc')
             ->select();
 
+        // 当前池塘下进行中开钓单占用的钓位 id 列表
+        $occupiedSeatIds = FishingSession::where('pond_id', $pondId)
+            ->where('status', 'ongoing')
+            ->whereNotNull('seat_id')
+            ->where('seat_id', '>', 0)
+            ->column('seat_id');
+        $occupiedSeatIds = array_flip(array_map('intval', is_array($occupiedSeatIds) ? $occupiedSeatIds : []));
+
         $list = array_map(function ($row) use ($regionNameMap) {
             $arr = $row->toArray();
             $arr['region_name'] = $arr['region_id'] ? ($regionNameMap[(int) $arr['region_id']] ?? '') : '';
             return $arr;
         }, $rows->all());
+
+        // 添加 occupied 字段：是否被占用（存在进行中开钓单）
+        foreach ($list as &$item) {
+            $sid = (int) ($item['id'] ?? 0);
+            $item['occupied'] = $sid > 0 && isset($occupiedSeatIds[$sid]);
+        }
+        unset($item);
 
         return json(['code' => 0, 'msg' => 'success', 'data' => ['list' => $list, 'total' => count($list)]]);
     }
