@@ -60,6 +60,8 @@ Route::group('api', function () {
     Route::get('mini/orders/:order_no', 'Api.Mini.OrderController/show')->middleware(\app\middleware\MiniAuth::class);
     // 小程序端开钓单（开卡）
     Route::post('mini/sessions', 'Api.Mini.SessionController/create')->middleware(\app\middleware\MiniAuth::class);
+    // 小程序端垂钓记录（开钓单列表 + 总数 + 总回鱼重量）
+    Route::get('mini/session-records', 'Api.Mini.SessionRecordController/list')->middleware(\app\middleware\MiniAuth::class);
 
     // ========== 后台管理 ==========
     Route::group('admin', function () {
