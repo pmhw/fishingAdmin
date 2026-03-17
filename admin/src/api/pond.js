@@ -110,4 +110,14 @@ export function syncPondSeats(pondId) {
   return request.post(`/api/admin/ponds/${pondId}/seats/sync`)
 }
 
+/** 座位二维码：打包 zip 下载 */
+export function downloadPondSeatQrsZip(pondId) {
+  return request.post(`/api/admin/ponds/${pondId}/seats/qrcodes/zip`)
+}
+
+/** 座位二维码：清理已生成的二维码与 zip */
+export function cleanupPondSeatQrs(pondId) {
+  return request.delete(`/api/admin/ponds/${pondId}/seats/qrcodes/cleanup`)
+}
+
 export { uploadImage } from './venue'

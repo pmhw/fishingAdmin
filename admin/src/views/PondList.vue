@@ -154,6 +154,8 @@
           <span class="region-tip">如 西岸1~29、中间浮桥30~89，可添加多段序号范围</span>
           <div class="region-toolbar-actions">
             <el-button type="success" size="small" :loading="seatSyncLoading" @click="onSyncSeats">生成座位/二维码码值</el-button>
+            <el-button type="primary" size="small" :loading="seatZipLoading" @click="onDownloadSeatZip">下载二维码ZIP</el-button>
+            <el-button type="danger" size="small" plain :loading="seatCleanupLoading" @click="onCleanupSeatQrs">清理二维码</el-button>
             <el-button type="primary" size="small" @click="openRegionForm">添加区域</el-button>
           </div>
         </div>
@@ -500,6 +502,8 @@ import {
   deletePondFeedLog,
   getPondSeats,
   syncPondSeats,
+  downloadPondSeatQrsZip,
+  cleanupPondSeatQrs,
   uploadImage,
 } from '@/api/pond'
 
@@ -530,6 +534,8 @@ const regionConfigPondId = ref(null)
 const regionConfigPondName = ref('')
 const regionListLoading = ref(false)
 const seatSyncLoading = ref(false)
+const seatZipLoading = ref(false)
+const seatCleanupLoading = ref(false)
 const seatCodeMap = ref({})
 const regionRules = {
   name: [{ required: true, message: '请输入区域名称', trigger: 'blur' }],
@@ -964,6 +970,45 @@ async function onSyncSeats() {
     // error already shown by request
   } finally {
     seatSyncLoading.value = false
+  }
+}
+
+async function onDownloadSeatZip() {
+  if (!regionConfigPondId.value) return
+  seatZipLoading.value = true
+  try {
+    const res = await downloadPondSeatQrsZip(regionConfigPondId.value)
+    const d = res?.data ?? res
+    const data = d?.data ?? d
+    const url = data?.zip_url
+    if (url) {
+      window.open(url, '_blank')
+      ElMessage.success(`已生成ZIP（${data?.files ?? 0}张）`)
+    } else {
+      ElMessage.warning('生成ZIP失败：未返回下载地址')
+    }
+  } catch (_) {
+  } finally {
+    seatZipLoading.value = false
+  }
+}
+
+async function onCleanupSeatQrs() {
+  if (!regionConfigPondId.value) return
+  const ok = await ElMessageBox.confirm('将删除该池塘已生成的二维码图片与ZIP包，是否继续？', '清理确认', {
+    type: 'warning',
+    confirmButtonText: '确定清理',
+    cancelButtonText: '取消',
+  }).then(() => true).catch(() => false)
+  if (!ok) return
+
+  seatCleanupLoading.value = true
+  try {
+    await cleanupPondSeatQrs(regionConfigPondId.value)
+    ElMessage.success('清理完成')
+  } catch (_) {
+  } finally {
+    seatCleanupLoading.value = false
   }
 }
 

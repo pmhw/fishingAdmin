@@ -8,6 +8,7 @@ use app\model\FishingPond;
 use app\model\FishingSession;
 use app\model\PondRegion;
 use app\model\PondSeat;
+use app\service\WxMiniCodeService;
 use think\facade\Db;
 use think\response\Json;
 
@@ -68,6 +69,210 @@ class PondSeatController extends BaseController
         unset($item);
 
         return json(['code' => 0, 'msg' => 'success', 'data' => ['list' => $list, 'total' => count($list)]]);
+    }
+
+    /**
+     * 批量生成座位小程序码（二维码图片）
+     * POST /api/admin/ponds/:id/seats/qrcodes
+     *
+     * body:
+     * - page (可选，默认 pages/session-open/index)
+     * - env_version (可选 trial|release，默认 trial)
+     *
+     * scene 建议尽量短：v=venue_id&p=pond_id&s=seat_id
+     */
+    public function generateQrcodes(int $id): Json
+    {
+        $pondId = $id;
+        if ($pondId < 1) {
+            return json(['code' => 400, 'msg' => 'pond_id 不合法', 'data' => null]);
+        }
+        /** @var FishingPond|null $pond */
+        $pond = FishingPond::find($pondId);
+        if (!$pond) {
+            return json(['code' => 404, 'msg' => '池塘不存在', 'data' => null]);
+        }
+        if (!$this->canAccessPond($pondId)) {
+            return json(['code' => 403, 'msg' => '无权限管理该池塘', 'data' => null]);
+        }
+
+        $page = trim((string) $this->request->param('page', 'pages/session-open/index'));
+        if ($page === '') $page = 'pages/session-open/index';
+        $envVersion = (string) $this->request->param('env_version', 'trial');
+
+        $seats = PondSeat::where('pond_id', $pondId)->order('seat_no', 'asc')->select()->all();
+        if (empty($seats)) {
+            return json(['code' => 400, 'msg' => '该池塘暂无钓位，请先生成座位', 'data' => null]);
+        }
+
+        $venueId = (int) ($pond->venue_id ?? 0);
+        $subDir = date('Ym') . '/' . date('d');
+        $baseDir = public_path() . 'storage' . DIRECTORY_SEPARATOR . 'seat_qr' . DIRECTORY_SEPARATOR . $pondId . DIRECTORY_SEPARATOR . $subDir;
+        if (!is_dir($baseDir) && !@mkdir($baseDir, 0777, true) && !is_dir($baseDir)) {
+            return json(['code' => 500, 'msg' => '创建二维码目录失败', 'data' => null]);
+        }
+
+        $list = [];
+        $fail = 0;
+        foreach ($seats as $seat) {
+            $sid = (int) $seat->id;
+            if ($sid < 1) continue;
+
+            // scene 长度限制 32：使用短 key
+            $scene = 'v=' . $venueId . '&p=' . $pondId . '&s=' . $sid;
+
+            [$png, $err] = WxMiniCodeService::getUnlimitedCode($page, $scene, $envVersion, 430);
+            if (!$png) {
+                $fail++;
+                $list[] = [
+                    'seat_id' => $sid,
+                    'seat_no' => (int) ($seat->seat_no ?? 0),
+                    'code'    => (string) ($seat->code ?? ''),
+                    'scene'   => $scene,
+                    'qr_url'  => null,
+                    'error'   => $err,
+                ];
+                continue;
+            }
+
+            $fileName = 'seat_' . $sid . '.png';
+            $filePath = $baseDir . DIRECTORY_SEPARATOR . $fileName;
+            @file_put_contents($filePath, $png);
+            $qrUrl = '/storage/seat_qr/' . $pondId . '/' . $subDir . '/' . $fileName;
+
+            $list[] = [
+                'seat_id' => $sid,
+                'seat_no' => (int) ($seat->seat_no ?? 0),
+                'code'    => (string) ($seat->code ?? ''),
+                'scene'   => $scene,
+                'qr_url'  => $qrUrl,
+                'error'   => null,
+            ];
+        }
+
+        return json([
+            'code' => 0,
+            'msg'  => 'success',
+            'data' => [
+                'pond_id' => $pondId,
+                'page'    => $page,
+                'env_version' => $envVersion === 'release' ? 'release' : 'trial',
+                'total'   => count($list),
+                'fail'    => $fail,
+                'list'    => $list,
+            ],
+        ]);
+    }
+
+    /**
+     * 打包下载：将该池塘已生成的座位二维码打包为 zip
+     * POST /api/admin/ponds/:id/seats/qrcodes/zip
+     */
+    public function downloadQrcodesZip(int $id): Json
+    {
+        $pondId = $id;
+        if ($pondId < 1) {
+            return json(['code' => 400, 'msg' => 'pond_id 不合法', 'data' => null]);
+        }
+        if (!FishingPond::find($pondId)) {
+            return json(['code' => 404, 'msg' => '池塘不存在', 'data' => null]);
+        }
+        if (!$this->canAccessPond($pondId)) {
+            return json(['code' => 403, 'msg' => '无权限管理该池塘', 'data' => null]);
+        }
+
+        $srcDir = public_path() . 'storage' . DIRECTORY_SEPARATOR . 'seat_qr' . DIRECTORY_SEPARATOR . $pondId;
+        if (!is_dir($srcDir)) {
+            return json(['code' => 400, 'msg' => '该池塘尚未生成二维码，请先生成', 'data' => null]);
+        }
+
+        $zipDir = public_path() . 'storage' . DIRECTORY_SEPARATOR . 'seat_qr_zip' . DIRECTORY_SEPARATOR . $pondId;
+        if (!is_dir($zipDir) && !@mkdir($zipDir, 0777, true) && !is_dir($zipDir)) {
+            return json(['code' => 500, 'msg' => '创建 zip 目录失败', 'data' => null]);
+        }
+
+        $zipName = 'seat_qr_pond_' . $pondId . '_' . date('Ymd_His') . '.zip';
+        $zipPath = $zipDir . DIRECTORY_SEPARATOR . $zipName;
+
+        $zip = new \ZipArchive();
+        if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            return json(['code' => 500, 'msg' => '创建 zip 文件失败', 'data' => null]);
+        }
+
+        $fileCount = 0;
+        $it = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($srcDir, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::LEAVES_ONLY
+        );
+        foreach ($it as $file) {
+            /** @var \SplFileInfo $file */
+            if (!$file->isFile()) continue;
+            $path = $file->getPathname();
+            if (strtolower($file->getExtension()) !== 'png') continue;
+            $localName = ltrim(str_replace($srcDir, '', $path), DIRECTORY_SEPARATOR);
+            $zip->addFile($path, $localName);
+            $fileCount++;
+        }
+        $zip->close();
+
+        if ($fileCount <= 0) {
+            @unlink($zipPath);
+            return json(['code' => 400, 'msg' => '未找到可打包的二维码图片', 'data' => null]);
+        }
+
+        $zipUrl = '/storage/seat_qr_zip/' . $pondId . '/' . $zipName;
+        return json(['code' => 0, 'msg' => 'success', 'data' => ['zip_url' => $zipUrl, 'files' => $fileCount]]);
+    }
+
+    /**
+     * 清理：删除该池塘已生成的二维码图片与 zip 包
+     * DELETE /api/admin/ponds/:id/seats/qrcodes/cleanup
+     */
+    public function cleanupQrcodes(int $id): Json
+    {
+        $pondId = $id;
+        if ($pondId < 1) {
+            return json(['code' => 400, 'msg' => 'pond_id 不合法', 'data' => null]);
+        }
+        if (!FishingPond::find($pondId)) {
+            return json(['code' => 404, 'msg' => '池塘不存在', 'data' => null]);
+        }
+        if (!$this->canAccessPond($pondId)) {
+            return json(['code' => 403, 'msg' => '无权限管理该池塘', 'data' => null]);
+        }
+
+        $qrDir = public_path() . 'storage' . DIRECTORY_SEPARATOR . 'seat_qr' . DIRECTORY_SEPARATOR . $pondId;
+        $zipDir = public_path() . 'storage' . DIRECTORY_SEPARATOR . 'seat_qr_zip' . DIRECTORY_SEPARATOR . $pondId;
+
+        $deleted = [
+            'qr_deleted' => $this->deleteDirRecursive($qrDir),
+            'zip_deleted' => $this->deleteDirRecursive($zipDir),
+        ];
+
+        return json(['code' => 0, 'msg' => '清理完成', 'data' => $deleted]);
+    }
+
+    private function deleteDirRecursive(string $dir): bool
+    {
+        if ($dir === '' || !file_exists($dir)) {
+            return true;
+        }
+        if (is_file($dir) || is_link($dir)) {
+            return @unlink($dir);
+        }
+        $it = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST
+        );
+        foreach ($it as $file) {
+            /** @var \SplFileInfo $file */
+            if ($file->isDir()) {
+                @rmdir($file->getPathname());
+            } else {
+                @unlink($file->getPathname());
+            }
+        }
+        return @rmdir($dir);
     }
 
     /**
