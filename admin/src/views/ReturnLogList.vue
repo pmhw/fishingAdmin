@@ -74,6 +74,24 @@
           <el-form-item label="开钓单" prop="session_id">
             <el-input v-model="form.session_id" placeholder="必填 session_id" />
           </el-form-item>
+          <el-form-item label="回鱼规则" prop="return_rule_id">
+            <el-select
+              v-model="form.return_rule_id"
+              clearable
+              filterable
+              placeholder="请选择鱼种 + 计价方式 + 单价"
+              style="width: 100%"
+              :disabled="!filters.pond_id"
+              @change="onReturnRuleChange"
+            >
+              <el-option
+                v-for="rule in returnRuleOptions"
+                :key="rule.id"
+                :label="rule.label"
+                :value="rule.id"
+              />
+            </el-select>
+          </el-form-item>
           <el-form-item label="方式" prop="return_type">
             <el-select v-model="form.return_type" style="width:100%">
               <el-option label="按斤" value="jin" />
@@ -112,6 +130,7 @@ import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getReturnLogList, createReturnLog, updateReturnLog, deleteReturnLog } from '@/api/returnLog'
+import { getPondReturnRules } from '@/api/pond'
 
 const route = useRoute()
 const loading = ref(false)
@@ -135,14 +154,51 @@ const form = reactive({
   qty: 0,
   unit_price: 0,
   amount: 0,
+  return_rule_id: null,
   remark: '',
 })
 const rules = {
   session_id: [{ required: true, message: '请输入 session_id', trigger: 'blur' }],
+  return_rule_id: [{ required: true, message: '请选择回鱼规则', trigger: 'change' }],
 }
 
 const qtyLabel = computed(() => (form.return_type === 'tiao' ? '数量（条）' : '数量（斤）'))
 const priceLabel = computed(() => (form.return_type === 'tiao' ? '单价（元/条）' : '单价（元/斤）'))
+const returnRuleOptions = ref([])
+
+async function loadReturnRuleOptions() {
+  if (!filters.pond_id) {
+    returnRuleOptions.value = []
+    return
+  }
+  try {
+    const res = await getPondReturnRules(Number(filters.pond_id))
+    const d = res?.data ?? res
+    const list = d?.list ?? []
+    returnRuleOptions.value = list.map((r) => {
+      const unit = r.return_type === 'tiao' ? '条' : '斤'
+      const typeLabel = r.return_type === 'tiao' ? '按条' : '按斤'
+      const price = Number(r.amount ?? 0)
+      const priceText = Number.isNaN(price) ? '' : `${price} 元/${unit}`
+      const parts = [r.name || '', typeLabel, priceText].filter(Boolean)
+      return {
+        id: r.id,
+        return_type: r.return_type,
+        amount: price,
+        label: parts.join(' - '),
+      }
+    })
+  } catch (_) {
+    returnRuleOptions.value = []
+  }
+}
+
+function onReturnRuleChange(val) {
+  const rule = returnRuleOptions.value.find((r) => r.id === val)
+  if (!rule) return
+  form.return_type = rule.return_type || 'jin'
+  form.unit_price = Number(rule.amount ?? 0)
+}
 
 watch(
   () => [form.qty, form.unit_price, form.return_type],
@@ -166,6 +222,7 @@ async function fetchList() {
     const data = res?.data ?? res
     list.value = data?.list ?? []
     total.value = data?.total ?? 0
+    await loadReturnRuleOptions()
   } finally {
     loading.value = false
   }
@@ -186,6 +243,7 @@ function openForm(row) {
     form.qty = Number(row.qty || 0)
     form.unit_price = Number(row.unit_price || 0)
     form.amount = Number(row.amount || 0)
+    form.return_rule_id = row.return_rule_id || null
     form.remark = row.remark || ''
   } else {
     editId.value = null
@@ -194,6 +252,7 @@ function openForm(row) {
     form.qty = 0
     form.unit_price = 0
     form.amount = 0
+    form.return_rule_id = null
     form.remark = ''
   }
   dialogVisible.value = true
@@ -216,6 +275,7 @@ async function submit() {
       qty: form.qty,
       unit_price: form.unit_price,
       amount: form.amount,
+      return_rule_id: form.return_rule_id,
       remark: form.remark,
     }
     if (editId.value) {
