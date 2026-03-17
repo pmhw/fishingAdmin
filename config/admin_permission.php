@@ -45,6 +45,8 @@ return [
     'POST:venues'        => 'admin.venue.manage',
     'PUT:venues/'        => 'admin.venue.manage',
     'DELETE:venues/'      => 'admin.venue.manage',
+    // 钓场下拉选项：用于池塘等表单选择（跟随池塘管理权限）
+    'GET:venue-options'  => 'admin.pond.manage',
 
     // ---------- 池塘 ----------
     'GET:ponds'          => 'admin.pond.manage',

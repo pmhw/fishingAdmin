@@ -22,7 +22,7 @@ export function deletePond(id) {
 
 /** 拉取钓场列表（用于池塘表单选择所属钓场） */
 export function getVenueOptions() {
-  return request.get('/api/admin/venues', { params: { page: 1, limit: 500 } })
+  return request.get('/api/admin/venue-options')
 }
 
 /** 钓位区域：按池塘查询 */

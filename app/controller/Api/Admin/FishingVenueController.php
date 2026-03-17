@@ -4,6 +4,8 @@ declare (strict_types = 1);
 namespace app\controller\Api\Admin;
 
 use app\BaseController;
+use app\model\AdminRoleVenue;
+use app\model\AdminUser;
 use app\model\FishingVenue;
 use think\response\Json;
 
@@ -12,6 +14,59 @@ use think\response\Json;
  */
 class FishingVenueController extends BaseController
 {
+    /**
+     * 钓场下拉选项（用于池塘等表单选择）
+     * GET /api/admin/venue-options
+     *
+     * 规则：
+     * - 超级管理员：返回全部钓场
+     * - 角色配置了 admin_role_venue：仅返回被分配的钓场
+     * - 未配置 admin_role_venue：返回全部钓场（兼容“未配置=全部”）
+     */
+    public function options(): Json
+    {
+        $adminId = (int) ($this->request->adminId ?? 0);
+        $allowedVenueIds = null;
+        if ($adminId > 0) {
+            try {
+                /** @var AdminUser|null $user */
+                $user = AdminUser::with('role')->find($adminId);
+                if ($user) {
+                    $codes = $user->getPermissionCodes();
+                    if (!in_array('*', $codes, true)) {
+                        $roleId = (int) ($user->role_id ?? 0);
+                        if ($roleId > 0) {
+                            $venueIds = AdminRoleVenue::where('role_id', $roleId)->column('venue_id');
+                            $venueIds = array_values(array_unique(array_map('intval', is_array($venueIds) ? $venueIds : [])));
+                            if (!empty($venueIds)) {
+                                $allowedVenueIds = $venueIds;
+                            }
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {
+                // ignore
+            }
+        }
+
+        $query = FishingVenue::field(['id', 'name'])->order('sort_order', 'asc')->order('id', 'desc');
+        // 仅展示“可用”的钓场（status=1），如需包含隐藏可调整
+        $query->where('status', 1);
+        if (is_array($allowedVenueIds)) {
+            $query->whereIn('id', $allowedVenueIds);
+        }
+        $rows = $query->select();
+        $list = [];
+        foreach ($rows as $row) {
+            $list[] = [
+                'id'   => (int) $row->id,
+                'name' => (string) ($row->name ?? ''),
+            ];
+        }
+
+        return json(['code' => 0, 'msg' => 'success', 'data' => ['list' => $list]]);
+    }
+
     /**
      * 列表 GET /api/admin/venues
      */

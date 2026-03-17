@@ -106,6 +106,8 @@ Route::group('api', function () {
             Route::get('venues/:id', 'Api.Admin.FishingVenueController/detail');
             Route::put('venues/:id', 'Api.Admin.FishingVenueController/update');
             Route::delete('venues/:id', 'Api.Admin.FishingVenueController/delete');
+            // venue-options：钓场下拉选项（按角色钓场范围过滤）
+            Route::get('venue-options', 'Api.Admin.FishingVenueController/options');
             Route::get('venues', 'Api.Admin.FishingVenueController/list');
             Route::post('venues', 'Api.Admin.FishingVenueController/create');
             // ponds：先 :id 后集合
