@@ -100,6 +100,7 @@ const MODULE_LABELS = {
   user: '管理员',
   system: '系统',
   content: '内容管理',
+  biz: '经营管理',
   misc: '杂项',
   other: '其他',
 }

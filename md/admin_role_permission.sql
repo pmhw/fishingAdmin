@@ -52,7 +52,10 @@ INSERT INTO `admin_permission` (`name`,`code`,`module`) VALUES
 ('编辑管理员','admin.user.update','user'),
 ('删除管理员','admin.user.delete','user'),
 ('角色与权限','admin.role.manage','system'),
-('全局配置','admin.config.manage','misc')
+('全局配置','admin.config.manage','misc'),
+('经营管理-开钓单','admin.biz.session.manage','biz'),
+('经营管理-回鱼流水','admin.biz.return.manage','biz'),
+('经营管理-卖鱼/收鱼流水','admin.biz.trade.manage','biz')
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`), `module`=VALUES(`module`);
 
 -- 超级管理员角色拥有全部权限（将上面插入的 permission 都挂到 super_admin 上）
