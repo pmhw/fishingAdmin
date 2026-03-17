@@ -28,8 +28,16 @@
         <el-table-column label="方式" width="90">
           <template #default="{ row }">{{ row.return_type === 'tiao' ? '按条' : '按斤' }}</template>
         </el-table-column>
-        <el-table-column prop="qty" label="数量" width="110" />
-        <el-table-column prop="unit_price" label="单价" width="110" />
+        <el-table-column label="数量" width="140">
+          <template #default="{ row }">
+            {{ row.qty }} {{ row.return_type === 'tiao' ? '条' : '斤' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="单价" width="150">
+          <template #default="{ row }">
+            {{ row.unit_price }} 元/{{ row.return_type === 'tiao' ? '条' : '斤' }}
+          </template>
+        </el-table-column>
         <el-table-column prop="amount" label="金额(元)" width="110" />
         <el-table-column prop="remark" label="备注" min-width="160" show-overflow-tooltip />
         <el-table-column prop="created_at" label="创建时间" width="170" />
@@ -72,15 +80,20 @@
               <el-option label="按条" value="tiao" />
             </el-select>
           </el-form-item>
-          <el-form-item label="数量" prop="qty">
+          <el-form-item :label="qtyLabel" prop="qty">
             <el-input-number v-model="form.qty" :min="0" :precision="2" controls-position="right" style="width:100%" />
           </el-form-item>
-          <el-form-item label="单价" prop="unit_price">
+          <el-form-item :label="priceLabel" prop="unit_price">
             <el-input-number v-model="form.unit_price" :min="0" :precision="2" controls-position="right" style="width:100%" />
           </el-form-item>
-          <el-form-item label="金额" prop="amount">
-            <el-input-number v-model="form.amount" :min="0" :precision="2" controls-position="right" style="width:100%" />
+          <el-form-item label="金额(自动计算)" prop="amount">
+            <el-input-number v-model="form.amount" :min="0" :precision="2" controls-position="right" style="width:100%" disabled />
           </el-form-item>
+          <div class="hint-text">
+            {{ form.return_type === 'tiao'
+              ? '按条：数量=条数，单价=元/条，金额=数量×单价；系统会根据池塘已配置的回鱼规则自动选择合适的单价。'
+              : '按斤：数量=重量(斤)，单价=元/斤，金额=数量×单价；系统会根据池塘已配置的回鱼规则自动选择合适的单价。' }}
+          </div>
           <el-form-item label="备注">
             <el-input v-model="form.remark" placeholder="选填" />
           </el-form-item>
@@ -95,7 +108,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getReturnLogList, createReturnLog, updateReturnLog, deleteReturnLog } from '@/api/returnLog'
@@ -127,6 +140,19 @@ const form = reactive({
 const rules = {
   session_id: [{ required: true, message: '请输入 session_id', trigger: 'blur' }],
 }
+
+const qtyLabel = computed(() => (form.return_type === 'tiao' ? '数量（条）' : '数量（斤）'))
+const priceLabel = computed(() => (form.return_type === 'tiao' ? '单价（元/条）' : '单价（元/斤）'))
+
+watch(
+  () => [form.qty, form.unit_price, form.return_type],
+  () => {
+    const q = Number(form.qty || 0)
+    const p = Number(form.unit_price || 0)
+    form.amount = Number.isFinite(q * p) ? Number((q * p).toFixed(2)) : 0
+  },
+  { immediate: true }
+)
 
 async function fetchList() {
   loading.value = true

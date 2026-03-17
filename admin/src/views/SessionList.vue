@@ -305,7 +305,13 @@ function resetFilters() {
 }
 
 function goReturnLogs(row) {
-  router.push({ path: '/return-logs', query: { session_id: row.id } })
+  router.push({
+    path: '/return-logs',
+    query: {
+      session_id: row.id,
+      pond_id: row.pond_id || '',
+    },
+  })
 }
 
 function goFishTrades(row) {

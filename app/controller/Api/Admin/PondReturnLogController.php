@@ -6,6 +6,7 @@ namespace app\controller\Api\Admin;
 use app\BaseController;
 use app\model\FishingSession;
 use app\model\PondReturnLog;
+use app\model\PondReturnRule;
 use think\response\Json;
 
 /**
@@ -62,7 +63,6 @@ class PondReturnLogController extends BaseController
         $qty = (float) $this->request->post('qty', 0);
         $unitPrice = (float) $this->request->post('unit_price', 0);
         $amount = (float) $this->request->post('amount', 0);
-        $returnRuleId = $this->request->post('return_rule_id');
         $remark = trim((string) $this->request->post('remark', ''));
 
         if ($sessionId < 1) {
@@ -80,11 +80,38 @@ class PondReturnLogController extends BaseController
             return json(['code' => 400, 'msg' => 'return_type 仅支持 jin/tiao', 'data' => null]);
         }
 
+        // 优先按回鱼规则自动匹配单价：根据池塘 + 方式 + 数量（范围）
+        $matchedRuleId = null;
+        $matchedUnitPrice = null;
+        if ($qty > 0 && (int)$session->pond_id > 0) {
+            $pondId = (int) $session->pond_id;
+            $rules = PondReturnRule::where('pond_id', $pondId)
+                ->where('return_type', $returnType)
+                ->order('sort_order', 'asc')
+                ->order('upper_limit', 'asc')
+                ->select();
+            foreach ($rules as $rule) {
+                $low = (float) $rule->lower_limit;
+                $up  = (float) $rule->upper_limit;
+                if (($low <= 0 || $qty >= $low) && ($up <= 0 || $qty <= $up)) {
+                    $matchedRuleId = (int) $rule->id;
+                    $matchedUnitPrice = (float) $rule->amount;
+                    break;
+                }
+            }
+        }
+
+        if ($matchedRuleId !== null) {
+            $returnRuleId = $matchedRuleId;
+            $unitPrice = $matchedUnitPrice;
+            $amount = $qty * $unitPrice;
+        }
+
         $row = PondReturnLog::create([
             'session_id'      => $sessionId,
             'venue_id'        => (int) $session->venue_id,
             'pond_id'         => (int) $session->pond_id,
-            'return_rule_id'  => $returnRuleId === '' || $returnRuleId === null ? null : (int) $returnRuleId,
+            'return_rule_id'  => $matchedRuleId !== null ? $matchedRuleId : null,
             'return_type'     => $returnType,
             'qty'             => $qty,
             'unit_price'      => $unitPrice,
