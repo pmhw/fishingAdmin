@@ -93,10 +93,10 @@
             </el-select>
           </el-form-item>
           <el-form-item label="方式" prop="return_type">
-            <el-select v-model="form.return_type" style="width:100%">
-              <el-option label="按斤" value="jin" />
-              <el-option label="按条" value="tiao" />
-            </el-select>
+            <el-input
+              :model-value="form.return_type === 'tiao' ? '按条' : '按斤'"
+              disabled
+            />
           </el-form-item>
           <el-form-item :label="qtyLabel" prop="qty">
             <el-input-number v-model="form.qty" :min="0" :precision="2" controls-position="right" style="width:100%" />
