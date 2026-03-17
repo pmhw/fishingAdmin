@@ -78,12 +78,12 @@ class SessionRecordController extends MiniBaseController
         $venueMap = $venueIds ? FishingVenue::whereIn('id', $venueIds)->column('name', 'id') : [];
         $pondMap  = $pondIds ? FishingPond::whereIn('id', $pondIds)->column('name', 'id') : [];
 
-        // per-session 回鱼聚合：weight_jin / amount_yuan
+        // per-session 回鱼聚合：weight_jin / amount_yuan / tiao_qty
         $returnAgg = [];
         if (!empty($sessionIds)) {
             $aggRows = Db::table('pond_return_log')
                 ->whereIn('session_id', $sessionIds)
-                ->fieldRaw("session_id, SUM(CASE WHEN return_type='jin' THEN qty ELSE 0 END) AS weight_jin, SUM(amount) AS return_amount_yuan")
+                ->fieldRaw("session_id, SUM(CASE WHEN return_type='jin' THEN qty ELSE 0 END) AS weight_jin, SUM(CASE WHEN return_type='tiao' THEN qty ELSE 0 END) AS tiao_qty, SUM(amount) AS return_amount_yuan")
                 ->group('session_id')
                 ->select()
                 ->all();
@@ -91,6 +91,7 @@ class SessionRecordController extends MiniBaseController
                 $sid = (int) ($a['session_id'] ?? 0);
                 $returnAgg[$sid] = [
                     'weight_jin' => round((float) ($a['weight_jin'] ?? 0), 2),
+                    'tiao_qty'   => (int) round((float) ($a['tiao_qty'] ?? 0)),
                     'amount_yuan' => round((float) ($a['return_amount_yuan'] ?? 0), 2),
                 ];
             }
@@ -106,6 +107,7 @@ class SessionRecordController extends MiniBaseController
             $arr['amount_paid_yuan']  = round(((int) ($arr['amount_paid'] ?? 0)) / 100, 2);
             $arr['deposit_total_yuan'] = round(((int) ($arr['deposit_total'] ?? 0)) / 100, 2);
             $arr['return_weight_jin'] = $returnAgg[$sid]['weight_jin'] ?? 0;
+            $arr['return_tiao_qty']   = $returnAgg[$sid]['tiao_qty'] ?? 0;
             $arr['return_amount_yuan'] = $returnAgg[$sid]['amount_yuan'] ?? 0;
             $list[] = $arr;
         }

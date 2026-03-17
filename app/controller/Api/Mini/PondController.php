@@ -6,7 +6,6 @@ namespace app\controller\Api\Mini;
 use app\model\FishingPond;
 use app\model\FishingSession;
 use app\model\PondFeeRule;
-use app\model\PondReturnLog;
 use app\model\PondSeat;
 use think\response\Json;
 
@@ -35,7 +34,6 @@ class PondController extends MiniBaseController
             'venue_id'  => (int) $pond->venue_id,
             'fee_rules' => [],
             'seats'     => [],
-            'current_session_return_tiao_qty' => 0,
         ];
 
         // 收费规则：id, name, amount_yuan, deposit_yuan, duration（数值，小时）
@@ -80,22 +78,6 @@ class PondController extends MiniBaseController
                 'code'     => (string) ($row->code ?? ''),
                 'occupied' => isset($occupiedSeatIds[(int) $row->id]),
             ];
-        }
-
-        // 当前登录用户在该池塘下“进行中”的开钓单，对应的回鱼条数（仅按条统计）
-        [$user, $error] = $this->getCurrentUserOrFail();
-        if ($user) {
-            $session = FishingSession::where('mini_user_id', (int) $user->id)
-                ->where('pond_id', $id)
-                ->where('status', 'ongoing')
-                ->order('id', 'desc')
-                ->find();
-            if ($session) {
-                $tiaoQty = (float) PondReturnLog::where('session_id', (int) $session->id)
-                    ->where('return_type', 'tiao')
-                    ->sum('qty');
-                $data['current_session_return_tiao_qty'] = $tiaoQty;
-            }
         }
 
         return json(['code' => 0, 'msg' => 'success', 'data' => $data]);
