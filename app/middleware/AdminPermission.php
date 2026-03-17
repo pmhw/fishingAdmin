@@ -4,6 +4,7 @@ declare (strict_types = 1);
 namespace app\middleware;
 
 use app\model\AdminUser;
+use app\model\AdminPermission as AdminPermissionModel;
 use think\facade\Config;
 use Closure;
 use think\Request;
@@ -46,7 +47,9 @@ class AdminPermission
             return $next($request);
         }
 
-        return json(['code' => 403, 'msg' => '无权限访问', 'data' => null]);
+        $permName = $this->getPermissionDisplayName($required);
+        $tip = $permName !== '' ? $permName : $required;
+        return json(['code' => 403, 'msg' => '没有分配「' . $tip . '」无权访问', 'data' => null]);
     }
 
     private function normalizePath(Request $request): string
@@ -91,6 +94,17 @@ class AdminPermission
             return $user ? $user->getPermissionCodes() : [];
         } catch (\Throwable $e) {
             return [];
+        }
+    }
+
+    private function getPermissionDisplayName(string $code): string
+    {
+        try {
+            /** @var AdminPermissionModel|null $p */
+            $p = AdminPermissionModel::where('code', $code)->find();
+            return $p ? (string) ($p->name ?? '') : '';
+        } catch (\Throwable $e) {
+            return '';
         }
     }
 }
