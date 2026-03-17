@@ -84,6 +84,13 @@ class PondRegionController extends BaseController
             'end_no'     => $endNo,
             'sort_order' => $sortOrder,
         ]);
+        try {
+            // 自动同步钓位号：避免还需要手动点击“同步座位号”
+            $seatController = app(PondSeatController::class);
+            $seatController->sync($pondId);
+        } catch (\Throwable $e) {
+            // 不影响主流程，失败时忽略；如需可记录日志
+        }
         return json(['code' => 0, 'msg' => '添加成功', 'data' => $row->toArray()]);
     }
 
