@@ -7,6 +7,7 @@ use app\model\FishingVenue;
 use app\model\FishingPond;
 use app\model\PondFeeRule;
 use app\model\PondSeat;
+use app\model\PondFeedLog;
 use think\response\Json;
 
 /**
@@ -285,6 +286,7 @@ class VenueController extends \app\BaseController
             ->select();
 
         $ponds = [];
+        $feeds = [];
         $totalSeat = 0;
         $totalSeatAll = 0;
 
@@ -292,6 +294,38 @@ class VenueController extends \app\BaseController
             $pondIds = array_map(static function ($p) {
                 return (int) $p['id'];
             }, $pondRows->toArray());
+
+            // 钓场放鱼动态：汇总该钓场下所有池塘的放鱼记录（按时间倒序）
+            if (!empty($pondIds)) {
+                $pondNameMap = FishingPond::whereIn('id', $pondIds)->column('name', 'id');
+                $feedRows = PondFeedLog::whereIn('pond_id', $pondIds)
+                    ->order('feed_time', 'desc')
+                    ->order('id', 'desc')
+                    ->limit(10)
+                    ->select();
+
+                $feeds = [];
+                foreach ($feedRows as $fr) {
+                    $arr = $fr->toArray();
+                    if (is_string($arr['images'] ?? null) && $arr['images'] !== '') {
+                        $decoded = json_decode($arr['images'], true);
+                        $arr['images'] = is_array($decoded) ? $decoded : [];
+                    } else {
+                        $arr['images'] = [];
+                    }
+                    $pondIdVal = (int) ($arr['pond_id'] ?? 0);
+                    $feeds[] = [
+                        'id' => (int) ($arr['id'] ?? 0),
+                        'pond_id' => $pondIdVal,
+                        'pond_name' => $pondNameMap[$pondIdVal] ?? '',
+                        'title' => (string) ($arr['title'] ?? ''),
+                        'content' => (string) ($arr['content'] ?? ''),
+                        'images' => $arr['images'],
+                        'feed_time' => $arr['feed_time'] ?? null,
+                        'created_at' => $arr['created_at'] ?? null,
+                    ];
+                }
+            }
 
             // 钓位统计：每个池塘总钓位数 + 使用中数量
             $seatStatsByPond = [];
@@ -400,7 +434,7 @@ class VenueController extends \app\BaseController
             'longitude'   => $venueLng ?: null,
             'address'     => (string) ($venue['address'] ?? ''),
             'facilities'  => $facilities,
-            'feeds'       => [],
+            'feeds'       => $feeds,
             'ponds'       => $ponds,
         ];
 
