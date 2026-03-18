@@ -205,6 +205,8 @@ async function onLogout() {
   color: #fff;
   transition: width 0.2s ease;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 .aside--collapsed .logo {
   padding: 0 8px;
@@ -217,6 +219,7 @@ async function onLogout() {
   border-bottom: 1px solid #2a2a4a;
   white-space: nowrap;
   transition: padding 0.2s ease;
+  flex: 0 0 auto;
 }
 .logo-short {
   font-size: 20px;
@@ -228,6 +231,16 @@ async function onLogout() {
 .aside :deep(.el-menu) {
   border-right: none;
   background: transparent;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.aside :deep(.el-menu::-webkit-scrollbar) {
+  width: 6px;
+}
+.aside :deep(.el-menu::-webkit-scrollbar-thumb) {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
 }
 .aside :deep(.el-menu-item) {
   color: #a0a0a0;
@@ -264,5 +277,6 @@ async function onLogout() {
 .main {
   background: #f5f7fa;
   padding: 16px;
+  overflow: auto;
 }
 </style>

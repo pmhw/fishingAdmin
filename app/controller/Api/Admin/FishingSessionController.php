@@ -281,6 +281,7 @@ class FishingSessionController extends BaseController
                 'amount_paid'  => $amountTotalFen,
                 'status'       => 'paid',
                 'pay_channel'  => 'balance',
+                'pay_time'     => date('Y-m-d H:i:s'),
             ]);
 
             // 余额已全额支付的场景：立即创建开钓单，座位直接占用

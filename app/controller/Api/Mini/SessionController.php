@@ -156,6 +156,7 @@ class SessionController extends MiniBaseController
                 'amount_paid'  => $amountTotalFen,
                 'status'       => 'paid',
                 'pay_channel'  => 'balance',
+                'pay_time'     => date('Y-m-d H:i:s'),
             ]);
 
             $sessionNo = 'S' . date('YmdHis') . mt_rand(1000, 9999);
