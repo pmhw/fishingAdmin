@@ -39,6 +39,8 @@ Route::group('api', function () {
     Route::get('mini/banners', 'Api.Mini.BannerController/list');
     // 钓场 / 门店展示（先具体路径，再 :id，再 list，避免误匹配）
     Route::get('mini/venues/:id/spot', 'Api.Mini.VenueController/spot');
+    // 钓场放鱼动态（汇总该钓场下所有池塘的放鱼记录）
+    Route::get('mini/venues/:id/feeds', 'Api.Mini.VenueController/feeds');
     Route::get('mini/venues/:id', 'Api.Mini.VenueController/detail');
     Route::get('mini/venues', 'Api.Mini.VenueController/list');
     // 池塘详情（收费规则 + 钓位，用于开卡页）

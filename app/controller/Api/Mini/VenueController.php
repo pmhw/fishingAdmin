@@ -440,5 +440,80 @@ class VenueController extends \app\BaseController
 
         return json(['code' => 0, 'msg' => 'success', 'data' => ['spot' => $spot]]);
     }
+
+    /**
+     * 钓场放鱼动态（汇总该钓场下所有池塘）
+     * GET /api/mini/venues/:id/feeds
+     *
+     * 可选参数：
+     * - page, limit
+     *
+     * 返回：
+     * data.list / data.total
+     */
+    public function feeds(int $id): Json
+    {
+        $page = max((int) $this->request->get('page', 1), 1);
+        $limit = min(max((int) $this->request->get('limit', 10), 1), 50);
+
+        $venue = FishingVenue::where('id', $id)->where('status', 1)->find();
+        if (!$venue) {
+            return json(['code' => 404, 'msg' => '钓场不存在或未上架', 'data' => null]);
+        }
+
+        // 该钓场下所有池塘
+        $pondRows = FishingPond::where('venue_id', $id)->select();
+        if ($pondRows->isEmpty()) {
+            return json(['code' => 0, 'msg' => 'success', 'data' => ['list' => [], 'total' => 0]]);
+        }
+
+        $pondIds = array_values(array_map(static fn ($p) => (int) ($p['id'] ?? 0), $pondRows->toArray()));
+        $pondIds = array_values(array_filter($pondIds, static fn ($v) => $v > 0));
+        if (empty($pondIds)) {
+            return json(['code' => 0, 'msg' => 'success', 'data' => ['list' => [], 'total' => 0]]);
+        }
+
+        $pondNameMap = FishingPond::whereIn('id', $pondIds)->column('name', 'id');
+
+        $query = PondFeedLog::whereIn('pond_id', $pondIds)
+            ->order('feed_time', 'desc')
+            ->order('id', 'desc');
+
+        $paginator = $query->paginate(['list_rows' => $limit, 'page' => $page]);
+        $rows = $paginator->items();
+
+        $list = [];
+        foreach ($rows as $r) {
+            /** @var \app\model\PondFeedLog $r */
+            $arr = $r->toArray();
+            if (is_string($arr['images'] ?? null) && $arr['images'] !== '') {
+                $decoded = json_decode($arr['images'], true);
+                $arr['images'] = is_array($decoded) ? $decoded : [];
+            } else {
+                $arr['images'] = [];
+            }
+
+            $pondIdVal = (int) ($arr['pond_id'] ?? 0);
+            $list[] = [
+                'id' => (int) ($arr['id'] ?? 0),
+                'pond_id' => $pondIdVal,
+                'pond_name' => (string) ($pondNameMap[$pondIdVal] ?? ''),
+                'title' => (string) ($arr['title'] ?? ''),
+                'content' => (string) ($arr['content'] ?? ''),
+                'images' => $arr['images'],
+                'feed_time' => $arr['feed_time'] ?? null,
+                'created_at' => $arr['created_at'] ?? null,
+            ];
+        }
+
+        return json([
+            'code' => 0,
+            'msg' => 'success',
+            'data' => [
+                'list' => $list,
+                'total' => (int) $paginator->total(),
+            ],
+        ]);
+    }
 }
 
