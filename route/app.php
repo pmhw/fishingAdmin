@@ -65,6 +65,10 @@ Route::group('api', function () {
     // 小程序端垂钓记录（开钓单列表 + 总数 + 总回鱼重量）
     Route::get('mini/session-records', 'Api.Mini.SessionRecordController/list')->middleware(\app\middleware\MiniAuth::class);
 
+    // 小程序会员码：动态二维码 + 过期校验
+    Route::post('mini/vip/codes', 'Api.Mini.VipCodeController/create')->middleware(\app\middleware\MiniAuth::class);
+    Route::get('mini/vip/codes/verify', 'Api.Mini.VipCodeController/verify');
+
     // ========== 后台管理 ==========
     Route::group('admin', function () {
         // 以下不需要登录（不走登录中间件）
