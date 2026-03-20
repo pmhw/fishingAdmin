@@ -55,6 +55,8 @@ Route::group('api', function () {
     Route::get('mini/me', 'Api.Mini.UserController/me')->middleware(\app\middleware\MiniAuth::class);
     Route::get('mini/user/me', 'Api.Mini.UserController/me')->middleware(\app\middleware\MiniAuth::class);
     Route::get('mini/user/info', 'Api.Mini.UserController/info')->middleware(\app\middleware\MiniAuth::class);
+    // 小程序会员余额：仅返回 balance/is_vip 等关键信息
+    Route::get('mini/user/balance', 'Api.Mini.UserController/balance')->middleware(\app\middleware\MiniAuth::class);
     Route::post('mini/profile', 'Api.Mini.UserController/profile')->middleware(\app\middleware\MiniAuth::class);
     Route::put('mini/user/profile', 'Api.Mini.UserController/profile')->middleware(\app\middleware\MiniAuth::class);
     Route::post('mini/user/profile', 'Api.Mini.UserController/profile')->middleware(\app\middleware\MiniAuth::class);

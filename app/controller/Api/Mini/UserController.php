@@ -91,6 +91,31 @@ class UserController extends MiniBaseController
     }
 
     /**
+     * 当前用户会员余额
+     * GET /api/mini/user/balance
+     * 返回：{ balance, is_vip, nickname?, avatar? }
+     */
+    public function balance(): Json
+    {
+        [$user, $err] = $this->getCurrentUserOrFail();
+        if ($err !== null) {
+            return $err;
+        }
+
+        return json([
+            'code' => 0,
+            'msg' => 'success',
+            'data' => [
+                'is_vip' => (int) (($user->is_vip ?? 0) === 1),
+                'balance' => (string) number_format((float) ($user->balance ?? 0), 2, '.', ''),
+                'balance_number' => (float) ($user->balance ?? 0),
+                'nickname' => (string) ($user->nickname ?? ''),
+                'avatar' => (string) ($user->avatar ?? ''),
+            ],
+        ]);
+    }
+
+    /**
      * 内部：根据 token 获取当前用户信息（复用公共登录校验）
      */
     private function getCurrentUserInfo(): Json
