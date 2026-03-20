@@ -147,15 +147,8 @@ class VipCodeController extends MiniBaseController
         }
 
         $now = time();
-        if ($ts > $now) {
-            return json(['code' => 200, 'msg' => 'success', 'data' => ['valid' => false, 'reason' => 'invalid_timestamp']]);
-        }
 
-        $expired = ($now - $ts) > $ttlSeconds;
-        if ($expired) {
-            return json(['code' => 200, 'msg' => 'success', 'data' => ['valid' => false, 'reason' => 'expired']]);
-        }
-
+        // 先校验签名：签名正确才允许返回余额等敏感信息
         $calcSig = $this->calcSig($uid, $ts, $secret);
         $sigOk = strcasecmp($calcSig, $sig) === 0;
         if (!$sigOk) {
@@ -166,18 +159,34 @@ class VipCodeController extends MiniBaseController
         $user = MiniUser::find($uid);
         $isVip = $user ? (int) ($user->is_vip ?? 0) === 1 : false;
         $nickname = $user ? (string) ($user->nickname ?? '') : '';
+        $balance = (string) number_format((float) ($user ? ($user->balance ?? 0) : 0), 2, '.', '');
+
+        $reason = null;
+        $valid = true;
+        if ($ts > $now) {
+            $valid = false;
+            $reason = 'invalid_timestamp';
+        } else {
+            $expired = ($now - $ts) > $ttlSeconds;
+            if ($expired) {
+                $valid = false;
+                $reason = 'expired';
+            }
+        }
 
         return json([
             'code' => 0,
             'msg' => 'success',
             'data' => [
-                'valid' => true,
+                'valid' => $valid,
                 'uid' => $uid,
                 'ts' => $ts,
                 'sig' => $sig,
                 'ttl_seconds' => $ttlSeconds,
                 'is_vip' => $isVip ? 1 : 0,
                 'nickname' => $nickname,
+                'balance' => $balance,
+                'reason' => $valid ? null : $reason,
             ],
         ]);
     }
