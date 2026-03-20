@@ -67,6 +67,13 @@ Route::group('api', function () {
     // 小程序端垂钓记录（开钓单列表 + 总数 + 总回鱼重量）
     Route::get('mini/session-records', 'Api.Mini.SessionRecordController/list')->middleware(\app\middleware\MiniAuth::class);
 
+    // 小程序端：用户收藏钓场
+    Route::post('mini/favorites/venues', 'Api.Mini.FavoriteVenueController/add')->middleware(\app\middleware\MiniAuth::class);
+    Route::delete('mini/favorites/venues/:venue_id', 'Api.Mini.FavoriteVenueController/remove')->middleware(\app\middleware\MiniAuth::class);
+    Route::get('mini/favorites/venues', 'Api.Mini.FavoriteVenueController/list')->middleware(\app\middleware\MiniAuth::class);
+    // 是否收藏（不强制登录）
+    Route::get('mini/favorites/venues/:venue_id/check', 'Api.Mini.FavoriteVenueController/check');
+
     // 小程序会员码：动态二维码 + 过期校验
     Route::post('mini/vip/codes', 'Api.Mini.VipCodeController/create')->middleware(\app\middleware\MiniAuth::class);
     Route::get('mini/vip/codes/verify', 'Api.Mini.VipCodeController/verify');

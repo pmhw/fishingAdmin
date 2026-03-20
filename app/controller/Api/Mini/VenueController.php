@@ -268,6 +268,25 @@ class VenueController extends \app\BaseController
         $venueLat = isset($venue['latitude']) ? (float) $venue['latitude'] : 0.0;
         $venueLng = isset($venue['longitude']) ? (float) $venue['longitude'] : 0.0;
 
+        // 是否收藏：不强制登录；若存在 token 则判断，否则默认 false
+        $isFavorited = false;
+        $auth = (string) $this->request->header('Authorization', '');
+        $token = '';
+        if (str_starts_with($auth, 'Bearer ')) {
+            $token = trim(substr($auth, 7));
+        }
+        if ($token !== '') {
+            $openid = AuthController::getOpenidByToken($token);
+            if ($openid) {
+                $miniUser = app\model\MiniUser::where('openid', $openid)->find();
+                if ($miniUser) {
+                    $isFavorited = app\model\MiniFavoriteVenue::where('mini_user_id', (int) $miniUser->id)
+                        ->where('venue_id', (int) $id)
+                        ->count() > 0;
+                }
+            }
+        }
+
         $distanceText = null;
         if ($userLat && $userLng && $venueLat && $venueLng) {
             $distanceM = $this->calcDistanceMeters($userLat, $userLng, $venueLat, $venueLng);
@@ -435,6 +454,7 @@ class VenueController extends \app\BaseController
             'address'     => (string) ($venue['address'] ?? ''),
             'facilities'  => $facilities,
             'feeds'       => $feeds,
+            'is_favorited'=> $isFavorited ? 1 : 0,
             'ponds'       => $ponds,
         ];
 
