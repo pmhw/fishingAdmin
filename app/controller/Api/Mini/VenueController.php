@@ -278,9 +278,9 @@ class VenueController extends \app\BaseController
         if ($token !== '') {
             $openid = AuthController::getOpenidByToken($token);
             if ($openid) {
-                $miniUser = app\model\MiniUser::where('openid', $openid)->find();
+                $miniUser = \app\model\MiniUser::where('openid', $openid)->find();
                 if ($miniUser) {
-                    $isFavorited = app\model\MiniFavoriteVenue::where('mini_user_id', (int) $miniUser->id)
+                    $isFavorited = \app\model\MiniFavoriteVenue::where('mini_user_id', (int) $miniUser->id)
                         ->where('venue_id', (int) $id)
                         ->count() > 0;
                 }
