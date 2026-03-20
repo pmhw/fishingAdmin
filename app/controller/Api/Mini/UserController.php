@@ -3,6 +3,7 @@ declare (strict_types = 1);
 
 namespace app\controller\Api\Mini;
 
+use app\model\MiniFavoriteVenue;
 use app\model\MiniUser;
 use think\response\Json;
 
@@ -124,10 +125,14 @@ class UserController extends MiniBaseController
         if ($err !== null) {
             return $err;
         }
+        $data = $user->toArray();
+        // 钓场收藏数量（与 mini_favorite_venue 一致）
+        $data['favorite_count'] = (int) MiniFavoriteVenue::where('mini_user_id', (int) $user->id)->count();
+
         return json([
             'code' => 0,
             'msg'  => 'success',
-            'data' => $user->toArray(),
+            'data' => $data,
         ]);
     }
 
