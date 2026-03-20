@@ -91,15 +91,24 @@ class FavoriteVenueController extends MiniBaseController
         }
         $venueIds = array_values(array_filter($venueIds, static fn ($v) => $v > 0));
 
-        $venueMap = $venueIds ? FishingVenue::whereIn('id', $venueIds)->where('status', 1)->column('name', 'id') : [];
+        $venueById = [];
+        if (!empty($venueIds)) {
+            $venueRows = FishingVenue::whereIn('id', $venueIds)->where('status', 1)->select();
+            foreach ($venueRows as $v) {
+                $arr = $v->toArray();
+                $venueById[(int) ($arr['id'] ?? 0)] = $arr;
+            }
+        }
 
         $list = [];
         foreach ($rows as $r) {
             $vid = (int) ($r->venue_id ?? 0);
+            $va = $venueById[$vid] ?? [];
             $list[] = [
-                'id' => $vid,
-                'name' => (string) ($venueMap[$vid] ?? ''),
-                'collected' => true,
+                'id'          => $vid,
+                'name'        => (string) ($va['name'] ?? ''),
+                'cover_image' => (string) ($va['cover_image'] ?? ''),
+                'collected'   => true,
             ];
         }
 
