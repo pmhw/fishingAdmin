@@ -1,26 +1,22 @@
 -- ============================================
 -- 钓场店铺 · 公共商品库 + 多规格 + 按店库存/售价
 -- ============================================
+-- 【必做】在**与 .env 相同**的业务库里执行本文件（否则会报 Table 'xxx.product' doesn't exist）
+-- 示例（把库名改成你的实际库名，错误信息里是 fishing_kaiyuant）：
+--   USE `fishing_kaiyuant`;
+-- 也可在 phpMyAdmin / Navicat 里先选中该数据库，再执行以下 SQL。
+-- 依赖：已存在表 fishing_venue（外键引用），MySQL 5.7+（需支持 JSON 类型；否则把 product_sku.spec_json 改为 TEXT）
+-- ============================================
 -- 概念：
---   product / product_sku     → 平台公共「商品库」（SPU / SKU）
---   venue_product             → 某钓场「上架了哪些 SPU」
+--   product / product_sku     → 平台公共「商品库」（SPU / SKU），**不设全局商品分类**
+--   venue_shop_category       → **每钓场独立**的店内商品分类
+--   venue_product             → 某钓场上架 SPU，可挂 shop_category_id
 --   venue_product_sku         → 该店每个 SKU 的售价、库存、上下架
 -- 价格：只在 venue_product_sku.price（店内价）；product_sku.default_price 为建议价，可选
 -- ============================================
 
--- ---------- 商品分类（可选，先建空表方便后台扩展）----------
-CREATE TABLE IF NOT EXISTS `product_category` (
-  `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
-  `name` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '分类名，如饵料/线组/饮料',
-  `parent_id` INT(11) UNSIGNED NOT NULL DEFAULT 0 COMMENT '父级，0 为顶级',
-  `sort_order` INT(11) NOT NULL DEFAULT 0 COMMENT '排序，越小越靠前',
-  `status` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '1-启用 0-禁用',
-  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `idx_parent` (`parent_id`),
-  KEY `idx_status_sort` (`status`,`sort_order`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='商品分类';
+-- ---------- 全局商品分类表 product_category（遗留，新业务不使用；可不执行本节）----------
+-- CREATE TABLE IF NOT EXISTS `product_category` (...);
 
 -- ---------- 公共商品库 SPU ----------
 CREATE TABLE IF NOT EXISTS `product` (
@@ -59,11 +55,27 @@ CREATE TABLE IF NOT EXISTS `product_sku` (
   CONSTRAINT `fk_product_sku_product` FOREIGN KEY (`product_id`) REFERENCES `product` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='商品规格-SKU';
 
+-- ---------- 钓场店铺分类（每店独立）----------
+CREATE TABLE IF NOT EXISTS `venue_shop_category` (
+  `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `venue_id` INT(11) UNSIGNED NOT NULL COMMENT '钓场 ID',
+  `name` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '分类名称，如 饵料/饮料',
+  `sort_order` INT(11) NOT NULL DEFAULT 0 COMMENT '排序，越小越靠前',
+  `status` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '1-启用 0-停用',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_venue_sort` (`venue_id`,`sort_order`),
+  KEY `idx_venue_status` (`venue_id`,`status`),
+  CONSTRAINT `fk_vsc_venue` FOREIGN KEY (`venue_id`) REFERENCES `fishing_venue` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='钓场店铺-店内商品分类';
+
 -- ---------- 钓场与 SPU 关联（本店是否售卖该商品）----------
 CREATE TABLE IF NOT EXISTS `venue_product` (
   `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
   `venue_id` INT(11) UNSIGNED NOT NULL COMMENT '钓场 ID，关联 fishing_venue.id',
   `product_id` INT(11) UNSIGNED NOT NULL COMMENT '公共库 SPU',
+  `shop_category_id` INT(11) UNSIGNED DEFAULT NULL COMMENT '本店分类，NULL 表示未分组',
   `status` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '1-在售 0-本店下架（不展示）',
   `sort_order` INT(11) NOT NULL DEFAULT 0 COMMENT '本店商品排序',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -71,8 +83,10 @@ CREATE TABLE IF NOT EXISTS `venue_product` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_venue_product` (`venue_id`,`product_id`),
   KEY `idx_venue_status` (`venue_id`,`status`),
+  KEY `idx_shop_category` (`shop_category_id`),
   CONSTRAINT `fk_venue_product_venue` FOREIGN KEY (`venue_id`) REFERENCES `fishing_venue` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_venue_product_product` FOREIGN KEY (`product_id`) REFERENCES `product` (`id`) ON DELETE CASCADE
+  CONSTRAINT `fk_venue_product_product` FOREIGN KEY (`product_id`) REFERENCES `product` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_venue_product_shop_cat` FOREIGN KEY (`shop_category_id`) REFERENCES `venue_shop_category` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='钓场店铺-已上架SPU';
 
 -- ---------- 店内 SKU：售价 + 库存（核心）----------

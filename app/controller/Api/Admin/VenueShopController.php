@@ -7,6 +7,7 @@ use app\BaseController;
 use app\model\Product;
 use app\model\ProductSku;
 use app\model\VenueProduct;
+use app\model\VenueShopCategory;
 use app\model\VenueProductSku;
 use think\facade\Db;
 use think\response\Json;
@@ -30,11 +31,21 @@ class VenueShopController extends BaseController
 
         $page = max((int) $this->request->get('page', 1), 1);
         $limit = min(max((int) $this->request->get('limit', 10), 1), 100);
+        $shopCat = $this->request->get('shop_category_id');
 
-        $query = VenueProduct::with(['product'])
+        $query = VenueProduct::with(['product', 'shopCategory'])
             ->where('venue_id', $venueId)
             ->order('sort_order', 'asc')
             ->order('id', 'desc');
+
+        if ($shopCat !== null && $shopCat !== '') {
+            $cid = (int) $shopCat;
+            if ($cid < 1) {
+                $query->whereRaw('(shop_category_id IS NULL OR shop_category_id = 0)');
+            } else {
+                $query->where('shop_category_id', $cid);
+            }
+        }
 
         $paginator = $query->paginate(['list_rows' => $limit, 'page' => $page]);
         $items = [];
@@ -118,17 +129,29 @@ class VenueShopController extends BaseController
 
         $skus = ProductSku::where('product_id', $productId)->where('status', 1)->order('sort_order', 'asc')->order('id', 'asc')->select();
         if ($skus->isEmpty()) {
-            return json(['code' => 400, 'msg' => '该商品暂无启用中的规格，请先在商品库中添加规格', 'data' => null]);
+            return json(['code' => 400, 'msg' => '该商品暂无启用中的规格，请先在商品库中配置规格', 'data' => null]);
+        }
+
+        $shopCategoryId = $this->request->post('shop_category_id');
+        $shopCategoryId = $shopCategoryId === null || $shopCategoryId === '' ? null : (int) $shopCategoryId;
+        if ($shopCategoryId !== null && $shopCategoryId > 0) {
+            $cat = VenueShopCategory::where('id', $shopCategoryId)->where('venue_id', $venueId)->where('status', 1)->find();
+            if (!$cat) {
+                return json(['code' => 400, 'msg' => '本店分类不存在或已停用', 'data' => null]);
+            }
+        } else {
+            $shopCategoryId = null;
         }
 
         $vpId = 0;
         Db::startTrans();
         try {
             $vp = VenueProduct::create([
-                'venue_id'    => $venueId,
-                'product_id'  => $productId,
-                'status'      => 1,
-                'sort_order'  => (int) $this->request->post('sort_order', 0),
+                'venue_id'          => $venueId,
+                'product_id'        => $productId,
+                'shop_category_id'  => $shopCategoryId,
+                'status'            => 1,
+                'sort_order'        => (int) $this->request->post('sort_order', 0),
             ]);
             $vpId = (int) $vp->id;
             foreach ($skus as $sku) {
@@ -149,13 +172,13 @@ class VenueShopController extends BaseController
             return json(['code' => 500, 'msg' => '添加失败：' . $e->getMessage(), 'data' => null]);
         }
 
-        $vp = VenueProduct::with(['product'])->find($vpId);
+        $vp = VenueProduct::with(['product', 'shopCategory'])->find($vpId);
 
         return json(['code' => 0, 'msg' => '已加入店铺', 'data' => $this->venueProductRowToApi($vp, true)]);
     }
 
     /**
-     * 更新本店商品（排序/上下架）PUT /api/admin/shop/venues/:venue_id/products/:vp_id
+     * 更新本店商品（排序/上下架/本店分类）PUT /api/admin/shop/venues/:venue_id/products/:vp_id
      */
     public function updateVenueProduct(int $venue_id, int $vp_id): Json
     {
@@ -178,10 +201,27 @@ class VenueShopController extends BaseController
         if ($so !== null && $so !== '') {
             $data['sort_order'] = (int) $so;
         }
+        if ($this->request->param('shop_category_id') !== null) {
+            $sc = $this->request->param('shop_category_id');
+            if ($sc === '' || $sc === null) {
+                $data['shop_category_id'] = null;
+            } else {
+                $cid = (int) $sc;
+                if ($cid < 1) {
+                    $data['shop_category_id'] = null;
+                } else {
+                    $cat = VenueShopCategory::where('id', $cid)->where('venue_id', $venueId)->where('status', 1)->find();
+                    if (!$cat) {
+                        return json(['code' => 400, 'msg' => '本店分类不存在或已停用', 'data' => null]);
+                    }
+                    $data['shop_category_id'] = $cid;
+                }
+            }
+        }
         if (!empty($data)) {
             $vp->save($data);
         }
-        $vp = VenueProduct::with(['product'])->find($vp_id);
+        $vp = VenueProduct::with(['product', 'shopCategory'])->find($vp_id);
 
         return json(['code' => 0, 'msg' => '保存成功', 'data' => $this->venueProductRowToApi($vp, true)]);
     }
@@ -320,7 +360,7 @@ class VenueShopController extends BaseController
             return json(['code' => 500, 'msg' => '同步失败：' . $e->getMessage(), 'data' => null]);
         }
 
-        $vp = VenueProduct::with(['product'])->find($vp_id);
+        $vp = VenueProduct::with(['product', 'shopCategory'])->find($vp_id);
 
         return json([
             'code' => 0,
@@ -334,6 +374,8 @@ class VenueShopController extends BaseController
         $arr = $vp->toArray();
         $p = $vp->product;
         $arr['product'] = null;
+        $c = $vp->shopCategory;
+        $arr['shop_category'] = $c ? $c->toArray() : null;
         if ($p) {
             $pa = $p->toArray();
             $pa['images'] = $this->decodeImages($pa['images'] ?? null);

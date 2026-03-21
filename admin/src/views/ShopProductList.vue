@@ -49,7 +49,7 @@
         <el-table-column v-if="canEdit" label="操作" fixed="right" width="200">
           <template #default="{ row }">
             <el-button link type="primary" @click="openProductDialog(row)">编辑</el-button>
-            <el-button link type="primary" @click="openSkuDialog(row)">规格</el-button>
+            <el-button link type="primary" @click="openSpecConfig(row)">规格配置</el-button>
             <el-button link type="danger" @click="onDeleteProduct(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -66,17 +66,12 @@
       />
     </el-card>
 
-    <!-- SPU -->
+    <!-- SPU（不设全局分类；分类在各钓场店铺内维护） -->
     <el-dialog v-model="productDialogVisible" :title="editProductId ? '编辑商品' : '新增商品'" width="560px" destroy-on-close @closed="resetProductForm">
+      <el-alert type="info" :closable="false" show-icon class="mb-12" title="商品分类在「钓场选品与库存」里按店单独设置，公共库无需选分类。" />
       <el-form ref="productFormRef" :model="productForm" :rules="productRules" label-width="100px">
         <el-form-item label="名称" prop="name">
           <el-input v-model="productForm.name" placeholder="必填" />
-        </el-form-item>
-        <el-form-item label="分类">
-          <el-select v-model="productForm.category_id" placeholder="未分类" style="width: 100%">
-            <el-option label="未分类" :value="0" />
-            <el-option v-for="c in categories" :key="c.id" :label="c.name" :value="c.id" />
-          </el-select>
         </el-form-item>
         <el-form-item label="单位">
           <el-input v-model="productForm.unit" placeholder="如 件、包、瓶" />
@@ -121,69 +116,51 @@
       </template>
     </el-dialog>
 
-    <!-- SKU -->
-    <el-dialog v-model="skuDialogVisible" :title="`规格管理 — ${skuProductName}`" width="720px" destroy-on-close @closed="skuList = []">
-      <el-table v-loading="skuLoading" :data="skuList" border size="small" max-height="360">
-        <el-table-column prop="id" label="SKU ID" width="80" />
-        <el-table-column prop="spec_label" label="规格名称" min-width="140" />
-        <el-table-column label="建议价(元)" width="110">
-          <template #default="{ row }">{{ row.default_price ?? '-' }}</template>
-        </el-table-column>
-        <el-table-column prop="sort_order" label="排序" width="70" />
-        <el-table-column label="状态" width="80">
-          <template #default="{ row }">
-            <el-tag size="small" :type="row.status === 1 ? 'success' : 'info'">{{ row.status === 1 ? '启用' : '停' }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column v-if="canEdit" label="操作" width="120" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" size="small" @click="openSkuEdit(row)">改</el-button>
-            <el-button link type="danger" size="small" @click="onDeleteSku(row)">删</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-      <el-divider v-if="canEdit" content-position="left">新增规格</el-divider>
-      <el-form v-if="canEdit" :inline="true" class="sku-add-form">
-        <el-form-item label="规格名称">
-          <el-input v-model="newSku.spec_label" placeholder="如 500ml×1袋" style="width: 200px" />
-        </el-form-item>
-        <el-form-item label="建议价">
-          <el-input-number v-model="newSku.default_price" :min="0" :precision="2" controls-position="right" style="width: 120px" />
-        </el-form-item>
-        <el-form-item label="排序">
-          <el-input-number v-model="newSku.sort_order" :min="0" controls-position="right" style="width: 100px" />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" :loading="skuAddLoading" @click="submitNewSku">添加</el-button>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button type="primary" @click="skuDialogVisible = false">关闭</el-button>
-      </template>
-    </el-dialog>
-
-    <el-dialog v-model="skuEditVisible" title="编辑规格" width="440px" destroy-on-close>
-      <el-form label-width="100px">
-        <el-form-item label="规格名称">
-          <el-input v-model="editSkuForm.spec_label" />
-        </el-form-item>
-        <el-form-item label="建议价">
-          <el-input-number v-model="editSkuForm.default_price" :min="0" :precision="2" controls-position="right" style="width: 100%" />
-        </el-form-item>
-        <el-form-item label="排序">
-          <el-input-number v-model="editSkuForm.sort_order" :min="0" controls-position="right" style="width: 100%" />
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-radio-group v-model="editSkuForm.status">
-            <el-radio :value="1">启用</el-radio>
-            <el-radio :value="0">停用</el-radio>
-          </el-radio-group>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="skuEditVisible = false">取消</el-button>
-        <el-button type="primary" :loading="skuEditLoading" @click="submitSkuEdit">保存</el-button>
-      </template>
+    <!-- 规格配置：与池塘「回鱼规则」相同交互（表内编辑 + 行保存/删除 + 顶部添加） -->
+    <el-dialog
+      v-model="specConfigVisible"
+      :title="'商品规格 - ' + (specProductName || '')"
+      width="920px"
+      :close-on-click-modal="false"
+      @close="closeSpecConfig"
+    >
+      <div v-loading="specListLoading" class="spec-config-wrap">
+        <div class="spec-toolbar">
+          <span class="spec-tip">规格名称 + 建议零售价；同步到钓场时可作默认售价</span>
+          <el-button v-if="canEdit" type="primary" size="small" @click="addSpecRow">添加</el-button>
+        </div>
+        <el-table :data="specDisplayList" size="small" max-height="420" stripe class="spec-inline-table">
+          <el-table-column label="规格名称" min-width="160">
+            <template #default="{ row }">
+              <el-input v-model="row.spec_label" placeholder="如 500ml×1袋" size="small" />
+            </template>
+          </el-table-column>
+          <el-table-column label="建议价(元)" width="120">
+            <template #default="{ row }">
+              <el-input-number v-model="row.default_price" :min="0" :precision="2" controls-position="right" size="small" style="width: 100%" />
+            </template>
+          </el-table-column>
+          <el-table-column label="排序" width="90">
+            <template #default="{ row }">
+              <el-input-number v-model="row.sort_order" :min="0" controls-position="right" size="small" style="width: 100%" />
+            </template>
+          </el-table-column>
+          <el-table-column label="状态" width="100">
+            <template #default="{ row }">
+              <el-select v-model="row.status" size="small" style="width: 100%">
+                <el-option label="启用" :value="1" />
+                <el-option label="停用" :value="0" />
+              </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column v-if="canEdit" label="操作" width="140" fixed="right">
+            <template #default="{ row }">
+              <el-button type="primary" link size="small" :loading="savingSpecKey === getSpecRowKey(row)" @click="saveSpecRow(row)">保存</el-button>
+              <el-button type="danger" link size="small" @click="deleteSpecRow(row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
     </el-dialog>
   </div>
 </template>
@@ -193,15 +170,15 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import {
-  getShopProductCategories,
+  getShopProductSkuList,
+  createShopProductSku,
+  updateShopProductSku,
+  deleteShopProductSku,
   getShopProductList,
   getShopProductDetail,
   createShopProduct,
   updateShopProduct,
   deleteShopProduct,
-  addShopProductSku,
-  updateShopProductSku,
-  deleteShopProductSku,
   uploadShopImage,
 } from '@/api/shop'
 
@@ -220,8 +197,6 @@ const limit = ref(10)
 const keyword = ref('')
 const filterStatus = ref('')
 
-const categories = ref([])
-
 function imgUrl(u) {
   if (!u) return ''
   if (/^https?:\/\//i.test(u)) return u
@@ -239,15 +214,6 @@ function imagesTextToArray(text) {
 function onSearch() {
   page.value = 1
   fetchList()
-}
-
-async function fetchCategories() {
-  try {
-    const res = await getShopProductCategories()
-    categories.value = res.data?.list ?? []
-  } catch (_) {
-    categories.value = []
-  }
 }
 
 async function fetchList() {
@@ -271,7 +237,6 @@ const productSubmitLoading = ref(false)
 const uploading = ref(false)
 const productForm = reactive({
   name: '',
-  category_id: 0,
   unit: '件',
   intro: '',
   cover_image: '',
@@ -287,7 +252,6 @@ const productRules = {
 function resetProductForm() {
   editProductId.value = null
   productForm.name = ''
-  productForm.category_id = 0
   productForm.unit = '件'
   productForm.intro = ''
   productForm.cover_image = ''
@@ -298,7 +262,6 @@ function resetProductForm() {
 }
 
 async function openProductDialog(row) {
-  await fetchCategories()
   resetProductForm()
   if (row?.id) {
     editProductId.value = row.id
@@ -307,7 +270,6 @@ async function openProductDialog(row) {
       const d = res.data
       if (d) {
         productForm.name = d.name ?? ''
-        productForm.category_id = d.category_id ?? 0
         productForm.unit = d.unit ?? '件'
         productForm.intro = d.intro ?? ''
         productForm.cover_image = d.cover_image ?? ''
@@ -342,7 +304,6 @@ async function submitProduct() {
   try {
     const payload = {
       name: productForm.name.trim(),
-      category_id: productForm.category_id || 0,
       unit: productForm.unit || '件',
       intro: productForm.intro || null,
       cover_image: productForm.cover_image || null,
@@ -377,92 +338,113 @@ function onDeleteProduct(row) {
     .catch(() => {})
 }
 
-/* ---- SKU ---- */
-const skuDialogVisible = ref(false)
-const skuLoading = ref(false)
-const skuProductId = ref(0)
-const skuProductName = ref('')
-const skuList = ref([])
-const skuAddLoading = ref(false)
-const newSku = reactive({ spec_label: '', default_price: undefined, sort_order: 0 })
+/* ---- 规格（回鱼规则式） ---- */
+const specConfigVisible = ref(false)
+const specListLoading = ref(false)
+const specProductId = ref(0)
+const specProductName = ref('')
+const specList = ref([])
+const specNewRows = ref([])
+const savingSpecKey = ref(null)
 
-async function openSkuDialog(row) {
-  skuProductId.value = row.id
-  skuProductName.value = row.name ?? ''
-  skuDialogVisible.value = true
-  skuLoading.value = true
+const specDisplayList = computed(() => [...specList.value, ...specNewRows.value])
+
+function getSpecRowKey(row) {
+  return row._new ? String(row._tid) : String(row.id)
+}
+
+function openSpecConfig(row) {
+  specProductId.value = row.id
+  specProductName.value = row.name ?? ''
+  specNewRows.value = []
+  specConfigVisible.value = true
+  specListLoading.value = true
+  fetchSpecList(row.id).finally(() => {
+    specListLoading.value = false
+  })
+}
+
+function closeSpecConfig() {
+  specProductId.value = 0
+  specProductName.value = ''
+  specList.value = []
+  specNewRows.value = []
+}
+
+async function fetchSpecList(productId) {
+  if (!productId) return
   try {
-    const res = await getShopProductDetail(row.id)
-    skuList.value = res.data?.skus ?? []
-  } finally {
-    skuLoading.value = false
+    const res = await getShopProductSkuList(productId)
+    const raw = res.data?.list ?? []
+    specList.value = raw.map((r) => ({
+      ...r,
+      default_price: r.default_price != null ? Number(r.default_price) : undefined,
+      sort_order: Number(r.sort_order) || 0,
+      status: r.status === 0 ? 0 : 1,
+    }))
+  } catch (_) {
+    specList.value = []
   }
 }
 
-async function submitNewSku() {
-  if (!newSku.spec_label?.trim()) {
+function addSpecRow() {
+  specNewRows.value.push({
+    _new: true,
+    _tid: 'new_' + Date.now(),
+    spec_label: '',
+    default_price: undefined,
+    sort_order: specDisplayList.value.length,
+    status: 1,
+  })
+}
+
+async function saveSpecRow(row) {
+  if (!(row.spec_label && String(row.spec_label).trim())) {
     ElMessage.warning('请填写规格名称')
     return
   }
-  skuAddLoading.value = true
+  const key = getSpecRowKey(row)
+  savingSpecKey.value = key
   try {
-    await addShopProductSku(skuProductId.value, {
-      spec_label: newSku.spec_label.trim(),
-      default_price: newSku.default_price,
-      sort_order: newSku.sort_order,
-      status: 1,
-    })
-    ElMessage.success('已添加')
-    newSku.spec_label = ''
-    newSku.default_price = undefined
-    newSku.sort_order = 0
-    const res = await getShopProductDetail(skuProductId.value)
-    skuList.value = res.data?.skus ?? []
-    fetchList()
-  } finally {
-    skuAddLoading.value = false
+    if (row._new) {
+      await createShopProductSku({
+        product_id: specProductId.value,
+        spec_label: String(row.spec_label).trim(),
+        default_price: row.default_price,
+        sort_order: Number(row.sort_order) || 0,
+        status: row.status === 0 ? 0 : 1,
+      })
+      ElMessage.success('添加成功')
+      specNewRows.value = specNewRows.value.filter((r) => r !== row)
+      await fetchSpecList(specProductId.value)
+      fetchList()
+    } else {
+      await updateShopProductSku(row.id, {
+        spec_label: String(row.spec_label).trim(),
+        default_price: row.default_price,
+        sort_order: Number(row.sort_order) || 0,
+        status: row.status === 0 ? 0 : 1,
+      })
+      ElMessage.success('保存成功')
+      await fetchSpecList(specProductId.value)
+      fetchList()
+    }
+  } catch (_) {}
+  finally {
+    savingSpecKey.value = null
   }
 }
 
-const skuEditVisible = ref(false)
-const skuEditLoading = ref(false)
-const editSkuForm = reactive({ id: 0, spec_label: '', default_price: undefined, sort_order: 0, status: 1 })
-
-function openSkuEdit(row) {
-  editSkuForm.id = row.id
-  editSkuForm.spec_label = row.spec_label ?? ''
-  editSkuForm.default_price = row.default_price != null ? Number(row.default_price) : undefined
-  editSkuForm.sort_order = row.sort_order ?? 0
-  editSkuForm.status = row.status ?? 1
-  skuEditVisible.value = true
-}
-
-async function submitSkuEdit() {
-  skuEditLoading.value = true
-  try {
-    await updateShopProductSku(editSkuForm.id, {
-      spec_label: editSkuForm.spec_label,
-      default_price: editSkuForm.default_price,
-      sort_order: editSkuForm.sort_order,
-      status: editSkuForm.status,
-    })
-    ElMessage.success('已保存')
-    skuEditVisible.value = false
-    const res = await getShopProductDetail(skuProductId.value)
-    skuList.value = res.data?.skus ?? []
-    fetchList()
-  } finally {
-    skuEditLoading.value = false
+function deleteSpecRow(row) {
+  if (row._new) {
+    specNewRows.value = specNewRows.value.filter((r) => r !== row)
+    return
   }
-}
-
-function onDeleteSku(row) {
-  ElMessageBox.confirm('确定删除该规格？已被店铺使用的可能失败。', '提示', { type: 'warning' })
+  ElMessageBox.confirm(`确定删除规格「${row.spec_label}」？`, '提示', { type: 'warning' })
     .then(async () => {
       await deleteShopProductSku(row.id)
       ElMessage.success('已删除')
-      const res = await getShopProductDetail(skuProductId.value)
-      skuList.value = res.data?.skus ?? []
+      fetchSpecList(specProductId.value)
       fetchList()
     })
     .catch(() => {})
@@ -476,6 +458,9 @@ onMounted(() => {
 <style scoped>
 .page {
   max-width: 1400px;
+}
+.mb-12 {
+  margin-bottom: 12px;
 }
 .card-header {
   display: flex;
@@ -498,7 +483,17 @@ onMounted(() => {
   height: 72px;
   border-radius: 4px;
 }
-.sku-add-form {
-  margin-top: 8px;
+.spec-config-wrap {
+  min-height: 120px;
+}
+.spec-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.spec-tip {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
 }
 </style>

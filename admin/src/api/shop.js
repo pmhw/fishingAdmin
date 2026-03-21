@@ -5,8 +5,21 @@ export function getVenueOptions() {
   return request.get('/api/admin/venue-options')
 }
 
-export function getShopProductCategories() {
-  return request.get('/api/admin/shop/product-categories')
+/** 公共商品规格列表（类似 pond-return-rules?pond_id=） */
+export function getShopProductSkuList(productId) {
+  return request.get('/api/admin/shop/product-skus', { params: { product_id: productId } })
+}
+
+export function createShopProductSku(data) {
+  return request.post('/api/admin/shop/product-skus', data)
+}
+
+export function updateShopProductSku(skuId, data) {
+  return request.put(`/api/admin/shop/product-skus/${skuId}`, data)
+}
+
+export function deleteShopProductSku(skuId) {
+  return request.delete(`/api/admin/shop/product-skus/${skuId}`)
 }
 
 export function getShopProductList(params) {
@@ -29,16 +42,21 @@ export function deleteShopProduct(id) {
   return request.delete(`/api/admin/shop/products/${id}`)
 }
 
-export function addShopProductSku(productId, data) {
-  return request.post(`/api/admin/shop/products/${productId}/skus`, data)
+/** 本店商品分类 CRUD */
+export function getVenueShopCategories(venueId) {
+  return request.get(`/api/admin/shop/venues/${venueId}/categories`)
 }
 
-export function updateShopProductSku(skuId, data) {
-  return request.put(`/api/admin/shop/skus/${skuId}`, data)
+export function createVenueShopCategory(venueId, data) {
+  return request.post(`/api/admin/shop/venues/${venueId}/categories`, data)
 }
 
-export function deleteShopProductSku(skuId) {
-  return request.delete(`/api/admin/shop/skus/${skuId}`)
+export function updateVenueShopCategory(venueId, categoryId, data) {
+  return request.put(`/api/admin/shop/venues/${venueId}/categories/${categoryId}`, data)
+}
+
+export function deleteVenueShopCategory(venueId, categoryId) {
+  return request.delete(`/api/admin/shop/venues/${venueId}/categories/${categoryId}`)
 }
 
 /** 本店已上架商品 */

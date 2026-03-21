@@ -92,15 +92,15 @@ return [
     'GET:mini-users'        => 'admin.biz.session.manage',
 
     // ---------- 钓场店铺：公共商品库 ----------
-    'GET:shop/product-categories' => 'admin.shop.product.manage',
-    'GET:shop/products'           => 'admin.shop.product.manage',
+    'GET:shop/product-skus'     => 'admin.shop.product.manage',
+    'POST:shop/product-skus'    => 'admin.shop.product.manage',
+    'PUT:shop/product-skus/'    => 'admin.shop.product.manage',
+    'DELETE:shop/product-skus/' => 'admin.shop.product.manage',
+    'GET:shop/products'         => 'admin.shop.product.manage',
     'GET:shop/products/'        => 'admin.shop.product.manage',
-    'POST:shop/products'         => 'admin.shop.product.manage',
+    'POST:shop/products'        => 'admin.shop.product.manage',
     'PUT:shop/products/'        => 'admin.shop.product.manage',
-    'DELETE:shop/products/'      => 'admin.shop.product.manage',
-    'POST:shop/products/'       => 'admin.shop.product.manage', // .../skus
-    'PUT:shop/skus/'            => 'admin.shop.product.manage',
-    'DELETE:shop/skus/'         => 'admin.shop.product.manage',
+    'DELETE:shop/products/'     => 'admin.shop.product.manage',
 
     // ---------- 钓场店铺：按店选品与库存 ----------
     'GET:shop/venues/'          => 'admin.shop.venue.manage',

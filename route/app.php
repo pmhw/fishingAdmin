@@ -176,16 +176,20 @@ Route::group('api', function () {
             Route::get('fish-trade-logs', 'Api.Admin.FishTradeLogController/list');
             Route::post('fish-trade-logs', 'Api.Admin.FishTradeLogController/create');
             // shop：钓场店铺 — 公共商品库（先子路径再 :id）
-            Route::get('shop/product-categories', 'Api.Admin.ShopProductController/categories');
-            Route::post('shop/products/:id/skus', 'Api.Admin.ShopProductController/addSku');
-            Route::put('shop/skus/:id', 'Api.Admin.ShopProductController/updateSku');
-            Route::delete('shop/skus/:id', 'Api.Admin.ShopProductController/deleteSku');
+            Route::get('shop/product-skus', 'Api.Admin.ShopProductSkuController/list');
+            Route::post('shop/product-skus', 'Api.Admin.ShopProductSkuController/create');
+            Route::put('shop/product-skus/:id', 'Api.Admin.ShopProductSkuController/update');
+            Route::delete('shop/product-skus/:id', 'Api.Admin.ShopProductSkuController/delete');
             Route::get('shop/products/:id', 'Api.Admin.ShopProductController/detail');
             Route::put('shop/products/:id', 'Api.Admin.ShopProductController/update');
             Route::delete('shop/products/:id', 'Api.Admin.ShopProductController/delete');
             Route::get('shop/products', 'Api.Admin.ShopProductController/list');
             Route::post('shop/products', 'Api.Admin.ShopProductController/create');
             // shop：按钓场选品、库存（先 sync、batch、available，再 products/:vp_id）
+            Route::get('shop/venues/:venue_id/categories', 'Api.Admin.VenueShopCategoryController/list');
+            Route::post('shop/venues/:venue_id/categories', 'Api.Admin.VenueShopCategoryController/create');
+            Route::put('shop/venues/:venue_id/categories/:id', 'Api.Admin.VenueShopCategoryController/update');
+            Route::delete('shop/venues/:venue_id/categories/:id', 'Api.Admin.VenueShopCategoryController/delete');
             Route::get('shop/venues/:venue_id/available-products', 'Api.Admin.VenueShopController/availableProducts');
             Route::post('shop/venues/:venue_id/products/:vp_id/sync', 'Api.Admin.VenueShopController/syncSkus');
             Route::put('shop/venues/:venue_id/skus/batch', 'Api.Admin.VenueShopController/batchUpdateSkus');

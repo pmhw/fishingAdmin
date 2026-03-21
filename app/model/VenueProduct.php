@@ -22,6 +22,11 @@ class VenueProduct extends Model
         return $this->belongsTo(FishingVenue::class, 'venue_id', 'id');
     }
 
+    public function shopCategory()
+    {
+        return $this->belongsTo(VenueShopCategory::class, 'shop_category_id', 'id');
+    }
+
     public function venueSkus()
     {
         return $this->hasMany(VenueProductSku::class, 'venue_product_id', 'id');
