@@ -110,6 +110,22 @@
       <el-header class="header">
         <el-button class="collapse-btn" :icon="collapsed ? Expand : Fold" text @click="toggleCollapse" />
         <span class="title">{{ $route.meta.title || '后台' }}</span>
+        <div v-if="showVenueSelector" class="header-venue">
+          <span class="header-venue__current" :title="venueStore.venueName || '未选择'">
+            <span class="header-venue__label">当前钓场</span>
+            <span class="header-venue__name">{{ venueStore.venueName || '未选择' }}</span>
+          </span>
+          <el-select
+            v-model="venueSelectModel"
+            class="header-venue__select"
+            filterable
+            clearable
+            placeholder="检索并选择钓场"
+            :loading="!venueStore.optionsLoaded"
+          >
+            <el-option v-for="v in venueStore.options" :key="v.id" :label="v.name" :value="v.id" />
+          </el-select>
+        </div>
         <div v-if="showTradeMenu" class="header-alert">
           <el-tooltip
             placement="bottom"
@@ -133,7 +149,7 @@
   </el-container>
 </template>
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import {
   Fold,
   Expand,
@@ -151,6 +167,7 @@ import {
   ShoppingBag,
 } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
+import { useVenueContextStore } from '@/stores/venueContext'
 import { useRouter } from 'vue-router'
 import { logout, getMe } from '@/api/auth'
 import { useOrderNewAlert } from '@/composables/useOrderNewAlert'
@@ -158,6 +175,7 @@ import { useOrderNewAlert } from '@/composables/useOrderNewAlert'
 const STORAGE_KEY = 'admin_sidebar_collapsed'
 
 const userStore = useUserStore()
+const venueStore = useVenueContextStore()
 const router = useRouter()
 const collapsed = ref(false)
 
@@ -168,6 +186,37 @@ function hasPermission(code) {
   if (perms.includes('*')) return true
   return perms.includes(code)
 }
+
+/** 顶部全局钓场：与 el-select 双向绑定 */
+const venueSelectModel = computed({
+  get: () => venueStore.venueId ?? undefined,
+  set: (id) => {
+    if (id == null || id === '') {
+      venueStore.clearVenue()
+      return
+    }
+    const v = venueStore.options.find((x) => Number(x.id) === Number(id))
+    venueStore.setVenue(id, v?.name ?? '')
+  },
+})
+
+const showVenueSelector = computed(
+  () =>
+    hasPermission('admin.pond.manage') ||
+    hasPermission('admin.venue.manage') ||
+    hasPermission('admin.shop.venue.manage') ||
+    hasPermission('admin.trade.order.manage') ||
+    hasPermission('admin.biz.session.manage')
+)
+
+watch(
+  () => userStore.token,
+  (t) => {
+    if (!t) {
+      venueStore.clearVenue()
+    }
+  }
+)
 
 const {
   enabled: orderAlertEnabled,
@@ -220,6 +269,7 @@ onMounted(async () => {
   try {
     collapsed.value = localStorage.getItem(STORAGE_KEY) === '1'
   } catch (_) {}
+  venueStore.hydrateFromStorage()
   // 进入后台时拉取最新用户信息（含权限），保证分配角色/权限后菜单能正确显示
   if (userStore.token) {
     try {
@@ -231,6 +281,9 @@ onMounted(async () => {
     } catch (_) {
       // 未登录或 token 失效时 request 会 401，可忽略
     }
+    if (showVenueSelector.value) {
+      venueStore.loadOptions()
+    }
   }
   restartOrderAlert()
 })
@@ -240,6 +293,7 @@ async function onLogout() {
   try {
     await logout()
   } catch (_) {}
+  venueStore.clearVenue()
   userStore.logout()
   router.push('/login')
 }
@@ -324,6 +378,36 @@ async function onLogout() {
   flex-wrap: wrap;
   font-size: 13px;
   color: var(--el-text-color-secondary);
+}
+.header-venue {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  max-width: min(520px, 100%);
+  font-size: 13px;
+}
+.header-venue__current {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-shrink: 0;
+  max-width: 200px;
+}
+.header-venue__label {
+  color: var(--el-text-color-secondary);
+  white-space: nowrap;
+}
+.header-venue__name {
+  font-weight: 600;
+  color: var(--el-color-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.header-venue__select {
+  min-width: 200px;
+  max-width: 280px;
 }
 .header-alert__label {
   white-space: nowrap;

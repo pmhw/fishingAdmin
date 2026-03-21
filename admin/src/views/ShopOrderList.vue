@@ -11,17 +11,6 @@
         <el-form-item label="订单号">
           <el-input v-model="filters.order_no" placeholder="精确订单号" clearable style="width: 200px" />
         </el-form-item>
-        <el-form-item label="钓场">
-          <el-select
-            v-model="filters.venue_id"
-            placeholder="全部"
-            clearable
-            filterable
-            style="width: 200px"
-          >
-            <el-option v-for="v in venueOptions" :key="v.id" :label="v.name" :value="v.id" />
-          </el-select>
-        </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="filters.status" placeholder="全部" clearable style="width: 140px">
             <el-option label="待支付" value="pending" />
@@ -117,21 +106,21 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { getShopOrderList, getShopOrderDetail } from '@/api/shopOrder'
-import { getVenueOptions } from '@/api/shop'
+import { useVenueContextStore } from '@/stores/venueContext'
+
+const venueStore = useVenueContextStore()
 
 const loading = ref(false)
 const list = ref([])
 const total = ref(0)
 const page = ref(1)
 const limit = ref(10)
-const venueOptions = ref([])
 
 const filters = reactive({
   order_no: '',
   status: '',
-  venue_id: null,
 })
 
 const detailVisible = ref(false)
@@ -160,16 +149,6 @@ function payChannelLabel(ch) {
   return map[ch] || ch || '-'
 }
 
-async function loadVenues() {
-  try {
-    const res = await getVenueOptions()
-    const data = res?.data ?? res
-    venueOptions.value = Array.isArray(data) ? data : data?.list ?? []
-  } catch (_) {
-    venueOptions.value = []
-  }
-}
-
 async function fetchList() {
   loading.value = true
   try {
@@ -178,7 +157,7 @@ async function fetchList() {
       limit: limit.value,
       order_no: filters.order_no || undefined,
       status: filters.status || undefined,
-      venue_id: filters.venue_id || undefined,
+      venue_id: venueStore.venueId || undefined,
     })
     const data = res?.data ?? res
     list.value = data?.list ?? []
@@ -191,7 +170,6 @@ async function fetchList() {
 function resetFilters() {
   filters.order_no = ''
   filters.status = ''
-  filters.venue_id = null
   page.value = 1
   fetchList()
 }
@@ -214,8 +192,15 @@ async function onDetailOpened() {
   }
 }
 
+watch(
+  () => venueStore.venueId,
+  () => {
+    page.value = 1
+    fetchList()
+  }
+)
+
 onMounted(() => {
-  loadVenues()
   fetchList()
 })
 </script>

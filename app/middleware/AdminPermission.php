@@ -43,12 +43,23 @@ class AdminPermission
         }
 
         $codes = $this->getAdminPermissionCodes((int) $adminId);
-        if (in_array('*', $codes, true) || in_array($required, $codes, true)) {
+        if (in_array('*', $codes, true)) {
             return $next($request);
         }
 
-        $permName = $this->getPermissionDisplayName($required);
-        $tip = $permName !== '' ? $permName : $required;
+        $requiredList = is_array($required) ? $required : [$required];
+        foreach ($requiredList as $perm) {
+            if (in_array($perm, $codes, true)) {
+                return $next($request);
+            }
+        }
+
+        $first = $requiredList[0] ?? '';
+        $permName = $this->getPermissionDisplayName($first);
+        $tip = $permName !== '' ? $permName : $first;
+        if (count($requiredList) > 1) {
+            $tip .= ' 等';
+        }
         return json(['code' => 403, 'msg' => '没有分配「' . $tip . '」无权访问', 'data' => null]);
     }
 
@@ -70,7 +81,10 @@ class AdminPermission
         return false;
     }
 
-    private function getRequiredPermission(string $method, string $path, array $routePermissions): ?string
+    /**
+     * @return string|string[]|null 单权限码，或「满足其一即可」的权限码列表
+     */
+    private function getRequiredPermission(string $method, string $path, array $routePermissions): array|string|null
     {
         $key = $method . ':' . $path;
         if (isset($routePermissions[$key])) {

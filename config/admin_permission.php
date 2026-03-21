@@ -7,6 +7,7 @@
 // | 2. 在本数组增加对应规则，未配置的接口仅校验登录、不校验权限
 // | 3. 路径为去掉 api/admin/ 后的部分，如 admin-users、roles、roles/1
 // | 规则写法：'METHOD:path' 精确匹配；'METHOD:path/' 可匹配 path/123 等子路径
+// | 值为「权限码字符串」或「权限码数组」：数组时表示具备其中任一权限即可访问
 // +----------------------------------------------------------------------
 
 return [
@@ -45,8 +46,14 @@ return [
     'POST:venues'        => 'admin.venue.manage',
     'PUT:venues/'        => 'admin.venue.manage',
     'DELETE:venues/'      => 'admin.venue.manage',
-    // 钓场下拉选项：用于池塘等表单选择（跟随池塘管理权限）
-    'GET:venue-options'  => 'admin.pond.manage',
+    // 钓场下拉选项：顶部全局钓场 + 各业务页表单（需具备以下任一权限）
+    'GET:venue-options'  => [
+        'admin.pond.manage',
+        'admin.venue.manage',
+        'admin.shop.venue.manage',
+        'admin.trade.order.manage',
+        'admin.biz.session.manage',
+    ],
 
     // ---------- 池塘 ----------
     'GET:ponds'          => 'admin.pond.manage',

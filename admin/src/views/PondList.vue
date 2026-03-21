@@ -7,13 +7,6 @@
           <el-button type="primary" @click="openEdit()">添加池塘</el-button>
         </div>
       </template>
-      <el-form inline class="filter-form">
-        <el-form-item label="钓场">
-          <el-select v-model="filterVenueId" placeholder="全部" clearable style="width: 180px" @change="fetchList">
-            <el-option v-for="v in venueOptions" :key="v.id" :label="v.name" :value="v.id" />
-          </el-select>
-        </el-form-item>
-      </el-form>
       <el-table v-loading="loading" :data="list" stripe>
         <el-table-column prop="id" label="ID" width="70" />
         <el-table-column prop="venue_name" label="所属钓场" min-width="120" show-overflow-tooltip />
@@ -476,7 +469,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   getPondList,
@@ -506,13 +499,15 @@ import {
   cleanupPondSeatQrs,
   uploadImage,
 } from '@/api/pond'
+import { useVenueContextStore } from '@/stores/venueContext'
+
+const venueStore = useVenueContextStore()
 
 const loading = ref(false)
 const list = ref([])
 const total = ref(0)
 const page = ref(1)
 const limit = ref(10)
-const filterVenueId = ref('')
 const venueOptions = ref([])
 /** 仅「全部池塘」权限时为 true，可显示删除按钮 */
 const canDeletePonds = ref(false)
@@ -859,7 +854,7 @@ async function fetchList() {
     const res = await getPondList({
       page: page.value,
       limit: limit.value,
-      venue_id: filterVenueId.value || undefined,
+      venue_id: venueStore.venueId || undefined,
     })
     const data = res?.data ?? res
     list.value = data?.list ?? []
@@ -872,7 +867,7 @@ async function fetchList() {
 
 function openEdit(row) {
   editId.value = row?.id ?? null
-  editForm.venue_id = row?.venue_id ?? null
+  editForm.venue_id = row?.venue_id ?? venueStore.venueId ?? null
   editForm.name = row?.name ?? ''
   editForm.images = row?.images ?? ''
   editForm.pond_type = row?.pond_type ?? 'black_pit'
@@ -1288,6 +1283,14 @@ function onDelete(row) {
     })
     .catch(() => {})
 }
+
+watch(
+  () => venueStore.venueId,
+  () => {
+    page.value = 1
+    fetchList()
+  }
+)
 
 onMounted(() => {
   loadVenueOptions()

@@ -5,22 +5,19 @@
         <div class="card-header">
           <span>钓场店铺 — 选品与库存</span>
           <div class="header-actions">
-            <el-select
-              v-model="venueId"
-              placeholder="请选择钓场"
-              filterable
-              clearable
-              style="width: 220px"
-              @change="onVenueChange"
-            >
-              <el-option v-for="v in venueOptions" :key="v.id" :label="v.name" :value="v.id" />
-            </el-select>
             <el-button v-if="canVenue && venueId" @click="openCategoryDialog">本店分类</el-button>
             <el-button v-if="canVenue && venueId" type="primary" @click="openPickDialog">从商品库添加</el-button>
           </div>
         </div>
       </template>
-      <el-alert v-if="!venueId" type="info" show-icon :closable="false" title="请先选择要管理的钓场；商品分类仅对本店有效，在「本店分类」中维护。" style="margin-bottom: 12px" />
+      <el-alert
+        v-if="!venueId"
+        type="info"
+        show-icon
+        :closable="false"
+        title="请先在页面顶部「当前钓场」处选择要管理的钓场；商品分类仅对本店有效，在「本店分类」中维护。"
+        style="margin-bottom: 12px"
+      />
       <template v-else>
         <el-form :inline="true" class="filter-form" @submit.prevent>
           <el-form-item label="本店分类">
@@ -213,11 +210,11 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
+import { useVenueContextStore } from '@/stores/venueContext'
 import {
-  getVenueOptions,
   getVenueShopCategories,
   createVenueShopCategory,
   updateVenueShopCategory,
@@ -232,15 +229,15 @@ import {
 } from '@/api/shop'
 
 const userStore = useUserStore()
+const venueStore = useVenueContextStore()
+const venueId = computed(() => venueStore.venueId)
 const canVenue = computed(() => {
   const p = userStore.user?.permissions
   if (!Array.isArray(p)) return false
   return p.includes('*') || p.includes('admin.shop.venue.manage')
 })
 
-const venueOptions = ref([])
-const venueId = ref(null)
-const currentVenueName = computed(() => venueOptions.value.find((v) => v.id === venueId.value)?.name ?? '')
+const currentVenueName = computed(() => venueStore.venueName || '')
 const categoryOptions = ref([])
 /** 设置页下拉：含停用项，避免已选分类被隐藏 */
 const categoryOptionsAll = ref([])
@@ -257,15 +254,6 @@ function imgUrl(u) {
   return import.meta.env.VITE_STORAGE_URL ? import.meta.env.VITE_STORAGE_URL + u : u
 }
 
-async function loadVenues() {
-  try {
-    const res = await getVenueOptions()
-    venueOptions.value = res.data?.list ?? []
-  } catch (_) {
-    venueOptions.value = []
-  }
-}
-
 async function refreshCategoryOptions() {
   if (!venueId.value) {
     categoryOptions.value = []
@@ -277,17 +265,6 @@ async function refreshCategoryOptions() {
     categoryOptions.value = raw.filter((c) => c.status === 1)
   } catch (_) {
     categoryOptions.value = []
-  }
-}
-
-function onVenueChange() {
-  page.value = 1
-  list.value = []
-  total.value = 0
-  filterCategoryId.value = null
-  if (venueId.value) {
-    refreshCategoryOptions()
-    fetchList()
   }
 }
 
@@ -554,9 +531,20 @@ async function saveStockBatch() {
   }
 }
 
-onMounted(() => {
-  loadVenues()
-})
+watch(
+  () => venueStore.venueId,
+  (id) => {
+    page.value = 1
+    list.value = []
+    total.value = 0
+    filterCategoryId.value = null
+    if (id) {
+      refreshCategoryOptions()
+      fetchList()
+    }
+  },
+  { immediate: true }
+)
 </script>
 
 <style scoped>

@@ -135,7 +135,13 @@
             </el-select>
           </el-form-item>
           <el-form-item label="钓场" prop="venue_id">
-            <el-select v-model="createForm.venue_id" placeholder="请选择钓场" style="width:100%" @change="onCreateVenueChange">
+            <el-select
+              v-model="createForm.venue_id"
+              placeholder="请选择钓场"
+              style="width:100%"
+              :disabled="!!venueStore.venueId"
+              @change="onCreateVenueChange"
+            >
               <el-option v-for="v in venueOptions" :key="v.id" :label="v.name" :value="String(v.id)" />
             </el-select>
           </el-form-item>
@@ -211,14 +217,16 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getSessionList, createSession, finishSession, cancelSession } from '@/api/session'
 import { getVenueOptions, getPondList, getPondSeats, getPondFeeRules } from '@/api/pond'
 import { searchMiniUsers } from '@/api/miniUser'
+import { useVenueContextStore } from '@/stores/venueContext'
 
 const router = useRouter()
+const venueStore = useVenueContextStore()
 const loading = ref(false)
 const list = ref([])
 const total = ref(0)
@@ -287,6 +295,7 @@ async function fetchList() {
       session_no: filters.session_no || undefined,
       status: filters.status || undefined,
       seat_code: filters.seat_code || undefined,
+      venue_id: venueStore.venueId || undefined,
     })
     const data = res?.data ?? res
     list.value = data?.list ?? []
@@ -359,11 +368,25 @@ async function cancelSessionRow(row) {
   }
 }
 
-function openCreateDialog() {
-  createDialogVisible.value = true
+async function openCreateDialog() {
   if (!venueOptions.value.length) {
-    loadVenues()
+    await loadVenues()
   }
+  createForm.mini_user_id = ''
+  createForm.venue_id = venueStore.venueId ? String(venueStore.venueId) : ''
+  createForm.pond_id = ''
+  createForm.seat_id = ''
+  createForm.fee_rule_id = ''
+  createForm.use_balance = true
+  createForm.remark = ''
+  pondOptions.value = []
+  seatOptions.value = []
+  feeRuleOptions.value = []
+  miniUserOptions.value = []
+  if (createForm.venue_id) {
+    onCreateVenueChange()
+  }
+  createDialogVisible.value = true
 }
 
 function resetCreateForm() {
@@ -480,6 +503,14 @@ async function submitCreate(env) {
     createSubmitting.value = false
   }
 }
+
+watch(
+  () => venueStore.venueId,
+  () => {
+    page.value = 1
+    fetchList()
+  }
+)
 
 onMounted(() => {
   fetchList()

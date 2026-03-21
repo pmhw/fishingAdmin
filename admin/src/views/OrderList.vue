@@ -81,8 +81,11 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { getOrderList } from '@/api/order'
+import { useVenueContextStore } from '@/stores/venueContext'
+
+const venueStore = useVenueContextStore()
 
 const loading = ref(false)
 const list = ref([])
@@ -123,6 +126,7 @@ async function fetchList() {
       limit: limit.value,
       order_no: filters.order_no || undefined,
       status: filters.status || undefined,
+      venue_id: venueStore.venueId || undefined,
     })
     const data = res?.data ?? res
     list.value = data?.list ?? []
@@ -138,6 +142,14 @@ function resetFilters() {
   page.value = 1
   fetchList()
 }
+
+watch(
+  () => venueStore.venueId,
+  () => {
+    page.value = 1
+    fetchList()
+  }
+)
 
 onMounted(() => {
   fetchList()
