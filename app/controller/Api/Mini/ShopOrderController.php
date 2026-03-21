@@ -7,6 +7,8 @@ use app\model\FishingOrder;
 use app\model\FishingVenue;
 use app\model\MiniUser;
 use app\model\Product;
+use app\model\ProductSku;
+use app\model\VenueProduct;
 use app\model\VenueProductSku;
 use app\model\VenueShopOrder;
 use app\model\VenueShopOrderItem;
@@ -104,12 +106,18 @@ class ShopOrderController extends MiniBaseController
                     if ((int) ($vps->status ?? 0) !== 1) {
                         throw new \RuntimeException('规格已停售');
                     }
-                    $vps->load(['venueProduct', 'productSku']);
+                    // ThinkPHP 无 Laravel 的 load()，用关联懒加载或显式查询
                     $vp = $vps->venueProduct;
+                    if (!$vp) {
+                        $vp = VenueProduct::find((int) $vps->venue_product_id);
+                    }
                     if (!$vp || (int) ($vp->venue_id ?? 0) !== $venueId || (int) ($vp->status ?? 0) !== 1) {
                         throw new \RuntimeException('商品不属于该钓场或已下架');
                     }
                     $ps = $vps->productSku;
+                    if (!$ps) {
+                        $ps = ProductSku::find((int) $vps->product_sku_id);
+                    }
                     /** @var Product|null $p */
                     $p = $vp->product ?? Product::find((int) $vp->product_id);
                     if (!$p || (int) ($p->status ?? 0) !== 1) {
