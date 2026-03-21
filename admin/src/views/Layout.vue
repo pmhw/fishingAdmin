@@ -83,7 +83,7 @@
           </template>
           <el-menu-item v-if="hasPermission('admin.shop.product.manage')" index="/shop/products">
             <el-icon><Goods /></el-icon>
-            <template #title>公共商品库</template>
+            <template #title>钓场公共商品库</template>
           </el-menu-item>
           <el-menu-item v-if="hasPermission('admin.shop.venue.manage')" index="/shop/venue">
             <el-icon><Sell /></el-icon>

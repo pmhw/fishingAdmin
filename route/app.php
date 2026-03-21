@@ -41,6 +41,10 @@ Route::group('api', function () {
     Route::get('mini/venues/:id/spot', 'Api.Mini.VenueController/spot');
     // 钓场放鱼动态（汇总该钓场下所有池塘的放鱼记录）
     Route::get('mini/venues/:id/feeds', 'Api.Mini.VenueController/feeds');
+    // 钓场店铺商品（分类 / 列表 / 详情+规格，无需登录）
+    Route::get('mini/venues/:venue_id/shop/categories', 'Api.Mini.ShopController/categories');
+    Route::get('mini/venues/:venue_id/shop/products/:vp_id', 'Api.Mini.ShopController/productDetail');
+    Route::get('mini/venues/:venue_id/shop/products', 'Api.Mini.ShopController/productList');
     Route::get('mini/venues/:id', 'Api.Mini.VenueController/detail');
     Route::get('mini/venues', 'Api.Mini.VenueController/list');
     // 池塘详情（收费规则 + 钓位，用于开卡页）
