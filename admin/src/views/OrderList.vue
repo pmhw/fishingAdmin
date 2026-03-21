@@ -7,6 +7,8 @@
         </div>
       </template>
 
+      <el-alert type="info" show-icon :closable="false" class="mb-12" title="本页仅展示开卡/钓费预付类订单；店铺商品单（单号 SO 开头）请在「店铺商品订单」中查看。" />
+
       <el-form inline class="filter-form">
         <el-form-item label="订单号">
           <el-input v-model="filters.order_no" placeholder="精确订单号" clearable style="width: 200px" />
@@ -147,6 +149,9 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+.mb-12 {
+  margin-bottom: 12px;
 }
 .filter-form {
   margin-bottom: 12px;

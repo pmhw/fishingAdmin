@@ -12,7 +12,10 @@ use think\response\Json;
 
 /**
  * 订单管理（交易中心）：
- * 仅展示，不支持在后台直接修改金额或状态。
+ * 仅展示开钓单/开卡相关 fishing_order，不支持在后台直接修改金额或状态。
+ *
+ * 说明：店铺商品走微信付时会在 fishing_order 里插入与 venue_shop_order 同号的「占位」行
+ *（order_no 以 SO 开头、description 为「店铺订单」），此类不在本列表展示，请用「店铺商品订单」菜单。
  */
 class FishingOrderController extends BaseController
 {
@@ -36,6 +39,13 @@ class FishingOrderController extends BaseController
         $orderNo = trim((string) $this->request->get('order_no', ''));
 
         $query = FishingOrder::order('id', 'desc');
+
+        // 排除店铺商品微信支付在 fishing_order 中的占位行（单号 SO*，与 venue_shop_order 一致）
+        if ($orderNo !== '' && str_starts_with($orderNo, 'SO')) {
+            $query->whereRaw('1=0');
+        } else {
+            $query->where('order_no', 'not like', 'SO%');
+        }
 
         if ($status !== '') {
             $query->where('status', $status);
