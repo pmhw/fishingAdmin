@@ -5,6 +5,7 @@ namespace app\controller\Api\Mini;
 
 use app\BaseController;
 use app\model\SystemConfig;
+use think\facade\Cache;
 use think\response\Json;
 
 /**
@@ -20,6 +21,17 @@ class LocationController extends BaseController
 {
     /** Open-Meteo 预报接口（无需 key，按经纬度） */
     private const OPEN_METEO_FORECAST = 'https://api.open-meteo.com/v1/forecast';
+
+    /** 天气短时缓存 key 前缀 */
+    private const WEATHER_CACHE_PREFIX = 'open_meteo_current:';
+
+    /** 同一网格内复用天气，秒（减轻 Open-Meteo 调用与限流风险） */
+    private const WEATHER_CACHE_TTL = 300;
+
+    /**
+     * 经纬度量化步长（度）。0.01° 纬度约 1.1km，同一网格共用一条天气缓存
+     */
+    private const WEATHER_GRID_STEP = 0.01;
 
     /**
      * 上报位置并返回城市信息
@@ -103,8 +115,41 @@ class LocationController extends BaseController
 
     /**
      * 从 Open-Meteo 拉取当前时刻天气（含 WMO weather_code → 中文天气状况）
+     * 同一经纬度网格 + 缓存 TTL 内复用结果，减少外网请求
      */
     private function fetchCurrentWeatherOpenMeteo(float $lat, float $lng): ?array
+    {
+        $cacheKey = self::WEATHER_CACHE_PREFIX . self::weatherGridCacheKey($lat, $lng);
+
+        $cached = Cache::get($cacheKey);
+        if (is_array($cached) && $cached !== []) {
+            return $cached;
+        }
+
+        $fresh = $this->requestOpenMeteoCurrentWeather($lat, $lng);
+        if ($fresh !== null) {
+            Cache::set($cacheKey, $fresh, self::WEATHER_CACHE_TTL);
+        }
+
+        return $fresh;
+    }
+
+    /**
+     * 将经纬度落到网格，生成稳定缓存键片段（避免 float 字符串差异）
+     */
+    private static function weatherGridCacheKey(float $lat, float $lng): string
+    {
+        $step = self::WEATHER_GRID_STEP;
+        $gLat = round($lat / $step) * $step;
+        $gLng = round($lng / $step) * $step;
+
+        return sprintf('%.4f_%.4f', $gLat, $gLng);
+    }
+
+    /**
+     * 实际请求 Open-Meteo 并组装返回结构（不经缓存）
+     */
+    private function requestOpenMeteoCurrentWeather(float $lat, float $lng): ?array
     {
         $query = http_build_query([
             'latitude'          => $lat,
