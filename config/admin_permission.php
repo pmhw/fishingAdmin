@@ -72,6 +72,7 @@ return [
     'GET:orders/'        => 'admin.trade.order.manage',
     'GET:shop/orders'    => 'admin.trade.order.manage',
     'GET:shop/orders/'   => 'admin.trade.order.manage',
+    'GET:trade/order-alert-tip' => 'admin.trade.order.manage',
 
     // ---------- 经营管理：开钓/回鱼/卖鱼 ----------
     'GET:sessions'         => 'admin.biz.session.manage',

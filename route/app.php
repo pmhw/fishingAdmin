@@ -210,6 +210,8 @@ Route::group('api', function () {
             Route::get('shop/venues/:venue_id/products', 'Api.Admin.VenueShopController/list');
             // orders：订单管理（只读）
             Route::get('orders', 'Api.Admin.FishingOrderController/list');
+            // 新订单轮询（弹窗/声音提醒）
+            Route::get('trade/order-alert-tip', 'Api.Admin.TradeAlertController/tip');
             // mini-users：小程序用户（用于后台搜索）
             Route::get('mini-users', 'Api.Admin.MiniUserController/list');
         })->middleware([\app\middleware\AdminAuth::class, \app\middleware\AdminPermission::class]);

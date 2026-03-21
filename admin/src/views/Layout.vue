@@ -110,6 +110,17 @@
       <el-header class="header">
         <el-button class="collapse-btn" :icon="collapsed ? Expand : Fold" text @click="toggleCollapse" />
         <span class="title">{{ $route.meta.title || '后台' }}</span>
+        <div v-if="showTradeMenu" class="header-alert">
+          <el-tooltip
+            placement="bottom"
+            content="约每 30 秒检测一次；切到其它标签页或最小化时会暂停轮询。多门店仍按你的钓场权限合并为 1 次请求。"
+          >
+            <span class="header-alert__label">新单提醒</span>
+          </el-tooltip>
+          <el-switch v-model="orderAlertEnabled" inline-prompt active-text="开" inactive-text="关" size="small" />
+          <el-checkbox v-model="orderAlertPopup" size="small">弹窗</el-checkbox>
+          <el-checkbox v-model="orderAlertSound" size="small">声音</el-checkbox>
+        </div>
         <div class="user">
           <span>{{ userStore.user?.nickname || userStore.user?.username }}</span>
           <el-button link type="primary" @click="onLogout">退出</el-button>
@@ -142,14 +153,13 @@ import {
 import { useUserStore } from '@/stores/user'
 import { useRouter } from 'vue-router'
 import { logout, getMe } from '@/api/auth'
+import { useOrderNewAlert } from '@/composables/useOrderNewAlert'
 
 const STORAGE_KEY = 'admin_sidebar_collapsed'
 
 const userStore = useUserStore()
 const router = useRouter()
 const collapsed = ref(false)
-
-const asideWidth = computed(() => (collapsed.value ? '64px' : '200px'))
 
 /** 是否拥有某权限（超级管理员 permissions 含 '*' 视为全部） */
 function hasPermission(code) {
@@ -158,6 +168,16 @@ function hasPermission(code) {
   if (perms.includes('*')) return true
   return perms.includes(code)
 }
+
+const {
+  enabled: orderAlertEnabled,
+  soundOn: orderAlertSound,
+  popupOn: orderAlertPopup,
+  restart: restartOrderAlert,
+  stop: stopOrderAlert,
+} = useOrderNewAlert(router, () => hasPermission('admin.trade.order.manage'))
+
+const asideWidth = computed(() => (collapsed.value ? '64px' : '200px'))
 
 const showPermissionMenu = computed(
   () => hasPermission('admin.user.list') || hasPermission('admin.role.manage')
@@ -212,9 +232,11 @@ onMounted(async () => {
       // 未登录或 token 失效时 request 会 401，可忽略
     }
   }
+  restartOrderAlert()
 })
 
 async function onLogout() {
+  stopOrderAlert()
   try {
     await logout()
   } catch (_) {}
@@ -286,11 +308,25 @@ async function onLogout() {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
   border-bottom: 1px solid var(--el-border-color);
   padding: 0 16px;
 }
 .header .title {
   flex: 1;
+  min-width: 120px;
+}
+.header-alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+.header-alert__label {
+  white-space: nowrap;
 }
 .title {
   font-size: 16px;
