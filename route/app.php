@@ -47,6 +47,8 @@ Route::group('api', function () {
     Route::get('mini/ponds/:id', 'Api.Mini.PondController/detail');
     // 位置上报（用于解析城市等）
     Route::post('mini/location/report', 'Api.Mini.LocationController/report');
+    // 仅查天气（GET，query: latitude、longitude；与 location/report 共用 Open-Meteo + 网格缓存）
+    Route::get('mini/weather', 'Api.Mini.LocationController/weather');
     // 支付：下单需登录，回调不需登录
     Route::post('mini/pay/wechat/jsapi', 'Api.Mini.PayController/jsapi')->middleware(\app\middleware\MiniAuth::class);
     Route::post('mini/pay/wechat/notify', 'Api.Mini.PayController/notify');

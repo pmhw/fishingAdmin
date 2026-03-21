@@ -16,6 +16,8 @@ use think\response\Json;
  * body: { latitude, longitude }
  *
  * 返回：当前经纬度解析出的城市 / 省份信息，以及实时天气（气压、温度、风速、风向、能见度）
+ *
+ * 仅天气：GET /api/mini/weather?latitude=&longitude=
  */
 class LocationController extends BaseController
 {
@@ -108,6 +110,48 @@ class LocationController extends BaseController
                     'longitude' => $lng,
                 ],
                 // 实时天气；请求失败时为 null，不影响城市解析
+                'weather'  => $weather,
+            ],
+        ]);
+    }
+
+    /**
+     * 按经纬度查询实时天气（不走高德逆地理，无需地图 key）
+     * GET /api/mini/weather?latitude=30.55&longitude=104.27
+     */
+    public function weather(): Json
+    {
+        $latRaw = $this->request->get('latitude');
+        $lngRaw = $this->request->get('longitude');
+        if ($latRaw === null || $latRaw === '') {
+            $latRaw = $this->request->get('lat');
+        }
+        if ($lngRaw === null || $lngRaw === '') {
+            $lngRaw = $this->request->get('lng');
+        }
+        if ($latRaw === null || $latRaw === '' || $lngRaw === null || $lngRaw === '') {
+            return json(['code' => 400, 'msg' => '请传入 latitude、longitude（或 lat、lng）', 'data' => null]);
+        }
+        if (!is_numeric($latRaw) || !is_numeric($lngRaw)) {
+            return json(['code' => 400, 'msg' => '经纬度必须为数字', 'data' => null]);
+        }
+
+        $lat = (float) $latRaw;
+        $lng = (float) $lngRaw;
+        if ($lat < -90 || $lat > 90 || $lng < -180 || $lng > 180) {
+            return json(['code' => 400, 'msg' => '经纬度超出有效范围', 'data' => null]);
+        }
+
+        $weather = $this->fetchCurrentWeatherOpenMeteo($lat, $lng);
+
+        return json([
+            'code' => 0,
+            'msg'  => 'success',
+            'data' => [
+                'location' => [
+                    'latitude'  => $lat,
+                    'longitude' => $lng,
+                ],
                 'weather'  => $weather,
             ],
         ]);
