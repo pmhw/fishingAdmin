@@ -175,6 +175,24 @@ Route::group('api', function () {
             Route::put('fish-trade-logs/:id', 'Api.Admin.FishTradeLogController/update');
             Route::get('fish-trade-logs', 'Api.Admin.FishTradeLogController/list');
             Route::post('fish-trade-logs', 'Api.Admin.FishTradeLogController/create');
+            // shop：钓场店铺 — 公共商品库（先子路径再 :id）
+            Route::get('shop/product-categories', 'Api.Admin.ShopProductController/categories');
+            Route::post('shop/products/:id/skus', 'Api.Admin.ShopProductController/addSku');
+            Route::put('shop/skus/:id', 'Api.Admin.ShopProductController/updateSku');
+            Route::delete('shop/skus/:id', 'Api.Admin.ShopProductController/deleteSku');
+            Route::get('shop/products/:id', 'Api.Admin.ShopProductController/detail');
+            Route::put('shop/products/:id', 'Api.Admin.ShopProductController/update');
+            Route::delete('shop/products/:id', 'Api.Admin.ShopProductController/delete');
+            Route::get('shop/products', 'Api.Admin.ShopProductController/list');
+            Route::post('shop/products', 'Api.Admin.ShopProductController/create');
+            // shop：按钓场选品、库存（先 sync、batch、available，再 products/:vp_id）
+            Route::get('shop/venues/:venue_id/available-products', 'Api.Admin.VenueShopController/availableProducts');
+            Route::post('shop/venues/:venue_id/products/:vp_id/sync', 'Api.Admin.VenueShopController/syncSkus');
+            Route::put('shop/venues/:venue_id/skus/batch', 'Api.Admin.VenueShopController/batchUpdateSkus');
+            Route::delete('shop/venues/:venue_id/products/:vp_id', 'Api.Admin.VenueShopController/removeProduct');
+            Route::put('shop/venues/:venue_id/products/:vp_id', 'Api.Admin.VenueShopController/updateVenueProduct');
+            Route::post('shop/venues/:venue_id/products', 'Api.Admin.VenueShopController/addProduct');
+            Route::get('shop/venues/:venue_id/products', 'Api.Admin.VenueShopController/list');
             // orders：订单管理（只读）
             Route::get('orders', 'Api.Admin.FishingOrderController/list');
             // mini-users：小程序用户（用于后台搜索）

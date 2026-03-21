@@ -76,6 +76,20 @@
             <template #title>卖鱼/收鱼流水</template>
           </el-menu-item>
         </el-sub-menu>
+        <el-sub-menu v-if="showShopMenu" index="shop">
+          <template #title>
+            <el-icon><ShoppingCart /></el-icon>
+            <span>店铺管理</span>
+          </template>
+          <el-menu-item v-if="hasPermission('admin.shop.product.manage')" index="/shop/products">
+            <el-icon><Goods /></el-icon>
+            <template #title>公共商品库</template>
+          </el-menu-item>
+          <el-menu-item v-if="hasPermission('admin.shop.venue.manage')" index="/shop/venue">
+            <el-icon><Sell /></el-icon>
+            <template #title>钓场选品与库存</template>
+          </el-menu-item>
+        </el-sub-menu>
         <el-sub-menu v-if="showMiscMenu" index="misc">
           <template #title>
             <el-icon><Grid /></el-icon>
@@ -116,6 +130,9 @@ import {
   PictureFilled,
   Grid,
   Location,
+  ShoppingCart,
+  Goods,
+  Sell,
 } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { useRouter } from 'vue-router'
@@ -151,6 +168,9 @@ const showBizMenu = computed(
     hasPermission('admin.biz.trade.manage')
 )
 const showMiscMenu = computed(() => hasPermission('admin.config.manage'))
+const showShopMenu = computed(
+  () => hasPermission('admin.shop.product.manage') || hasPermission('admin.shop.venue.manage')
+)
 
 /** 展开的子菜单（仅在有权限时包含，避免空菜单占位） */
 const defaultOpeneds = computed(() => {
@@ -159,6 +179,7 @@ const defaultOpeneds = computed(() => {
   if (showContentMenu.value) opens.push('content')
   if (showTradeMenu.value) opens.push('trade')
   if (showBizMenu.value) opens.push('biz')
+  if (showShopMenu.value) opens.push('shop')
   if (showMiscMenu.value) opens.push('misc')
   return opens
 })

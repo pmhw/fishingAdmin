@@ -20,6 +20,8 @@ const routes = [
       { path: 'return-logs', name: 'ReturnLogs', component: () => import('@/views/ReturnLogList.vue'), meta: { title: '经营管理 - 回鱼流水' } },
       { path: 'fish-trades', name: 'FishTrades', component: () => import('@/views/FishTradeList.vue'), meta: { title: '经营管理 - 卖鱼/收鱼流水' } },
       { path: 'config', name: 'Config', component: () => import('@/views/ConfigList.vue'), meta: { title: '全局配置' } },
+      { path: 'shop/products', name: 'ShopProducts', component: () => import('@/views/ShopProductList.vue'), meta: { title: '店铺 — 公共商品库' } },
+      { path: 'shop/venue', name: 'VenueShop', component: () => import('@/views/VenueShopList.vue'), meta: { title: '店铺 — 钓场选品与库存' } },
     ],
   },
 ]
