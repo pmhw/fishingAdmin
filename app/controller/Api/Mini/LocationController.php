@@ -14,10 +14,13 @@ use think\response\Json;
  * POST /api/mini/location/report
  * body: { latitude, longitude }
  *
- * 返回：当前经纬度解析出的城市 / 省份信息
+ * 返回：当前经纬度解析出的城市 / 省份信息，以及实时天气（气压、温度、风速、风向、能见度）
  */
 class LocationController extends BaseController
 {
+    /** Open-Meteo 预报接口（无需 key，按经纬度） */
+    private const OPEN_METEO_FORECAST = 'https://api.open-meteo.com/v1/forecast';
+
     /**
      * 上报位置并返回城市信息
      * POST /api/mini/location/report
@@ -79,6 +82,8 @@ class LocationController extends BaseController
         $province = (string) ($comp['province'] ?? '');
         $district = (string) ($comp['district'] ?? '');
 
+        $weather = $this->fetchCurrentWeatherOpenMeteo($lat, $lng);
+
         return json([
             'code' => 0,
             'msg'  => 'success',
@@ -90,8 +95,126 @@ class LocationController extends BaseController
                     'latitude'  => $lat,
                     'longitude' => $lng,
                 ],
+                // 实时天气；请求失败时为 null，不影响城市解析
+                'weather'  => $weather,
             ],
         ]);
+    }
+
+    /**
+     * 从 Open-Meteo 拉取当前时刻天气（含 WMO weather_code → 中文天气状况）
+     */
+    private function fetchCurrentWeatherOpenMeteo(float $lat, float $lng): ?array
+    {
+        $query = http_build_query([
+            'latitude'          => $lat,
+            'longitude'         => $lng,
+            'current'           => 'temperature_2m,pressure_msl,wind_speed_10m,wind_direction_10m,visibility,weather_code',
+            'wind_speed_unit'   => 'ms',
+            'timezone'          => 'auto',
+        ], '', '&', PHP_QUERY_RFC3986);
+
+        $url = self::OPEN_METEO_FORECAST . '?' . $query;
+
+        try {
+            $context = stream_context_create([
+                'http' => [
+                    'timeout'    => 5,
+                    'user_agent' => 'Mozilla/5.0 (compatible; FishingAdmin/1.0)',
+                ],
+            ]);
+            $resp = @file_get_contents($url, false, $context);
+            if ($resp === false || $resp === '') {
+                return null;
+            }
+            $json = json_decode($resp, true);
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        if (!is_array($json) || empty($json['current']) || !is_array($json['current'])) {
+            return null;
+        }
+
+        $c = $json['current'];
+        $temp = isset($c['temperature_2m']) ? (float) $c['temperature_2m'] : null;
+        $pressure = isset($c['pressure_msl']) ? (float) $c['pressure_msl'] : null;
+        $windSpeed = isset($c['wind_speed_10m']) ? (float) $c['wind_speed_10m'] : null;
+        $windDeg = isset($c['wind_direction_10m']) ? (float) $c['wind_direction_10m'] : null;
+        $vis = isset($c['visibility']) ? (float) $c['visibility'] : null; // 米
+
+        $time = isset($c['time']) ? (string) $c['time'] : '';
+
+        $wcode = isset($c['weather_code']) ? (int) $c['weather_code'] : null;
+
+        return [
+            'weather_code'       => $wcode, // WMO 天气代码，可用于图标
+            'condition'          => self::wmoWeatherCodeToCn($wcode), // 中文天气状况，如「晴」「小雨」「雷阵雨」
+            'pressure'           => $pressure, // 海平面气压，hPa
+            'temperature'        => $temp, // 2m 气温，°C
+            'wind_speed'         => $windSpeed, // 10m 风速，m/s
+            'wind_direction_deg' => $windDeg, // 风吹来的方向，0–360°（气象惯例）
+            'wind_direction'     => self::windDirectionLabelCn($windDeg),
+            'visibility'         => $vis, // 能见度，米
+            'visibility_km'      => $vis !== null ? round($vis / 1000, 2) : null,
+            'observed_at'        => $time,
+        ];
+    }
+
+    /**
+     * Open-Meteo / WMO 天气代码转中文简述（与官方 interpretation 表一致）
+     * @see https://open-meteo.com/en/docs#api_formatted_variables
+     */
+    private static function wmoWeatherCodeToCn(?int $code): string
+    {
+        if ($code === null) {
+            return '';
+        }
+        return match ($code) {
+            0 => '晴',
+            1 => '晴间多云',
+            2 => '多云',
+            3 => '阴',
+            45, 48 => '雾',
+            51 => '小毛毛雨',
+            53 => '毛毛雨',
+            55 => '大毛毛雨',
+            56, 57 => '冻毛毛雨',
+            61 => '小雨',
+            63 => '中雨',
+            65 => '大雨',
+            66, 67 => '冻雨',
+            71 => '小雪',
+            73 => '中雪',
+            75 => '大雪',
+            77 => '米雪',
+            80 => '小阵雨',
+            81 => '阵雨',
+            82 => '强阵雨',
+            85 => '小阵雪',
+            86 => '阵雪',
+            95 => '雷阵雨',
+            96, 99 => '雷雨伴冰雹',
+            default => '未知',
+        };
+    }
+
+    /**
+     * 根据风向角度（风吹来的方向）生成中文八方位描述，如「东南风」
+     */
+    private static function windDirectionLabelCn(?float $deg): string
+    {
+        if ($deg === null || !is_finite($deg)) {
+            return '';
+        }
+        $d = fmod($deg, 360.0);
+        if ($d < 0) {
+            $d += 360.0;
+        }
+        $labels = ['北', '东北', '东', '东南', '南', '西南', '西', '西北'];
+        $idx = (int) floor(($d + 22.5) / 45.0) % 8;
+
+        return $labels[$idx] . '风';
     }
 }
 
