@@ -53,3 +53,6 @@ CREATE TABLE IF NOT EXISTS `venue_shop_order_item` (
 -- 1. 下单成功即扣减 venue_product_sku.stock；关闭未支付单需自行做库存回滚（后续可接取消接口）。
 -- 2. wx_amount_fen>0 时会创建 fishing_order（description=店铺订单），支付走 POST /api/mini/pay/wechat/jsapi。
 -- 3. 回调 notify 在 fishing_order 入账后，将同单号 venue_shop_order 置为 paid。
+--
+-- 【已有库升级】若表已创建，需执行 md/venue_shop_order_session_seat.sql，
+-- 增加 fishing_session_id、pond_id、seat_id、seat_no、seat_code（开钓后才能下单 + 后台座位展示）。

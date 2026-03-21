@@ -4,6 +4,8 @@ declare(strict_types=1);
 namespace app\controller\Api\Admin;
 
 use app\BaseController;
+use app\model\FishingPond;
+use app\model\FishingSession;
 use app\model\FishingVenue;
 use app\model\MiniUser;
 use app\model\VenueShopOrder;
@@ -61,15 +63,21 @@ class VenueShopOrderController extends BaseController
 
         $venueIds = [];
         $userIds  = [];
+        $pondIds  = [];
         foreach ($rows as $row) {
             $venueIds[] = (int) $row->venue_id;
             $userIds[]  = (int) $row->mini_user_id;
+            if (!empty($row->pond_id)) {
+                $pondIds[] = (int) $row->pond_id;
+            }
         }
         $venueIds = array_values(array_unique(array_filter($venueIds)));
         $userIds  = array_values(array_unique(array_filter($userIds)));
+        $pondIds  = array_values(array_unique(array_filter($pondIds)));
 
         $venueMap = $venueIds ? FishingVenue::whereIn('id', $venueIds)->column('name', 'id') : [];
         $userMap  = $userIds ? MiniUser::whereIn('id', $userIds)->column('nickname', 'id') : [];
+        $pondMap  = $pondIds ? FishingPond::whereIn('id', $pondIds)->column('name', 'id') : [];
 
         $list = [];
         foreach ($rows as $row) {
@@ -79,6 +87,9 @@ class VenueShopOrderController extends BaseController
             $arr['wx_amount_yuan']        = round(((int) ($arr['wx_amount_fen'] ?? 0)) / 100, 2);
             $arr['venue_name']            = $venueMap[(int) ($arr['venue_id'] ?? 0)] ?? '';
             $arr['user_nickname']         = $userMap[(int) ($arr['mini_user_id'] ?? 0)] ?? '';
+            $pid = (int) ($arr['pond_id'] ?? 0);
+            $arr['pond_name']             = $pid > 0 ? ($pondMap[$pid] ?? '') : '';
+            $arr['seat_display']          = $this->formatSeatDisplay($arr);
             $list[] = $arr;
         }
 
@@ -115,6 +126,21 @@ class VenueShopOrderController extends BaseController
         $arr['venue_name'] = $v ? (string) ($v->name ?? '') : '';
         $u = MiniUser::find((int) $order->mini_user_id);
         $arr['user_nickname'] = $u ? (string) ($u->nickname ?? '') : '';
+        $pid = (int) ($order->pond_id ?? 0);
+        if ($pid > 0) {
+            $p = FishingPond::find($pid);
+            $arr['pond_name'] = $p ? (string) ($p->name ?? '') : '';
+        } else {
+            $arr['pond_name'] = '';
+        }
+        $arr['seat_display'] = $this->formatSeatDisplay($arr);
+        $sid = (int) ($order->fishing_session_id ?? 0);
+        if ($sid > 0) {
+            $sess = FishingSession::find($sid);
+            $arr['session_no'] = $sess ? (string) ($sess->session_no ?? '') : '';
+        } else {
+            $arr['session_no'] = '';
+        }
 
         $itemRows = [];
         foreach ($order->items ?? [] as $it) {
@@ -133,5 +159,19 @@ class VenueShopOrderController extends BaseController
         $arr['items'] = $itemRows;
 
         return json(['code' => 0, 'msg' => 'success', 'data' => $arr]);
+    }
+
+    /**
+     * @param array<string, mixed> $arr
+     */
+    private function formatSeatDisplay(array $arr): string
+    {
+        $code = trim((string) ($arr['seat_code'] ?? ''));
+        if ($code !== '') {
+            return $code;
+        }
+        $no = isset($arr['seat_no']) ? (int) $arr['seat_no'] : 0;
+
+        return $no > 0 ? '钓位 #' . $no : '—';
     }
 }

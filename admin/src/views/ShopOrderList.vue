@@ -40,6 +40,8 @@
         <el-table-column prop="order_no" label="订单号" min-width="190" show-overflow-tooltip />
         <el-table-column prop="user_nickname" label="用户" min-width="100" show-overflow-tooltip />
         <el-table-column prop="venue_name" label="钓场" min-width="140" show-overflow-tooltip />
+        <el-table-column prop="pond_name" label="池塘" min-width="120" show-overflow-tooltip />
+        <el-table-column prop="seat_display" label="座位号" width="120" show-overflow-tooltip />
         <el-table-column label="商品金额(元)" width="110">
           <template #default="{ row }">{{ formatYuan(row.amount_goods_yuan) }}</template>
         </el-table-column>
@@ -87,6 +89,10 @@
           <el-descriptions-item label="状态">{{ statusLabel(detail.status) }}</el-descriptions-item>
           <el-descriptions-item label="钓场">{{ detail.venue_name || '-' }}</el-descriptions-item>
           <el-descriptions-item label="用户">{{ detail.user_nickname || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="开钓单号">{{ detail.session_no || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="池塘">{{ detail.pond_name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="座位号">{{ detail.seat_display || '—' }}</el-descriptions-item>
+          <el-descriptions-item label="开钓单ID">{{ detail.fishing_session_id > 0 ? detail.fishing_session_id : '—' }}</el-descriptions-item>
           <el-descriptions-item label="商品合计">{{ formatYuan(detail.amount_goods_yuan) }} 元</el-descriptions-item>
           <el-descriptions-item label="余额抵扣">{{ formatYuan(detail.balance_deduct_yuan) }} 元</el-descriptions-item>
           <el-descriptions-item label="微信部分">{{ formatYuan(detail.wx_amount_yuan) }} 元</el-descriptions-item>

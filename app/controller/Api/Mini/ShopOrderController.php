@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace app\controller\Api\Mini;
 
 use app\model\FishingOrder;
+use app\model\FishingSession;
 use app\model\FishingVenue;
 use app\model\MiniUser;
 use app\model\Product;
@@ -91,6 +92,25 @@ class ShopOrderController extends MiniBaseController
                 if (!$lockedUser) {
                     throw new \RuntimeException('用户不存在');
                 }
+
+                /** @var FishingSession|null $session */
+                $session = FishingSession::where('mini_user_id', $miniUserId)
+                    ->where('venue_id', $venueId)
+                    ->where('status', 'ongoing')
+                    ->order('id', 'desc')
+                    ->lock(true)
+                    ->find();
+                if (!$session) {
+                    throw new \RuntimeException('请先完成开卡并在本钓场开钓后，再购买店铺商品');
+                }
+
+                $sessionId = (int) $session->id;
+                $pondIdSnap = (int) ($session->pond_id ?? 0);
+                $seatIdSnap = $session->seat_id !== null ? (int) $session->seat_id : null;
+                $seatNoSnap = $session->seat_no !== null ? (int) $session->seat_no : null;
+                $seatCodeSnap = isset($session->seat_code) && (string) $session->seat_code !== ''
+                    ? (string) $session->seat_code
+                    : null;
 
                 $prepared = [];
                 $goodsTotalFen = 0;
@@ -182,6 +202,11 @@ class ShopOrderController extends MiniBaseController
                     'order_no' => $orderNo,
                     'venue_id' => $venueId,
                     'mini_user_id' => $miniUserId,
+                    'fishing_session_id' => $sessionId,
+                    'pond_id' => $pondIdSnap > 0 ? $pondIdSnap : null,
+                    'seat_id' => $seatIdSnap,
+                    'seat_no' => $seatNoSnap,
+                    'seat_code' => $seatCodeSnap,
                     'amount_goods_fen' => $goodsTotalFen,
                     'balance_deduct_fen' => $balanceDeductFen,
                     'wx_amount_fen' => $needWxFen,
@@ -219,10 +244,10 @@ class ShopOrderController extends MiniBaseController
                         'order_no' => $orderNo,
                         'mini_user_id' => $miniUserId,
                         'venue_id' => $venueId,
-                        'pond_id' => null,
-                        'seat_id' => null,
-                        'seat_no' => null,
-                        'seat_code' => null,
+                        'pond_id' => $pondIdSnap > 0 ? $pondIdSnap : null,
+                        'seat_id' => $seatIdSnap,
+                        'seat_no' => $seatNoSnap,
+                        'seat_code' => $seatCodeSnap,
                         'fee_rule_id' => null,
                         'return_rule_id' => null,
                         'description' => '店铺订单',
@@ -273,6 +298,10 @@ class ShopOrderController extends MiniBaseController
                 'pay_tip' => $needWxFen > 0
                     ? '使用 POST /api/mini/pay/wechat/jsapi，传 order_no 与 description=店铺订单（金额以服务端订单为准）'
                     : null,
+                'fishing_session_id' => (int) ($order->fishing_session_id ?? 0) ?: null,
+                'pond_id' => (int) ($order->pond_id ?? 0) ?: null,
+                'seat_no' => $order->seat_no !== null ? (int) $order->seat_no : null,
+                'seat_code' => (string) ($order->seat_code ?? '') !== '' ? (string) $order->seat_code : null,
             ],
         ]);
     }

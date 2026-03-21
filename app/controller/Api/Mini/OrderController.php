@@ -128,6 +128,10 @@ class OrderController extends MiniBaseController
             'is_paid' => $isPaid,
             'pay_status' => $status,
             'status_text' => $status === 'paid' ? '已支付' : ($status === 'pending' ? '待支付' : $status),
+            'fishing_session_id' => $shop->fishing_session_id !== null ? (int) $shop->fishing_session_id : null,
+            'pond_id' => $shop->pond_id !== null ? (int) $shop->pond_id : null,
+            'seat_no' => $shop->seat_no !== null ? (int) $shop->seat_no : null,
+            'seat_code' => (string) ($shop->seat_code ?? '') !== '' ? (string) $shop->seat_code : null,
             'shop' => $this->shopSnapshot($shop),
         ];
 
@@ -150,8 +154,18 @@ class OrderController extends MiniBaseController
             ];
         }
 
+        $seatCode = (string) ($shop->seat_code ?? '');
+        $seatNo = $shop->seat_no !== null ? (int) $shop->seat_no : null;
+        $seatLabel = $seatCode !== '' ? $seatCode : ($seatNo !== null && $seatNo > 0 ? '#' . $seatNo : '—');
+
         return [
             'order_id' => (int) $shop->id,
+            'fishing_session_id' => $shop->fishing_session_id !== null ? (int) $shop->fishing_session_id : null,
+            'pond_id' => $shop->pond_id !== null ? (int) $shop->pond_id : null,
+            'seat_id' => $shop->seat_id !== null ? (int) $shop->seat_id : null,
+            'seat_no' => $seatNo,
+            'seat_code' => $seatCode !== '' ? $seatCode : null,
+            'seat_label' => $seatLabel,
             'amount_goods_yuan' => round((int) ($shop->amount_goods_fen ?? 0) / 100, 2),
             'balance_deduct_yuan' => round((int) ($shop->balance_deduct_fen ?? 0) / 100, 2),
             'wx_amount_yuan' => round((int) ($shop->wx_amount_fen ?? 0) / 100, 2),
