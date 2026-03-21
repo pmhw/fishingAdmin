@@ -3,7 +3,7 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>交易中心 - 订单管理</span>
+          <span>交易中心 - 钓场开卡订单</span>
         </div>
       </template>
 

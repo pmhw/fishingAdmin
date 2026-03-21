@@ -67,9 +67,11 @@ return [
     'PUT:pond-feed-logs/'   => 'admin.pond.manage',
     'DELETE:pond-feed-logs/' => 'admin.pond.manage',
 
-    // ---------- 交易中心：订单管理（只读） ----------
+    // ---------- 交易中心：开卡订单 + 店铺商品订单（只读） ----------
     'GET:orders'         => 'admin.trade.order.manage',
     'GET:orders/'        => 'admin.trade.order.manage',
+    'GET:shop/orders'    => 'admin.trade.order.manage',
+    'GET:shop/orders/'   => 'admin.trade.order.manage',
 
     // ---------- 经营管理：开钓/回鱼/卖鱼 ----------
     'GET:sessions'         => 'admin.biz.session.manage',

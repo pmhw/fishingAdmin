@@ -561,7 +561,8 @@ onMounted(() => {
 
 <style scoped>
 .page {
-  max-width: 1200px;
+  width: 100%;
+  max-width: none;
 }
 .card-header {
   display: flex;

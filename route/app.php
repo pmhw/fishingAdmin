@@ -193,6 +193,9 @@ Route::group('api', function () {
             Route::delete('shop/products/:id', 'Api.Admin.ShopProductController/delete');
             Route::get('shop/products', 'Api.Admin.ShopProductController/list');
             Route::post('shop/products', 'Api.Admin.ShopProductController/create');
+            // shop：店铺商品订单（只读，与 GET orders 同属交易中心）
+            Route::get('shop/orders/:id', 'Api.Admin.VenueShopOrderController/detail');
+            Route::get('shop/orders', 'Api.Admin.VenueShopOrderController/list');
             // shop：按钓场选品、库存（先 sync、batch、available，再 products/:vp_id）
             Route::get('shop/venues/:venue_id/categories', 'Api.Admin.VenueShopCategoryController/list');
             Route::post('shop/venues/:venue_id/categories', 'Api.Admin.VenueShopCategoryController/create');

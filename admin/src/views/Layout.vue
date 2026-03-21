@@ -55,7 +55,11 @@
           </template>
           <el-menu-item v-if="hasPermission('admin.trade.order.manage')" index="/orders">
             <el-icon><Document /></el-icon>
-            <template #title>订单管理</template>
+            <template #title>钓场开卡订单</template>
+          </el-menu-item>
+          <el-menu-item v-if="hasPermission('admin.trade.order.manage')" index="/shop/orders">
+            <el-icon><ShoppingBag /></el-icon>
+            <template #title>店铺商品订单</template>
           </el-menu-item>
         </el-sub-menu>
         <el-sub-menu v-if="showBizMenu" index="biz">
@@ -133,6 +137,7 @@ import {
   ShoppingCart,
   Goods,
   Sell,
+  ShoppingBag,
 } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { useRouter } from 'vue-router'
