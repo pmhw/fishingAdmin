@@ -5,6 +5,7 @@ namespace app\controller\Api\Mini;
 
 use app\model\FishingOrder;
 use app\model\FishingSession;
+use app\model\VenueShopOrder;
 use app\model\FishingPond;
 use app\model\PondSeat;
 use app\model\MiniUser;
@@ -311,6 +312,25 @@ class PayController extends MiniBaseController
             'pay_time'      => $now,
             'raw_notify'    => json_encode($data, JSON_UNESCAPED_UNICODE),
         ]);
+
+        // 店铺订单：同步 venue_shop_order（单号 SO 开头或与描述一致）
+        $desc = (string) ($order->description ?? '');
+        if (str_starts_with($outTradeNo, 'SO') || str_contains($desc, '店铺订单')) {
+            try {
+                /** @var VenueShopOrder|null $shopOrder */
+                $shopOrder = VenueShopOrder::where('order_no', $outTradeNo)->find();
+                if ($shopOrder && (string) $shopOrder->status === 'pending') {
+                    $shopOrder->save([
+                        'status'       => 'paid',
+                        'pay_trade_no' => $transactionId !== '' ? $transactionId : $shopOrder->pay_trade_no,
+                        'pay_time'     => $now,
+                        'raw_notify'   => json_encode($data, JSON_UNESCAPED_UNICODE),
+                    ]);
+                }
+            } catch (\Throwable $e) {
+                // 不影响向微信返回 SUCCESS
+            }
+        }
 
         // 若该订单用于开钓单预付款，则在支付成功后创建 fishing_session（开单前必须先支付）
         try {

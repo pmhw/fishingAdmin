@@ -45,6 +45,7 @@ Route::group('api', function () {
     Route::get('mini/venues/:venue_id/shop/categories', 'Api.Mini.ShopController/categories');
     Route::get('mini/venues/:venue_id/shop/products/:vp_id', 'Api.Mini.ShopController/productDetail');
     Route::get('mini/venues/:venue_id/shop/products', 'Api.Mini.ShopController/productList');
+    Route::post('mini/venues/:venue_id/shop/orders', 'Api.Mini.ShopOrderController/create')->middleware(\app\middleware\MiniAuth::class);
     Route::get('mini/venues/:id', 'Api.Mini.VenueController/detail');
     Route::get('mini/venues', 'Api.Mini.VenueController/list');
     // 池塘详情（收费规则 + 钓位，用于开卡页）
@@ -56,6 +57,9 @@ Route::group('api', function () {
     // 支付：下单需登录，回调不需登录
     Route::post('mini/pay/wechat/jsapi', 'Api.Mini.PayController/jsapi')->middleware(\app\middleware\MiniAuth::class);
     Route::post('mini/pay/wechat/notify', 'Api.Mini.PayController/notify');
+    // 兼容：路径写成 weixin / pay/balance 时与上面 jsapi、POST mini/sessions 等价（避免小程序端 404）
+    Route::post('mini/pay/weixin/jsapi', 'Api.Mini.PayController/jsapi')->middleware(\app\middleware\MiniAuth::class);
+    Route::post('mini/pay/balance', 'Api.Mini.SessionController/create')->middleware(\app\middleware\MiniAuth::class);
     // 需登录（任一路径均可）
     Route::post('mini/upload', 'Api.Mini.UploadController/index')->middleware(\app\middleware\MiniAuth::class);
     Route::get('mini/me', 'Api.Mini.UserController/me')->middleware(\app\middleware\MiniAuth::class);
@@ -208,3 +212,11 @@ Route::group('api', function () {
         })->middleware([\app\middleware\AdminAuth::class, \app\middleware\AdminPermission::class]);
     });
 });
+
+// 无 /api 前缀的兼容路由（baseURL 未带 api、或多层反向代理剥掉前缀时，仍可到同一控制器）
+Route::post('mini/pay/wechat/jsapi', 'Api.Mini.PayController/jsapi')->middleware(\app\middleware\MiniAuth::class);
+Route::post('mini/pay/wechat/notify', 'Api.Mini.PayController/notify');
+Route::post('mini/pay/weixin/jsapi', 'Api.Mini.PayController/jsapi')->middleware(\app\middleware\MiniAuth::class);
+Route::post('mini/pay/balance', 'Api.Mini.SessionController/create')->middleware(\app\middleware\MiniAuth::class);
+Route::post('mini/sessions', 'Api.Mini.SessionController/create')->middleware(\app\middleware\MiniAuth::class);
+Route::post('mini/venues/:venue_id/shop/orders', 'Api.Mini.ShopOrderController/create')->middleware(\app\middleware\MiniAuth::class);
