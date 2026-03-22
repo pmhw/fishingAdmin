@@ -1,6 +1,7 @@
 import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { ElNotification } from 'element-plus'
 import { getOrderAlertTip } from '@/api/tradeAlert'
+import { notifyDashboardRefresh } from '@/composables/dashboardRefreshHub'
 
 const LS_SOUND = 'admin_order_alert_sound'
 const LS_POPUP = 'admin_order_alert_popup'
@@ -95,6 +96,9 @@ export function useOrderNewAlert(router, hasTradePermission) {
       if (newFish || newShop) {
         baselineFish = Math.max(baselineFish, fish)
         baselineShop = Math.max(baselineShop, shop)
+
+        /** 首页数据概览等与订单相关的统计同步刷新 */
+        notifyDashboardRefresh()
 
         if (soundOn.value) {
           playOrderBeep()

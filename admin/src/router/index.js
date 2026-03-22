@@ -9,7 +9,12 @@ const routes = [
     meta: { requiresAuth: true },
     children: [
       { path: '', redirect: '/home' },
-      { path: 'home', name: 'Home', component: () => import('@/views/Home.vue'), meta: { title: '首页' } },
+      {
+        path: 'home',
+        name: 'Home',
+        component: () => import('@/views/Home.vue'),
+        meta: { title: '首页' },
+      },
       { path: 'admins', name: 'Admins', component: () => import('@/views/AdminList.vue'), meta: { title: '管理员管理' } },
       { path: 'roles', name: 'Roles', component: () => import('@/views/RoleList.vue'), meta: { title: '角色与权限' } },
       { path: 'banners', name: 'Banners', component: () => import('@/views/BannerList.vue'), meta: { title: '轮播图管理' } },

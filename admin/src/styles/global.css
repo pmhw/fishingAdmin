@@ -1,0 +1,134 @@
+/**
+ * fishingAdmin 全局主题 — 现代简洁、偏「水域/钓场」青绿主色
+ * 在 main.js 中于 element-plus 样式之后引入
+ */
+:root {
+  /* 主色：青绿 teal（其余 primary 衍生色由 Element Plus 计算） */
+  --el-color-primary: #0d9488;
+
+  --fa-radius-sm: 8px;
+  --fa-radius-md: 10px;
+  --fa-radius-lg: 14px;
+  --fa-radius-xl: 18px;
+
+  --fa-shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --fa-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --fa-shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.07), 0 2px 4px -2px rgba(15, 23, 42, 0.05);
+  --fa-border-subtle: rgba(15, 23, 42, 0.08);
+
+  --el-border-radius-base: 10px;
+  --el-border-radius-small: 8px;
+  --el-border-radius-round: 20px;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    'PingFang SC',
+    'Hiragino Sans GB',
+    'Microsoft YaHei',
+    sans-serif;
+}
+
+/* 禁止整页（body）滚动；各页在 Layout / 登录页根节点内自行滚动 */
+#app {
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* 压住 Element Plus el-main 默认 overflow:auto（与 Layout 中 class 配合） */
+.el-main.fa-admin-main {
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+}
+
+/* 主内容槽：height:0 + flex 强制占满剩余视口，避免子页面把 el-main 撑出滚动 */
+.fa-admin-main > .main__outlet {
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* 数据概览页：网格锁定第二行高度 */
+.fa-admin-main > .main__outlet > .page.home.fa-home-dashboard {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
+  gap: 24px 0 !important;
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  overflow-x: hidden !important;
+  overflow-y: visible !important;
+  box-sizing: border-box !important;
+}
+
+.fa-admin-main > .main__outlet > .page.home.fa-home-dashboard > .home__head {
+  align-self: start;
+  width: 100%;
+}
+
+.fa-admin-main > .main__outlet > .page.home.fa-home-dashboard > .home__scroll {
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+/* ---------- Element Plus 组件微调 ---------- */
+.el-card {
+  border-radius: var(--fa-radius-lg) !important;
+  box-shadow: none !important;
+  border: 1px solid var(--fa-border-subtle) !important;
+}
+
+.el-card:hover {
+  box-shadow: none !important;
+  border-color: var(--fa-border-subtle) !important;
+}
+
+.el-card__header {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-bottom-color: var(--fa-border-subtle) !important;
+}
+
+.el-button {
+  font-weight: 500;
+}
+
+.el-input__wrapper,
+.el-select .el-input__wrapper {
+  border-radius: var(--fa-radius-sm) !important;
+  transition: box-shadow 0.15s ease;
+}
+
+.el-dialog {
+  border-radius: var(--fa-radius-lg) !important;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.18) !important;
+}
