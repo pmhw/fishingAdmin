@@ -202,10 +202,11 @@
           <el-input v-model="regionForm.name" placeholder="如 西岸、中间浮桥" />
         </el-form-item>
         <el-form-item label="起始序号" prop="start_no">
-          <el-input-number v-model="regionForm.start_no" :min="0" controls-position="right" style="width:100%" />
+          <el-input-number v-model="regionForm.start_no" :min="1" controls-position="right" style="width:100%" />
+          <p class="region-form-tip">已按现有区域自动填入「下一可用起始号」，可改；结束号默认同起始，可拉大段。</p>
         </el-form-item>
         <el-form-item label="结束序号" prop="end_no">
-          <el-input-number v-model="regionForm.end_no" :min="0" controls-position="right" style="width:100%" />
+          <el-input-number v-model="regionForm.end_no" :min="1" controls-position="right" style="width:100%" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -469,7 +470,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed, watch } from 'vue'
+import { ref, reactive, onMounted, computed, watch, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   getPondList,
@@ -1007,11 +1008,27 @@ async function onCleanupSeatQrs() {
   }
 }
 
+/** 下一个不与已有区域重叠的起始座位号（取各区域 end_no 最大值 + 1，无区域则从 1 起） */
+function getNextSeatStartNo() {
+  const list = Array.isArray(regionList.value) ? regionList.value : []
+  if (!list.length) return 1
+  let maxEnd = 0
+  for (const r of list) {
+    const e = Number(r.end_no)
+    if (!Number.isNaN(e) && e > maxEnd) maxEnd = e
+  }
+  return maxEnd + 1
+}
+
 function openRegionForm() {
   regionForm.name = ''
-  regionForm.start_no = regionList.value.length ? Math.max(...regionList.value.map((r) => r.end_no), 0) + 1 : 1
-  regionForm.end_no = regionForm.start_no
+  const next = getNextSeatStartNo()
+  regionForm.start_no = next
+  regionForm.end_no = next
   regionDialogVisible.value = true
+  nextTick(() => {
+    regionFormRef.value?.clearValidate?.()
+  })
 }
 
 function resetRegionForm() {
@@ -1019,22 +1036,34 @@ function resetRegionForm() {
 }
 
 async function submitRegion() {
-  await regionFormRef.value?.validate().catch(() => {})
+  try {
+    await regionFormRef.value?.validate()
+  } catch {
+    return
+  }
   if (regionForm.end_no < regionForm.start_no) {
     ElMessage.warning('结束序号不能小于起始序号')
     return
   }
+  const pondId = regionConfigPondId.value
+  if (!pondId) return
   regionSubmitLoading.value = true
   try {
     await createPondRegion({
-      pond_id: regionConfigPondId.value,
+      pond_id: pondId,
       name: regionForm.name,
       start_no: regionForm.start_no,
       end_no: regionForm.end_no,
     })
-    ElMessage.success('添加成功')
+    ElMessage.success('添加成功，座位号已后台同步')
     regionDialogVisible.value = false
-    fetchRegions(regionConfigPondId.value)
+    // 刷新钓位配置大弹窗：区域表 + 下方座位号排列（后端 create 内已 sync，这里拉最新数据）
+    regionListLoading.value = true
+    try {
+      await Promise.all([fetchRegions(pondId), fetchSeats(pondId)])
+    } finally {
+      regionListLoading.value = false
+    }
   } catch (_) {}
   finally {
     regionSubmitLoading.value = false
@@ -1044,9 +1073,16 @@ async function submitRegion() {
 function onDeleteRegion(row) {
   ElMessageBox.confirm(`确定删除区域「${row.name}」？`, '提示', { type: 'warning' })
     .then(async () => {
+      const pondId = regionConfigPondId.value
       await deletePondRegion(row.id)
       ElMessage.success('已删除')
-      fetchRegions(regionConfigPondId.value)
+      if (!pondId) return
+      regionListLoading.value = true
+      try {
+        await Promise.all([fetchRegions(pondId), fetchSeats(pondId)])
+      } finally {
+        regionListLoading.value = false
+      }
     })
     .catch(() => {})
 }
@@ -1307,6 +1343,7 @@ onMounted(() => {
 .region-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px; }
 .region-toolbar-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .region-tip { font-size: 12px; color: var(--el-text-color-secondary); }
+.region-form-tip { margin: 6px 0 0; font-size: 12px; color: var(--el-text-color-secondary); line-height: 1.45; }
 .region-table { margin-top: 0; }
 .duration-with-unit { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .fee-form-wrap { min-height: 200px; }

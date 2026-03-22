@@ -40,6 +40,9 @@ class PondReturnLogController extends BaseController
             $query->where('session_id', $sessionId);
         }
         if ($pondId > 0) {
+            if (!$this->canAccessPond($pondId)) {
+                return json(['code' => 403, 'msg' => '无权查看该池塘', 'data' => null]);
+            }
             $query->where('pond_id', $pondId);
         }
         if ($allowed !== null) {

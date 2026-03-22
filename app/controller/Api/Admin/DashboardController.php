@@ -23,6 +23,7 @@ use think\response\Json;
 class DashboardController extends BaseController
 {
     use PondScopeTrait;
+    use VenueScopeTrait;
 
     /**
      * 统计用池塘范围：
@@ -74,6 +75,9 @@ class DashboardController extends BaseController
     public function stats(): Json
     {
         $venueId = (int) $this->request->get('venue_id', 0);
+        if ($venueId > 0 && !$this->canAccessVenue($venueId)) {
+            return json(['code' => 403, 'msg' => '无权查看该钓场统计', 'data' => null]);
+        }
 
         $pondScope = $this->getStatsPondScope();
         if ($pondScope !== null && $pondScope === []) {

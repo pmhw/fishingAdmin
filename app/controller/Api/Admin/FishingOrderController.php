@@ -16,9 +16,14 @@ use think\response\Json;
  *
  * 说明：店铺商品走微信付时会在 fishing_order 里插入与 venue_shop_order 同号的「占位」行
  *（order_no 以 SO 开头、description 为「店铺订单」），此类不在本列表展示，请用「店铺商品订单」菜单。
+ *
+ * 数据范围：与「店铺商品订单」一致，按管理员角色绑定的钓场（VenueScopeTrait）过滤；
+ * 前端传入 venue_id 时仅能在已授权钓场内筛选，否则 403。
  */
 class FishingOrderController extends BaseController
 {
+    use VenueScopeTrait;
+
     /**
      * 列表 GET /api/admin/orders
      *
@@ -38,6 +43,15 @@ class FishingOrderController extends BaseController
         $pondId  = (int) $this->request->get('pond_id', 0);
         $orderNo = trim((string) $this->request->get('order_no', ''));
 
+        $allowedVenues = $this->getAdminAllowedVenueIds();
+        if (is_array($allowedVenues) && $allowedVenues === []) {
+            return json([
+                'code' => 0,
+                'msg'  => 'success',
+                'data' => ['list' => [], 'total' => 0],
+            ]);
+        }
+
         $query = FishingOrder::order('id', 'desc');
 
         // 排除店铺商品微信支付在 fishing_order 中的占位行（单号 SO*，与 venue_shop_order 一致）
@@ -50,7 +64,14 @@ class FishingOrderController extends BaseController
         if ($status !== '') {
             $query->where('status', $status);
         }
+
+        if ($allowedVenues !== null) {
+            $query->whereIn('venue_id', $allowedVenues);
+        }
         if ($venueId > 0) {
+            if (!$this->canAccessVenue($venueId)) {
+                return json(['code' => 403, 'msg' => '无权查看该钓场订单', 'data' => null]);
+            }
             $query->where('venue_id', $venueId);
         }
         if ($pondId > 0) {

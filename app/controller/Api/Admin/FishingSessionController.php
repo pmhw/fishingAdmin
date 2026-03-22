@@ -20,6 +20,7 @@ use think\response\Json;
 class FishingSessionController extends BaseController
 {
     use PondScopeTrait;
+    use VenueScopeTrait;
 
     /**
      * 列表 GET /api/admin/sessions
@@ -56,9 +57,15 @@ class FishingSessionController extends BaseController
             $query->where('status', $status);
         }
         if ($venueId > 0) {
+            if (!$this->canAccessVenue($venueId)) {
+                return json(['code' => 403, 'msg' => '无权查看该钓场', 'data' => null]);
+            }
             $query->where('venue_id', $venueId);
         }
         if ($pondId > 0) {
+            if (!$this->canAccessPond($pondId)) {
+                return json(['code' => 403, 'msg' => '无权查看该池塘', 'data' => null]);
+            }
             $query->where('pond_id', $pondId);
         }
         if ($seatCode !== '') {

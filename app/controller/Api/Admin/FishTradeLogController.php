@@ -40,8 +40,15 @@ class FishTradeLogController extends BaseController
 
         if ($sessionId > 0) $query->where('session_id', $sessionId);
         if ($tradeType !== '') $query->where('trade_type', $tradeType);
-        if ($pondId > 0) $query->where('pond_id', $pondId);
-        if ($allowed !== null) $query->whereIn('pond_id', $allowed);
+        if ($pondId > 0) {
+            if (!$this->canAccessPond($pondId)) {
+                return json(['code' => 403, 'msg' => '无权查看该池塘', 'data' => null]);
+            }
+            $query->where('pond_id', $pondId);
+        }
+        if ($allowed !== null) {
+            $query->whereIn('pond_id', $allowed);
+        }
 
         $paginator = $query->paginate(['list_rows' => $limit, 'page' => $page]);
         $list = [];
