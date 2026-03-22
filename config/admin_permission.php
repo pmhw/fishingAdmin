@@ -102,12 +102,13 @@ return [
     'GET:mini-users'        => 'admin.biz.session.manage',
 
     // ---------- 钓场店铺：公共商品库 ----------
-    'GET:shop/product-skus'     => 'admin.shop.product.manage',
+    // 只读：选品/库存页可能拉取公共 SKU 或商品详情，具备「钓场店铺」权即可；写操作仍仅商品库管理员
+    'GET:shop/product-skus'     => ['admin.shop.product.manage', 'admin.shop.venue.manage'],
     'POST:shop/product-skus'    => 'admin.shop.product.manage',
     'PUT:shop/product-skus/'    => 'admin.shop.product.manage',
     'DELETE:shop/product-skus/' => 'admin.shop.product.manage',
-    'GET:shop/products'         => 'admin.shop.product.manage',
-    'GET:shop/products/'        => 'admin.shop.product.manage',
+    'GET:shop/products'         => ['admin.shop.product.manage', 'admin.shop.venue.manage'],
+    'GET:shop/products/'        => ['admin.shop.product.manage', 'admin.shop.venue.manage'],
     'POST:shop/products'        => 'admin.shop.product.manage',
     'PUT:shop/products/'        => 'admin.shop.product.manage',
     'DELETE:shop/products/'     => 'admin.shop.product.manage',
