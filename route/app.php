@@ -98,6 +98,7 @@ Route::group('api', function () {
         Route::group(function () {
             Route::get('me', 'Api.Admin.Auth/me');
             Route::post('logout', 'Api.Admin.Auth/logout');
+            Route::get('dashboard/stats', 'Api.Admin.DashboardController/stats');
             Route::post('upload/image', 'Api.Admin.UploadController/image');
             // admin-users：先 :id 后集合，避免 /admin-users/1 被误匹配
             Route::get('admin-users/:id', 'Api.Admin.AdminUserController/detail');
