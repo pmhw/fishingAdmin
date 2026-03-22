@@ -93,7 +93,8 @@ class DashboardController extends BaseController
         $scopeLabel = $venueId > 0 ? ($venueName !== '' ? $venueName : '指定钓场') : '全部钓场';
 
         $sessionScoped = function () use ($pondScope, $venueId) {
-            $q = FishingSession::query();
+            // ThinkPHP Model 无 ::query()，用 whereRaw 作为可链式查询起点
+            $q = FishingSession::whereRaw('1=1');
             if ($pondScope !== null) {
                 $q->whereIn('pond_id', $pondScope);
             }
@@ -154,7 +155,7 @@ class DashboardController extends BaseController
 
         // ---------- 回鱼 pond_return_log ----------
         $returnScoped = function () use ($pondScope, $venueId) {
-            $q = PondReturnLog::query();
+            $q = PondReturnLog::whereRaw('1=1');
             if ($pondScope !== null) {
                 $q->whereIn('pond_id', $pondScope);
             }
