@@ -16,6 +16,8 @@ trait PondScopeTrait
 {
     private const POND_MANAGE_CODE = 'admin.pond.manage';
 
+    private const ACTIVITY_MANAGE_CODE = 'admin.activity.manage';
+
     /**
      * 获取当前管理员可管理的池塘 ID 列表
      * @return null 全部池塘 | array 仅这些池塘 ID | [] 无池塘权限
@@ -34,8 +36,8 @@ trait PondScopeTrait
         if (in_array('*', $codes, true)) {
             return null; // 超级管理员：全部
         }
-        if (!in_array(self::POND_MANAGE_CODE, $codes, true)) {
-            return []; // 无池塘管理权限
+        if (!in_array(self::POND_MANAGE_CODE, $codes, true) && !in_array(self::ACTIVITY_MANAGE_CODE, $codes, true)) {
+            return []; // 无池塘/活动管理权限
         }
         $roleId = (int) $user->role_id;
 

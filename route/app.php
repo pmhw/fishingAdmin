@@ -77,6 +77,11 @@ Route::group('api', function () {
     // 小程序端垂钓记录（开钓单列表 + 总数 + 总回鱼重量）
     Route::get('mini/session-records', 'Api.Mini.SessionRecordController/list')->middleware(\app\middleware\MiniAuth::class);
 
+    // 活动模块（报名/抽号/积分领取）
+    Route::post('mini/activities/:id/participate', 'Api.Mini.ActivityController/participate')->middleware(\app\middleware\MiniAuth::class);
+    Route::post('mini/activities/:id/draw', 'Api.Mini.ActivityController/draw')->middleware(\app\middleware\MiniAuth::class);
+    Route::post('mini/activities/:id/points/claim', 'Api.Mini.ActivityController/claimPoints')->middleware(\app\middleware\MiniAuth::class);
+
     // 小程序端：用户收藏钓场
     Route::post('mini/favorites/venues', 'Api.Mini.FavoriteVenueController/add')->middleware(\app\middleware\MiniAuth::class);
     Route::delete('mini/favorites/venues/:venue_id', 'Api.Mini.FavoriteVenueController/remove')->middleware(\app\middleware\MiniAuth::class);
@@ -174,6 +179,16 @@ Route::group('api', function () {
             Route::post('sessions', 'Api.Admin.FishingSessionController/create');
             Route::put('sessions/:id/finish', 'Api.Admin.FishingSessionController/finish');
             Route::put('sessions/:id/cancel', 'Api.Admin.FishingSessionController/cancel');
+
+            // activities：先 :id 子路径再列表（避免路由冲突）
+            Route::get('activities/:id', 'Api.Admin.ActivityController/detail');
+            Route::post('activities/:id/close', 'Api.Admin.ActivityController/close');
+            Route::post('activities/:id/publish', 'Api.Admin.ActivityController/publish');
+            Route::post('activities/:id/fee-rules', 'Api.Admin.ActivityController/createFeeRule');
+            Route::post('activities/:id/draw/start', 'Api.Admin.ActivityController/unifiedDrawStart');
+            Route::get('activities', 'Api.Admin.ActivityController/list');
+            Route::post('activities', 'Api.Admin.ActivityController/create');
+            Route::put('activities/:id', 'Api.Admin.ActivityController/update');
             // pond-return-logs：回鱼流水（经营链路）
             Route::delete('pond-return-logs/:id', 'Api.Admin.PondReturnLogController/delete');
             Route::put('pond-return-logs/:id', 'Api.Admin.PondReturnLogController/update');

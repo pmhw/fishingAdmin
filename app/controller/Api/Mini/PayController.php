@@ -10,6 +10,8 @@ use app\model\FishingPond;
 use app\model\PondSeat;
 use app\model\MiniUser;
 use app\model\PondFeeRule;
+use app\model\Activity;
+use app\model\ActivityParticipation;
 use app\model\SystemConfig;
 use think\response\Json;
 
@@ -339,6 +341,13 @@ class PayController extends MiniBaseController
             // 业务异常不影响向微信返回 SUCCESS，避免重复回调
         }
 
+        // 活动报名订单：支付后同步参与状态，并按抽号模式分配座位/创建 session
+        try {
+            $this->createActivityAfterPaid($order);
+        } catch (\Throwable $e) {
+            // 业务异常不影响向微信返回 SUCCESS，避免重复回调
+        }
+
         return $this->notifyResponse('SUCCESS', 'OK');
     }
 
@@ -547,6 +556,176 @@ class PayController extends MiniBaseController
         } catch (\Throwable $e) {
             // 忽略该错误
         }
+    }
+
+    /**
+     * 活动报名预付款：支付成功后同步参与记录。
+     * - unified/offline：仅标记待抽号
+     * - random/self_pick：立即分配座位并创建 fishing_session（start_time=open_time）
+     */
+    private function createActivityAfterPaid(FishingOrder $order): void
+    {
+        $desc = (string) ($order->description ?? '');
+        if ($desc === '' || mb_strpos($desc, '活动报名预付款') === false) {
+            return;
+        }
+
+        $orderNo = (string) ($order->order_no ?? '');
+        $miniUserId = (int) ($order->mini_user_id ?? 0);
+        if ($orderNo === '' || $miniUserId < 1) {
+            return;
+        }
+
+        /** @var ActivityParticipation|null $part */
+        $part = ActivityParticipation::where('pay_order_no', $orderNo)
+            ->where('mini_user_id', $miniUserId)
+            ->find();
+        if (!$part) {
+            return;
+        }
+
+        if ((string) ($part->pay_status ?? '') !== 'paid') {
+            $part->pay_status = 'paid';
+            $part->save();
+        }
+
+        $activityId = (int) ($part->activity_id ?? 0);
+        if ($activityId < 1) {
+            return;
+        }
+        /** @var Activity|null $activity */
+        $activity = Activity::find($activityId);
+        if (!$activity) {
+            return;
+        }
+
+        $drawMode = (string) ($activity->draw_mode ?? 'random');
+        if ($drawMode === 'unified') {
+            $part->draw_status = 'draw_waiting_unified';
+            $part->save();
+            return;
+        }
+        if ($drawMode === 'offline') {
+            $part->draw_status = 'draw_waiting_offline';
+            $part->save();
+            return;
+        }
+        if (!empty($part->assigned_session_id) || !empty($part->assigned_seat_id)) {
+            return;
+        }
+
+        $pondId = (int) ($activity->pond_id ?? 0);
+        $feeRuleId = (int) ($part->fee_rule_id ?? 0);
+        if ($pondId < 1 || $feeRuleId < 1) {
+            return;
+        }
+        /** @var PondFeeRule|null $fee */
+        $fee = PondFeeRule::find($feeRuleId);
+        if (!$fee) {
+            return;
+        }
+
+        $occupiedSeatIds = FishingSession::where('pond_id', $pondId)
+            ->where('status', 'ongoing')
+            ->where('seat_id', '>', 0)
+            ->column('seat_id');
+        $occupiedSeatIds = array_flip(array_map('intval', is_array($occupiedSeatIds) ? $occupiedSeatIds : []));
+
+        $assignedSeatIds = ActivityParticipation::where('activity_id', $activityId)
+            ->whereNotNull('assigned_seat_id')
+            ->where('assigned_seat_id', '>', 0)
+            ->column('assigned_seat_id');
+        $assignedSeatIds = array_flip(array_map('intval', is_array($assignedSeatIds) ? $assignedSeatIds : []));
+
+        $seatId = 0;
+        $seatNo = 0;
+        $seatCode = '';
+        if ($drawMode === 'self_pick') {
+            $desiredSeatNo = (int) ($part->desired_seat_no ?? 0);
+            if ($desiredSeatNo < 1) {
+                $part->draw_status = 'cancelled';
+                $part->save();
+                return;
+            }
+            /** @var PondSeat|null $seat */
+            $seat = PondSeat::where('pond_id', $pondId)->where('seat_no', $desiredSeatNo)->find();
+            if (!$seat) {
+                $part->draw_status = 'cancelled';
+                $part->save();
+                return;
+            }
+            $seatId = (int) ($seat->id ?? 0);
+            $seatNo = (int) ($seat->seat_no ?? 0);
+            $seatCode = (string) ($seat->code ?? '');
+            if ($seatId < 1 || isset($occupiedSeatIds[$seatId]) || isset($assignedSeatIds[$seatId])) {
+                $part->draw_status = 'cancelled';
+                $part->save();
+                return;
+            }
+        } else {
+            $seats = PondSeat::where('pond_id', $pondId)->order('seat_no', 'asc')->select();
+            $free = [];
+            foreach ($seats as $s) {
+                $sid = (int) ($s->id ?? 0);
+                if ($sid < 1) {
+                    continue;
+                }
+                if (isset($occupiedSeatIds[$sid]) || isset($assignedSeatIds[$sid])) {
+                    continue;
+                }
+                $free[] = $s;
+            }
+            if (empty($free)) {
+                $part->draw_status = 'cancelled';
+                $part->save();
+                return;
+            }
+            $pick = $free[random_int(0, count($free) - 1)];
+            $seatId = (int) ($pick->id ?? 0);
+            $seatNo = (int) ($pick->seat_no ?? 0);
+            $seatCode = (string) ($pick->code ?? '');
+        }
+
+        $amountFen = (int) round(((float) ($fee->amount ?? 0)) * 100);
+        $depositFen = (int) round(((float) ($fee->deposit ?? 0)) * 100);
+        $amountTotalFen = max(0, $amountFen + $depositFen);
+        $amountPaidFen = (int) ($order->amount_paid ?? $amountTotalFen);
+
+        $expireTime = null;
+        $durationValue = $fee->duration_value !== null ? (float) $fee->duration_value : 0;
+        $durationUnit = (string) ($fee->duration_unit ?? '');
+        if ($durationValue > 0 && ($durationUnit === 'hour' || $durationUnit === 'day')) {
+            $seconds = $durationUnit === 'day' ? (int) round($durationValue * 86400) : (int) round($durationValue * 3600);
+            if ($seconds > 0) {
+                $expireTime = date('Y-m-d H:i:s', strtotime((string) $activity->open_time) + $seconds);
+            }
+        }
+
+        $sessionNo = 'S' . date('YmdHis') . mt_rand(1000, 9999);
+        $session = FishingSession::create([
+            'session_no'    => $sessionNo,
+            'mini_user_id'  => $miniUserId,
+            'venue_id'      => (int) ($order->venue_id ?? 0),
+            'pond_id'       => $pondId,
+            'seat_id'       => $seatId,
+            'seat_no'       => $seatNo,
+            'seat_code'     => $seatCode,
+            'fee_rule_id'   => $feeRuleId,
+            'order_id'      => (int) ($order->id ?? 0),
+            'start_time'    => (string) ($activity->open_time ?? date('Y-m-d H:i:s')),
+            'expire_time'   => $expireTime,
+            'status'        => 'ongoing',
+            'amount_total'  => $amountTotalFen,
+            'amount_paid'   => $amountPaidFen,
+            'deposit_total' => $depositFen,
+            'remark'        => '活动支付成功占座',
+        ]);
+
+        $part->assigned_seat_id = $seatId;
+        $part->assigned_seat_no = $seatNo;
+        $part->assigned_session_id = (int) ($session->id ?? 0);
+        $part->draw_status = 'assigned';
+        $part->save();
     }
 }
 

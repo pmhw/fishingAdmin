@@ -8,6 +8,7 @@ use app\model\FishingPond;
 use app\model\FishingSession;
 use app\model\FishingVenue;
 use app\model\MiniUser;
+use app\model\Activity;
 use app\model\PondFeeRule;
 use app\model\PondSeat;
 use think\response\Json;
@@ -58,6 +59,14 @@ class SessionController extends MiniBaseController
         }
         if ((int) $pond->venue_id !== $venueId) {
             return json(['code' => 400, 'msg' => '池塘不属于该钓场', 'data' => null]);
+        }
+
+        // 活动期间禁止开钓单（仅禁用小程序端创建）
+        $activeActivity = Activity::where('pond_id', $pondId)
+            ->where('status', 'published')
+            ->find();
+        if ($activeActivity) {
+            return json(['code' => 403, 'msg' => '该池塘正在进行活动，暂时不能开钓单', 'data' => null]);
         }
 
         $seatNo   = null;

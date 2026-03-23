@@ -53,11 +53,12 @@ return [
         'admin.shop.venue.manage',
         'admin.trade.order.manage',
         'admin.biz.session.manage',
+        'admin.activity.manage',
     ],
 
     // ---------- 池塘 ----------
-    'GET:ponds'          => 'admin.pond.manage',
-    'GET:ponds/'         => 'admin.pond.manage',
+    'GET:ponds'          => ['admin.pond.manage', 'admin.activity.manage'],
+    'GET:ponds/'         => ['admin.pond.manage', 'admin.activity.manage'],
     'POST:ponds'         => 'admin.pond.manage',
     'POST:ponds/'        => 'admin.pond.manage',
     'PUT:ponds/'         => 'admin.pond.manage',
@@ -118,4 +119,11 @@ return [
     'POST:shop/venues/'         => 'admin.shop.venue.manage',
     'PUT:shop/venues/'          => 'admin.shop.venue.manage',
     'DELETE:shop/venues/'       => 'admin.shop.venue.manage',
+
+    // ---------- 活动模块 ----------
+    'GET:activities'   => 'admin.activity.manage',
+    'GET:activities/'  => 'admin.activity.manage',
+    'POST:activities'  => 'admin.activity.manage',
+    'PUT:activities/'  => 'admin.activity.manage',
+    'POST:activities/' => 'admin.activity.manage',
 ];

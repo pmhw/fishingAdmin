@@ -80,6 +80,10 @@
             <el-icon><Document /></el-icon>
             <template #title>开钓单</template>
           </el-menu-item>
+          <el-menu-item v-if="hasPermission('admin.activity.manage')" index="/activities">
+            <el-icon><Calendar /></el-icon>
+            <template #title>活动管理</template>
+          </el-menu-item>
           <el-menu-item v-if="hasPermission('admin.biz.return.manage')" index="/return-logs">
             <el-icon><Document /></el-icon>
             <template #title>回鱼流水</template>
@@ -187,6 +191,7 @@ import {
   Goods,
   Sell,
   ShoppingBag,
+  Calendar,
 } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { useVenueContextStore } from '@/stores/venueContext'
@@ -229,7 +234,8 @@ const showVenueSelector = computed(
     hasPermission('admin.venue.manage') ||
     hasPermission('admin.shop.venue.manage') ||
     hasPermission('admin.trade.order.manage') ||
-    hasPermission('admin.biz.session.manage')
+    hasPermission('admin.biz.session.manage') ||
+    hasPermission('admin.activity.manage')
 )
 
 watch(
@@ -267,7 +273,8 @@ const showBizMenu = computed(
   () =>
     hasPermission('admin.biz.session.manage') ||
     hasPermission('admin.biz.return.manage') ||
-    hasPermission('admin.biz.trade.manage')
+    hasPermission('admin.biz.trade.manage') ||
+    hasPermission('admin.activity.manage')
 )
 const showMiscMenu = computed(() => hasPermission('admin.config.manage'))
 const showShopMenu = computed(

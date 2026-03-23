@@ -23,6 +23,7 @@ const routes = [
       { path: 'orders', name: 'Orders', component: () => import('@/views/OrderList.vue'), meta: { title: '交易中心 - 钓场开卡订单' } },
       { path: 'shop/orders', name: 'ShopOrders', component: () => import('@/views/ShopOrderList.vue'), meta: { title: '交易中心 - 店铺商品订单' } },
       { path: 'sessions', name: 'Sessions', component: () => import('@/views/SessionList.vue'), meta: { title: '经营管理 - 开钓单' } },
+      { path: 'activities', name: 'Activities', component: () => import('@/views/ActivityList.vue'), meta: { title: '经营管理 - 活动' } },
       { path: 'return-logs', name: 'ReturnLogs', component: () => import('@/views/ReturnLogList.vue'), meta: { title: '经营管理 - 回鱼流水' } },
       { path: 'fish-trades', name: 'FishTrades', component: () => import('@/views/FishTradeList.vue'), meta: { title: '经营管理 - 卖鱼/收鱼流水' } },
       { path: 'config', name: 'Config', component: () => import('@/views/ConfigList.vue'), meta: { title: '全局配置' } },
