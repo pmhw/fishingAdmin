@@ -7,6 +7,8 @@
 // WECHAT_PAY_NOTIFY_URL  支付结果回调地址（完整 https URL）
 // 默认使用 wechat_mini.appid 作为支付 appid
 return [
+    // 待支付订单超过该分钟数未支付，定时任务标记为 timeout（并做活动/店铺关联清理）
+    'order_pending_timeout_minutes' => (int) env('ORDER_PENDING_TIMEOUT_MINUTES', 5),
     // 商户号 mch_id
     'mch_id'     => env('WECHAT_PAY_MCH_ID', ''),
     // API v2 密钥（用于统一下单/签名），32 位

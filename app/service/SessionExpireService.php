@@ -27,6 +27,7 @@ class SessionExpireService
             }
             Cache::set(self::CACHE_KEY, $nowTs, $cooldownSeconds);
             self::run($limit);
+            OrderTimeoutService::run($limit);
         } catch (\Throwable $e) {
             // 请求兜底：忽略异常，避免影响主流程
         }

@@ -29,7 +29,7 @@ class FishingOrderController extends BaseController
      *
      * 可选查询参数：
      * - page, limit
-     * - status       订单状态：pending / paid / closed / refund
+     * - status       订单状态：pending / paid / timeout / closed / refund
      * - venue_id     钓场 ID
      * - pond_id      池塘 ID
      * - order_no     精确匹配订单号

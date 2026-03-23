@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS `fishing_order` (
   `amount_total` INT(11) UNSIGNED NOT NULL DEFAULT 0 COMMENT '总金额（单位：分）',
   `amount_paid` INT(11) UNSIGNED NOT NULL DEFAULT 0 COMMENT '实付金额（单位：分）',
   `currency` VARCHAR(8) NOT NULL DEFAULT 'CNY' COMMENT '币种，默认 CNY',
-  `status` VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT '订单状态：pending-待支付 paid-已支付 closed-已关闭 refund-已退款',
+  `status` VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT '订单状态：pending-待支付 paid-已支付 timeout-支付超时 closed-已关闭 refund-已退款',
   `pay_channel` VARCHAR(20) NOT NULL DEFAULT 'wx_mini' COMMENT '支付渠道：wx_mini-微信小程序',
   `pay_trade_no` VARCHAR(64) DEFAULT NULL COMMENT '第三方交易号（如微信 transaction_id）',
   `pay_time` DATETIME DEFAULT NULL COMMENT '支付时间',

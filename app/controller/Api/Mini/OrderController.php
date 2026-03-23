@@ -72,7 +72,11 @@ class OrderController extends MiniBaseController
         $arr['pay_status'] = $status;
         $arr['status_text'] = $status === 'paid'
             ? '已支付'
-            : ($status === 'pending' ? '待支付' : ($status !== '' ? $status : '未知'));
+            : ($status === 'pending'
+                ? '待支付'
+                : ($status === 'timeout'
+                    ? '支付超时'
+                    : ($status !== '' ? $status : '未知')));
 
         $desc = (string) ($arr['description'] ?? '');
         $on = (string) ($arr['order_no'] ?? '');

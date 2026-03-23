@@ -17,6 +17,7 @@
           <el-select v-model="filters.status" placeholder="全部" clearable style="width: 140px">
             <el-option label="待支付" value="pending" />
             <el-option label="已支付" value="paid" />
+            <el-option label="支付超时" value="timeout" />
             <el-option label="已关闭" value="closed" />
             <el-option label="已退款" value="refund" />
           </el-select>
@@ -102,6 +103,7 @@ function statusLabel(status) {
   const map = {
     pending: '待支付',
     paid: '已支付',
+    timeout: '支付超时',
     closed: '已关闭',
     refund: '已退款',
   }
@@ -112,6 +114,7 @@ function statusTagType(status) {
   const map = {
     pending: 'warning',
     paid: 'success',
+    timeout: 'info',
     closed: 'info',
     refund: 'danger',
   }

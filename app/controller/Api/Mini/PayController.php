@@ -113,8 +113,9 @@ class PayController extends MiniBaseController
             if ((int) $order->mini_user_id !== (int) $user->id) {
                 return json(['code' => 403, 'msg' => '无权操作该订单', 'data' => null]);
             }
-            if ($order->status !== 'pending') {
-                return json(['code' => 400, 'msg' => '订单状态已变更，无法再次发起支付', 'data' => null]);
+            if ((string) $order->status !== 'pending') {
+                $msg = (string) $order->status === 'timeout' ? '订单已超时，请重新下单' : '订单状态已变更，无法再次发起支付';
+                return json(['code' => 400, 'msg' => $msg, 'data' => null]);
             }
             // 使用已有订单金额与描述，忽略本次 total_fee，防止前端篡改
             $totalFee    = (int) $order->amount_total;
@@ -296,6 +297,11 @@ class PayController extends MiniBaseController
         // 幂等：如果已经标记为已支付，则直接返回 SUCCESS
         if ($order->status === 'paid') {
             return $this->notifyResponse('SUCCESS', 'OK');
+        }
+
+        // 非待支付（超时/关闭/退款等）：不再入账，返回 SUCCESS 避免微信无限重试
+        if ((string) $order->status !== 'pending') {
+            return $this->notifyResponse('SUCCESS', 'ORDER_NOT_PENDING');
         }
 
         // 校验金额是否一致（不一致时记录但不反复拒绝，避免微信持续重试）
