@@ -78,6 +78,7 @@ Route::group('api', function () {
     Route::get('mini/session-records', 'Api.Mini.SessionRecordController/list')->middleware(\app\middleware\MiniAuth::class);
 
     // 活动模块（列表/详情/报名/抽号/积分）——具体路径先于 :id
+    Route::get('mini/activities/:id/fee-rules', 'Api.Mini.ActivityController/feeRules');
     Route::get('mini/activities/:id/available-seats', 'Api.Mini.ActivityController/availableSeats');
     Route::get('mini/activities/:id/my', 'Api.Mini.ActivityController/myParticipation')->middleware(\app\middleware\MiniAuth::class);
     Route::get('mini/activities/:id', 'Api.Mini.ActivityController/detail');
@@ -184,6 +185,8 @@ Route::group('api', function () {
             Route::put('sessions/:id/finish', 'Api.Admin.FishingSessionController/finish');
             Route::put('sessions/:id/cancel', 'Api.Admin.FishingSessionController/cancel');
 
+            // 活动参与记录（列表，需在 activities/:id 之前注册独立路径）
+            Route::get('activity-participations', 'Api.Admin.ActivityParticipationController/list');
             // activities：先 :id 子路径再列表（避免路由冲突）
             Route::get('activities/:id', 'Api.Admin.ActivityController/detail');
             Route::post('activities/:id/close', 'Api.Admin.ActivityController/close');

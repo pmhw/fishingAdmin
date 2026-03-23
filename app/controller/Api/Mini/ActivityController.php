@@ -25,7 +25,8 @@ use think\response\Json;
  *
  * 小程序调用顺序建议：
  * 1) GET /api/mini/activities 或带 venue_id / pond_id 筛选
- * 2) GET /api/mini/activities/:id 看详情与收费规则
+ * 2) GET /api/mini/activities/:id 看详情（含 fee_rules 收费档位）
+ *    或 GET /api/mini/activities/:id/fee-rules 仅拉收费档位
  * 3) self_pick 时 GET /api/mini/activities/:id/available-seats 选座
  * 4) 登录后 POST /api/mini/activities/:id/participate → 拿 order_no
  * 5) POST /api/mini/pay/wechat/jsapi 传 order_no、description=「活动报名预付款」发起支付
@@ -111,11 +112,7 @@ class ActivityController extends MiniBaseController
         $data['venue_id'] = $pond ? (int) ($pond->venue_id ?? 0) : 0;
         $data['venue_name'] = $pond && $pond->venue ? (string) ($pond->venue->name ?? '') : '';
 
-        $feeRules = PondFeeRule::where('activity_id', $activityId)
-            ->order('sort_order', 'asc')
-            ->order('id', 'asc')
-            ->select();
-        $data['fee_rules'] = array_map(fn ($r) => $r->toArray(), $feeRules->all());
+        $data['fee_rules'] = $this->loadActivityFeeRulesRows($activityId);
 
         $now = date('Y-m-d H:i:s');
         $deadline = (string) ($activity->register_deadline ?? '');
@@ -130,6 +127,48 @@ class ActivityController extends MiniBaseController
         }
 
         return json(['code' => 0, 'msg' => 'success', 'data' => $data]);
+    }
+
+    /**
+     * 活动收费档位（与后台「活动收费规则」一致，pond_fee_rule.activity_id = 活动 id）
+     *
+     * GET /api/mini/activities/:id/fee-rules
+     * data.fee_rules：每条含 id、name、duration、duration_value、duration_unit、amount、deposit、sort_order 等
+     */
+    public function feeRules(int $id): Json
+    {
+        $activityId = (int) $id;
+        if ($activityId < 1) {
+            return json(['code' => 400, 'msg' => '活动不存在', 'data' => null]);
+        }
+        $activity = Activity::find($activityId);
+        if (!$activity || (string) ($activity->status ?? '') !== 'published') {
+            return json(['code' => 404, 'msg' => '活动不存在或未发布', 'data' => null]);
+        }
+
+        $feeRules = $this->loadActivityFeeRulesRows($activityId);
+
+        return json([
+            'code' => 0,
+            'msg'  => 'success',
+            'data' => [
+                'fee_rules' => $feeRules,
+                'total'     => count($feeRules),
+            ],
+        ]);
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function loadActivityFeeRulesRows(int $activityId): array
+    {
+        $feeRules = PondFeeRule::where('activity_id', $activityId)
+            ->order('sort_order', 'asc')
+            ->order('id', 'asc')
+            ->select();
+
+        return array_map(fn ($r) => $r->toArray(), $feeRules->all());
     }
 
     /**

@@ -19,7 +19,27 @@
 
 `GET /api/mini/activities/:id`
 
-返回活动字段 + `fee_rules`（后台配置的收费规则）+ `pond_name` / `venue_*` + `can_signup` / `paid_count` / `quota_full`。
+返回活动字段 + **`fee_rules`（收费档位 / 活动收费规则，与后台配置一致）** + `pond_name` / `venue_*` + `can_signup` / `paid_count` / `quota_full`。
+
+报名支付时传所选档位的 `fee_rules[].id` 作为 `fee_rule_id`。
+
+---
+
+## 2.1 仅拉收费档位（无需登录）
+
+`GET /api/mini/activities/:id/fee-rules`
+
+仅返回已发布活动的收费规则列表，不拉活动其它字段；适合列表页点进「选档位」时单独刷新。
+
+```json
+{
+  "code": 0,
+  "data": {
+    "fee_rules": [ { "id": 1, "name": "正钓4小时", "amount": 200, "deposit": 100, ... } ],
+    "total": 1
+  }
+}
+```
 
 ---
 

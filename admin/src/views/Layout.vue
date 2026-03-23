@@ -84,6 +84,10 @@
             <el-icon><Calendar /></el-icon>
             <template #title>活动管理</template>
           </el-menu-item>
+          <el-menu-item v-if="hasPermission('admin.activity.manage')" index="/activity-participations">
+            <el-icon><List /></el-icon>
+            <template #title>活动参与记录</template>
+          </el-menu-item>
           <el-menu-item v-if="hasPermission('admin.biz.return.manage')" index="/return-logs">
             <el-icon><Document /></el-icon>
             <template #title>回鱼流水</template>
@@ -192,6 +196,7 @@ import {
   Sell,
   ShoppingBag,
   Calendar,
+  List,
 } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { useVenueContextStore } from '@/stores/venueContext'

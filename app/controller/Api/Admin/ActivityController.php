@@ -36,11 +36,27 @@ class ActivityController extends BaseController
         }
 
         $status = trim((string) $this->request->get('status', ''));
+        $venueId = $this->request->get('venue_id');
+        $venueId = $venueId !== null && $venueId !== '' ? (int) $venueId : 0;
+
         $query = Activity::order('id', 'desc');
         if ($status !== '') {
             $query->where('status', $status);
         }
-        if ($allowed !== null) {
+        if ($venueId > 0) {
+            $pondIds = FishingPond::where('venue_id', $venueId)->column('id');
+            $pondIds = array_values(array_unique(array_map('intval', is_array($pondIds) ? $pondIds : [])));
+            if (empty($pondIds)) {
+                return json(['code' => 0, 'msg' => 'success', 'data' => ['list' => [], 'total' => 0]]);
+            }
+            if ($allowed !== null) {
+                $pondIds = array_values(array_intersect($pondIds, $allowed));
+                if (empty($pondIds)) {
+                    return json(['code' => 0, 'msg' => 'success', 'data' => ['list' => [], 'total' => 0]]);
+                }
+            }
+            $query->whereIn('pond_id', $pondIds);
+        } elseif ($allowed !== null) {
             $query->whereIn('pond_id', $allowed);
         }
         $rows = $query->select();

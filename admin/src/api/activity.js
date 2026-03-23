@@ -33,3 +33,8 @@ export function createActivityFeeRule(activityId, data) {
 export function unifiedDrawStart(activityId) {
   return request.post(`/api/admin/activities/${activityId}/draw/start`)
 }
+
+/** 活动参与/抽号记录 GET /api/admin/activity-participations */
+export function getActivityParticipationList(params) {
+  return request.get('/api/admin/activity-participations', { params })
+}

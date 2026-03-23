@@ -121,6 +121,7 @@ return [
     'DELETE:shop/venues/'       => 'admin.shop.venue.manage',
 
     // ---------- 活动模块 ----------
+    'GET:activity-participations' => 'admin.activity.manage',
     'GET:activities'   => 'admin.activity.manage',
     'GET:activities/'  => 'admin.activity.manage',
     'POST:activities'  => 'admin.activity.manage',
