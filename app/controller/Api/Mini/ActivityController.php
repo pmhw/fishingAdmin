@@ -22,10 +22,246 @@ use think\response\Json;
  *    * random/self_pick：支付回调 notify 自动分配座位并创建 fishing_session(status=ongoing)
  *    * unified：管理员开启后，用户点击 draw 按钮，服务端逐个分配座位并创建 session
  * - 积分领取：在 activity 开始后、且当前 session 仍未到期时领取
+ *
+ * 小程序调用顺序建议：
+ * 1) GET /api/mini/activities 或带 venue_id / pond_id 筛选
+ * 2) GET /api/mini/activities/:id 看详情与收费规则
+ * 3) self_pick 时 GET /api/mini/activities/:id/available-seats 选座
+ * 4) 登录后 POST /api/mini/activities/:id/participate → 拿 order_no
+ * 5) POST /api/mini/pay/wechat/jsapi 传 order_no、description=「活动报名预付款」发起支付
+ * 6) GET /api/mini/activities/:id/my 查本人报名与支付状态
  */
 class ActivityController extends MiniBaseController
 {
     private const ORDER_DESC = '活动报名预付款';
+
+    /**
+     * 活动列表（仅已发布）
+     *
+     * GET /api/mini/activities
+     * query: venue_id?, pond_id?（可选，用于筛选）
+     */
+    public function list(): Json
+    {
+        $venueId = $this->request->get('venue_id');
+        $pondId = $this->request->get('pond_id');
+        $venueId = $venueId !== null && $venueId !== '' ? (int) $venueId : 0;
+        $pondId = $pondId !== null && $pondId !== '' ? (int) $pondId : 0;
+
+        $query = Activity::where('status', 'published')->order('open_time', 'asc')->order('id', 'desc');
+
+        if ($pondId > 0) {
+            $query->where('pond_id', $pondId);
+        } elseif ($venueId > 0) {
+            $pondIds = FishingPond::where('venue_id', $venueId)->column('id');
+            $pondIds = array_values(array_unique(array_map('intval', is_array($pondIds) ? $pondIds : [])));
+            if (empty($pondIds)) {
+                return json(['code' => 0, 'msg' => 'success', 'data' => ['list' => [], 'total' => 0]]);
+            }
+            $query->whereIn('pond_id', $pondIds);
+        }
+
+        $rows = $query->select();
+        $now = date('Y-m-d H:i:s');
+        $list = [];
+        foreach ($rows as $row) {
+            $arr = $row->toArray();
+            $pond = FishingPond::with('venue')->find((int) ($row->pond_id ?? 0));
+            $arr['pond_name'] = $pond ? (string) ($pond->name ?? '') : '';
+            $arr['venue_id'] = $pond ? (int) ($pond->venue_id ?? 0) : 0;
+            $arr['venue_name'] = $pond && $pond->venue ? (string) ($pond->venue->name ?? '') : '';
+            $deadline = (string) ($row->register_deadline ?? '');
+            $openTime = (string) ($row->open_time ?? '');
+            $arr['can_signup'] = $now <= $deadline && $now < $openTime;
+            $paidCount = ActivityParticipation::where('activity_id', (int) $row->id)
+                ->where('pay_status', 'paid')
+                ->count();
+            $arr['paid_count'] = (int) $paidCount;
+            $limit = (int) ($row->participant_count ?? 0);
+            $arr['quota_full'] = $limit > 0 && $paidCount >= $limit;
+            if ($arr['quota_full']) {
+                $arr['can_signup'] = false;
+            }
+            $list[] = $arr;
+        }
+
+        return json(['code' => 0, 'msg' => 'success', 'data' => ['list' => $list, 'total' => count($list)]]);
+    }
+
+    /**
+     * 活动详情 + 收费规则（仅已发布）
+     *
+     * GET /api/mini/activities/:id
+     */
+    public function detail(int $id): Json
+    {
+        $activityId = (int) $id;
+        if ($activityId < 1) {
+            return json(['code' => 400, 'msg' => '活动不存在', 'data' => null]);
+        }
+        /** @var Activity|null $activity */
+        $activity = Activity::find($activityId);
+        if (!$activity || (string) ($activity->status ?? '') !== 'published') {
+            return json(['code' => 404, 'msg' => '活动不存在或未发布', 'data' => null]);
+        }
+
+        $data = $activity->toArray();
+        $pond = FishingPond::with('venue')->find((int) ($activity->pond_id ?? 0));
+        $data['pond_name'] = $pond ? (string) ($pond->name ?? '') : '';
+        $data['venue_id'] = $pond ? (int) ($pond->venue_id ?? 0) : 0;
+        $data['venue_name'] = $pond && $pond->venue ? (string) ($pond->venue->name ?? '') : '';
+
+        $feeRules = PondFeeRule::where('activity_id', $activityId)
+            ->order('sort_order', 'asc')
+            ->order('id', 'asc')
+            ->select();
+        $data['fee_rules'] = array_map(fn ($r) => $r->toArray(), $feeRules->all());
+
+        $now = date('Y-m-d H:i:s');
+        $deadline = (string) ($activity->register_deadline ?? '');
+        $openTime = (string) ($activity->open_time ?? '');
+        $data['can_signup'] = $now <= $deadline && $now < $openTime;
+        $paidCount = ActivityParticipation::where('activity_id', $activityId)->where('pay_status', 'paid')->count();
+        $data['paid_count'] = (int) $paidCount;
+        $limit = (int) ($activity->participant_count ?? 0);
+        $data['quota_full'] = $limit > 0 && $paidCount >= $limit;
+        if ($data['quota_full']) {
+            $data['can_signup'] = false;
+        }
+
+        return json(['code' => 0, 'msg' => 'success', 'data' => $data]);
+    }
+
+    /**
+     * 自选号码模式下：当前可选 seat_no 列表
+     *
+     * GET /api/mini/activities/:id/available-seats
+     */
+    public function availableSeats(int $id): Json
+    {
+        $activityId = (int) $id;
+        if ($activityId < 1) {
+            return json(['code' => 400, 'msg' => '活动不存在', 'data' => null]);
+        }
+        $activity = Activity::find($activityId);
+        if (!$activity || (string) ($activity->status ?? '') !== 'published') {
+            return json(['code' => 404, 'msg' => '活动不存在或未发布', 'data' => null]);
+        }
+        if ((string) ($activity->draw_mode ?? '') !== 'self_pick') {
+            return json(['code' => 400, 'msg' => '该活动不是自选号码模式', 'data' => ['seats' => []]]);
+        }
+
+        $pondId = (int) ($activity->pond_id ?? 0);
+        if ($pondId < 1) {
+            return json(['code' => 400, 'msg' => '活动池塘缺失', 'data' => null]);
+        }
+
+        $occupiedSeatIds = FishingSession::where('pond_id', $pondId)
+            ->where('status', 'ongoing')
+            ->whereNotNull('seat_id')
+            ->where('seat_id', '>', 0)
+            ->column('seat_id');
+        $occupiedSeatIds = array_flip(array_map('intval', is_array($occupiedSeatIds) ? $occupiedSeatIds : []));
+
+        $assignedSeatIds = ActivityParticipation::where('activity_id', $activityId)
+            ->whereNotNull('assigned_seat_id')
+            ->where('assigned_seat_id', '>', 0)
+            ->column('assigned_seat_id');
+        $assignedSeatIds = array_flip(array_map('intval', is_array($assignedSeatIds) ? $assignedSeatIds : []));
+
+        $seats = PondSeat::where('pond_id', $pondId)->order('seat_no', 'asc')->select();
+        $out = [];
+        foreach ($seats as $s) {
+            $sid = (int) ($s->id ?? 0);
+            if ($sid < 1) {
+                continue;
+            }
+            if (isset($occupiedSeatIds[$sid]) || isset($assignedSeatIds[$sid])) {
+                continue;
+            }
+            $out[] = [
+                'seat_no'   => (int) ($s->seat_no ?? 0),
+                'seat_code' => (string) ($s->code ?? ''),
+            ];
+        }
+
+        return json(['code' => 0, 'msg' => 'success', 'data' => ['seats' => $out, 'total' => count($out)]]);
+    }
+
+    /**
+     * 当前登录用户在该活动下的报名/支付/抽号状态
+     *
+     * GET /api/mini/activities/:id/my
+     */
+    public function myParticipation(int $id): Json
+    {
+        [$user, $error] = $this->getCurrentUserOrFail();
+        if ($error !== null) {
+            return $error;
+        }
+
+        $activityId = (int) $id;
+        if ($activityId < 1) {
+            return json(['code' => 400, 'msg' => '活动不存在', 'data' => null]);
+        }
+        $activity = Activity::find($activityId);
+        if (!$activity) {
+            return json(['code' => 404, 'msg' => '活动不存在', 'data' => null]);
+        }
+
+        $part = ActivityParticipation::where('activity_id', $activityId)
+            ->where('mini_user_id', (int) $user->id)
+            ->find();
+
+        if (!$part) {
+            return json([
+                'code' => 0,
+                'msg'  => 'success',
+                'data' => [
+                    'enrolled' => false,
+                    'activity' => [
+                        'id' => $activityId,
+                        'status' => (string) ($activity->status ?? ''),
+                        'draw_mode' => (string) ($activity->draw_mode ?? ''),
+                        'unified_draw_enabled' => (int) ($activity->unified_draw_enabled ?? 0),
+                    ],
+                ],
+            ]);
+        }
+
+        $orderNo = (string) ($part->pay_order_no ?? '');
+        /** @var FishingOrder|null $order */
+        $order = $orderNo !== '' ? FishingOrder::where('order_no', $orderNo)->find() : null;
+
+        $canDraw = (string) ($activity->status ?? '') === 'published'
+            && (string) ($activity->draw_mode ?? '') === 'unified'
+            && (int) ($activity->unified_draw_enabled ?? 0) === 1
+            && (string) ($part->pay_status ?? '') === 'paid'
+            && empty($part->assigned_seat_id)
+            && in_array((string) ($part->draw_status ?? ''), ['draw_waiting_unified', 'waiting_paid'], true);
+
+        return json([
+            'code' => 0,
+            'msg'  => 'success',
+            'data' => [
+                'enrolled' => true,
+                'participation' => $part->toArray(),
+                'order' => $order ? [
+                    'order_no' => (string) ($order->order_no ?? ''),
+                    'status' => (string) ($order->status ?? ''),
+                    'amount_total' => (int) ($order->amount_total ?? 0),
+                    'amount_paid' => (int) ($order->amount_paid ?? 0),
+                    'amount_total_yuan' => round(((int) ($order->amount_total ?? 0)) / 100, 2),
+                    'amount_paid_yuan' => round(((int) ($order->amount_paid ?? 0)) / 100, 2),
+                ] : null,
+                'can_draw' => $canDraw,
+                'can_claim_points' => (string) ($activity->status ?? '') === 'published'
+                    && (string) ($part->draw_status ?? '') === 'assigned'
+                    && empty($part->claimed_points_at)
+                    && (int) ($activity->points_divisor ?? 0) > 0,
+            ],
+        ]);
+    }
 
     /**
      * 活动报名 + 生成支付订单（不直接返回支付参数）

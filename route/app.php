@@ -77,7 +77,11 @@ Route::group('api', function () {
     // 小程序端垂钓记录（开钓单列表 + 总数 + 总回鱼重量）
     Route::get('mini/session-records', 'Api.Mini.SessionRecordController/list')->middleware(\app\middleware\MiniAuth::class);
 
-    // 活动模块（报名/抽号/积分领取）
+    // 活动模块（列表/详情/报名/抽号/积分）——具体路径先于 :id
+    Route::get('mini/activities/:id/available-seats', 'Api.Mini.ActivityController/availableSeats');
+    Route::get('mini/activities/:id/my', 'Api.Mini.ActivityController/myParticipation')->middleware(\app\middleware\MiniAuth::class);
+    Route::get('mini/activities/:id', 'Api.Mini.ActivityController/detail');
+    Route::get('mini/activities', 'Api.Mini.ActivityController/list');
     Route::post('mini/activities/:id/participate', 'Api.Mini.ActivityController/participate')->middleware(\app\middleware\MiniAuth::class);
     Route::post('mini/activities/:id/draw', 'Api.Mini.ActivityController/draw')->middleware(\app\middleware\MiniAuth::class);
     Route::post('mini/activities/:id/points/claim', 'Api.Mini.ActivityController/claimPoints')->middleware(\app\middleware\MiniAuth::class);
