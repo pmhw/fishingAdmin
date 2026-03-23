@@ -422,9 +422,16 @@ class ActivityController extends MiniBaseController
             return json(['code' => 400, 'msg' => '支付未完成，暂不可领取', 'data' => null]);
         }
 
-        $divisor = max(1, (int) ($activity->points_divisor ?? 1));
-        $points = intdiv((int) ($order->amount_paid ?? 0), 100 * $divisor);
-        if ($points < 1) {
+        // points_divisor 语义：每 1 元实付可获得多少积分（例：10 表示 1 元=10 积分）
+        // 为 0 时不发放积分，且不记录「已领取」以免占用资格
+        $pointsPerYuan = (int) ($activity->points_divisor ?? 0);
+        if ($pointsPerYuan <= 0) {
+            return json(['code' => 400, 'msg' => '本活动未开启积分发放（请将「1元积分」设为大于 0）', 'data' => null]);
+        }
+
+        $amountPaidFen = (int) ($order->amount_paid ?? 0);
+        $points = (int) floor(($amountPaidFen / 100.0) * $pointsPerYuan);
+        if ($points < 0) {
             $points = 0;
         }
 

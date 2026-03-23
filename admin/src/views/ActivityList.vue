@@ -53,6 +53,11 @@
         </el-table-column>
         <el-table-column prop="open_time" label="开钓时间" width="165" />
         <el-table-column prop="register_deadline" label="报名截止" width="165" />
+        <el-table-column label="1元积分" width="88" align="center">
+          <template #default="{ row }">
+            {{ Number(row.points_divisor) > 0 ? row.points_divisor : '不发' }}
+          </template>
+        </el-table-column>
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="statusTag(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
@@ -145,9 +150,9 @@
             <el-option label="线下现场抽号" value="offline" />
           </el-select>
         </el-form-item>
-        <el-form-item label="积分除数">
-          <el-input-number v-model="editForm.points_divisor" :min="1" :max="999999" controls-position="right" />
-          <span class="form-hint-inline">积分 = floor(实付元 / 除数)，在小程序领取</span>
+        <el-form-item label="1元积分">
+          <el-input-number v-model="editForm.points_divisor" :min="0" :max="999999" controls-position="right" />
+          <span class="form-hint-inline">每实付 1 元可得多少积分（例：10 即 1 元=10 积分）。填 0 表示不发放积分。</span>
         </el-form-item>
         <el-form-item label="活动描述">
           <el-input v-model="editForm.description" type="textarea" :rows="4" placeholder="选填" />

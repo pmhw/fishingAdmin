@@ -72,7 +72,7 @@ class ActivityController extends BaseController
 
     /**
      * POST /api/admin/activities
-     * body: name, pond_id, participant_count, open_time, register_deadline, description, draw_mode, points_divisor
+     * body: name, pond_id, participant_count, open_time, register_deadline, description, draw_mode, points_divisor（每1元实付可得积分；0=不发放）
      */
     public function create(): Json
     {
@@ -83,7 +83,7 @@ class ActivityController extends BaseController
         $registerDeadline = trim((string) $this->request->post('register_deadline', ''));
         $description = (string) $this->request->post('description', '');
         $drawMode = trim((string) $this->request->post('draw_mode', 'random'));
-        $pointsDivisor = (int) $this->request->post('points_divisor', 1);
+        $pointsDivisor = max(0, (int) $this->request->post('points_divisor', 1));
 
         if ($name === '') {
             return json(['code' => 400, 'msg' => '活动名不能为空', 'data' => null]);
@@ -147,7 +147,9 @@ class ActivityController extends BaseController
         if ($registerDeadline !== null && $registerDeadline !== '') $row->register_deadline = trim((string) $registerDeadline);
         if ($description !== null) $row->description = (string) $description;
         if ($drawMode !== null && $drawMode !== '') $row->draw_mode = trim((string) $drawMode);
-        if ($pointsDivisor !== null) $row->points_divisor = max(1, (int) $pointsDivisor);
+        if ($pointsDivisor !== null) {
+            $row->points_divisor = max(0, (int) $pointsDivisor);
+        }
 
         $row->save();
         return json(['code' => 0, 'msg' => '更新成功', 'data' => $row->toArray()]);

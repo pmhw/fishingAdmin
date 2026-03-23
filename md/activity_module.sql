@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS `activity` (
   `status` VARCHAR(20) NOT NULL DEFAULT 'draft' COMMENT 'draft-草稿 published-已发布 closed-已结束',
   `draw_mode` VARCHAR(20) NOT NULL DEFAULT 'random' COMMENT 'random-线上随机 self_pick-线上自选 unified-线上统一抽号 offline-线下现场',
   `unified_draw_enabled` TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'unified 模式下：是否已开启统一抽号',
-  `points_divisor` INT(11) UNSIGNED NOT NULL DEFAULT 1 COMMENT '积分除数：points=floor(amount_paid_yuan/divisor)',
+  `points_divisor` INT(11) UNSIGNED NOT NULL DEFAULT 1 COMMENT '每1元实付可得积分；0=不发放；积分=floor(实付元×该值)',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
