@@ -178,6 +178,7 @@ class ActivityController extends BaseController
 
     /**
      * POST /api/admin/activities/:id/publish
+     * 发布前须至少配置一条活动收费规则（pond_fee_rule.activity_id = 本活动）
      */
     public function publish(int $id): Json
     {
@@ -187,6 +188,11 @@ class ActivityController extends BaseController
         }
         if (!$this->canAccessPond((int) ($row->pond_id ?? 0))) {
             return json(['code' => 403, 'msg' => '无权限发布该活动', 'data' => null]);
+        }
+
+        $feeRuleCount = PondFeeRule::where('activity_id', $id)->count();
+        if ((int) $feeRuleCount < 1) {
+            return json(['code' => 400, 'msg' => '请先配置至少一条活动收费规则后再发布', 'data' => null]);
         }
 
         $row->status = 'published';

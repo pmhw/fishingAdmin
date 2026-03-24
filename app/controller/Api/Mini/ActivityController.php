@@ -632,7 +632,7 @@ class ActivityController extends MiniBaseController
             ->where('pay_status', 'paid')
             ->where(function ($q) {
                 $q->where('draw_status', 'draw_waiting_unified')
-                  ->orWhere('draw_status', 'waiting_paid');
+                  ->whereOr('draw_status', 'waiting_paid');
             })
             ->find();
         if (!$part) {
