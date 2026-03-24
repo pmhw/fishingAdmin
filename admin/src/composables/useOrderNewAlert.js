@@ -106,10 +106,10 @@ export function useOrderNewAlert(router, hasTradePermission) {
 
         if (popupOn.value) {
           const parts = []
-          if (newShop) parts.push('店铺商品有新订单')
-          if (newFish) parts.push('开卡/预付订单有新单')
+          if (newShop) parts.push('店铺商品有订单支付成功')
+          if (newFish) parts.push('非店铺订单有支付成功')
           ElNotification({
-            title: '新订单提醒',
+            title: '支付成功提醒',
             message: parts.join('；'),
             type: 'warning',
             duration: 12000,

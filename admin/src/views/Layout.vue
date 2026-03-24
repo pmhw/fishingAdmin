@@ -161,9 +161,9 @@
         <div v-if="showTradeMenu" class="header-alert">
           <el-tooltip
             placement="bottom"
-            content="约每 30 秒检测一次；切到其它标签页或最小化时会暂停轮询。多门店仍按你的钓场权限合并为 1 次请求。"
+            content="约每 30 秒检测一次；仅在订单变为「已支付」时提醒（待支付下单不会响）。切到其它标签页或最小化时会暂停轮询。"
           >
-            <span class="header-alert__label">新单提醒</span>
+            <span class="header-alert__label">支付提醒</span>
           </el-tooltip>
           <el-switch v-model="orderAlertEnabled" inline-prompt active-text="开" inactive-text="关" size="small" />
           <el-checkbox v-model="orderAlertPopup" size="small">弹窗</el-checkbox>

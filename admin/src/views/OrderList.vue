@@ -12,7 +12,7 @@
         show-icon
         :closable="false"
         class="mb-12"
-        title="本页展示除店铺商品外的 fishing_order：开钓预付款、活动报名、会员余额充值等；店铺单（单号 SO 开头）请在「店铺商品订单」查看。「订单来源」按描述自动归类。"
+        title="本页展示除店铺商品外的 fishing_order：开钓预付款、活动报名、会员余额充值等；店铺单（单号 SO 开头）请在「店铺商品订单」查看。订单来源由描述自动归类；未命中规则时显示「其它：」+ 原描述。"
       />
 
       <el-form inline class="filter-form">
@@ -37,14 +37,9 @@
       <el-table v-loading="loading" :data="list" stripe>
         <el-table-column prop="id" label="ID" width="70" />
         <el-table-column prop="order_no" label="订单号" min-width="180" show-overflow-tooltip />
-        <el-table-column label="订单来源" min-width="160" show-overflow-tooltip>
+        <el-table-column label="订单来源" min-width="220" show-overflow-tooltip>
           <template #default="{ row }">
             <span>{{ row.order_source_label || '-' }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="备注(描述)" min-width="200" show-overflow-tooltip>
-          <template #default="{ row }">
-            <span>{{ row.description || '-' }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="user_nickname" label="用户昵称" min-width="120" show-overflow-tooltip />
