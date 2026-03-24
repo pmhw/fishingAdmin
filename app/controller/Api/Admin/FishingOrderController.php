@@ -8,16 +8,17 @@ use app\model\FishingOrder;
 use app\model\FishingPond;
 use app\model\FishingVenue;
 use app\model\MiniUser;
+use app\service\MemberBalanceRechargeService;
 use think\response\Json;
 
 /**
  * 订单管理（交易中心）：
- * 仅展示开钓单/开卡相关 fishing_order，不支持在后台直接修改金额或状态。
+ * 展示除店铺商品单以外的 fishing_order（开钓预付款、活动报名、会员余额充值等），不支持在后台直接改金额或状态。
  *
  * 说明：店铺商品走微信付时会在 fishing_order 里插入与 venue_shop_order 同号的「占位」行
  *（order_no 以 SO 开头、description 为「店铺订单」），此类不在本列表展示，请用「店铺商品订单」菜单。
  *
- * 数据范围：与「店铺商品订单」一致，按管理员角色绑定的钓场（VenueScopeTrait）过滤；
+ * 数据范围：按管理员角色绑定的钓场（VenueScopeTrait）过滤；无钓场归属的订单（如会员充值 venue_id 为空）一并展示。
  * 前端传入 venue_id 时仅能在已授权钓场内筛选，否则 403。
  */
 class FishingOrderController extends BaseController
@@ -66,7 +67,13 @@ class FishingOrderController extends BaseController
         }
 
         if ($allowedVenues !== null) {
-            $query->whereIn('venue_id', $allowedVenues);
+            // 会员充值等订单 venue_id 为空，需与「授权钓场」订单一同可见
+            $ids = array_values(array_unique(array_map('intval', $allowedVenues)));
+            $ids = array_values(array_filter($ids, static fn (int $v) => $v > 0));
+            if ($ids !== []) {
+                $in = implode(',', $ids);
+                $query->whereRaw("(venue_id IN ({$in}) OR venue_id IS NULL)");
+            }
         }
         if ($venueId > 0) {
             if (!$this->canAccessVenue($venueId)) {
@@ -115,6 +122,7 @@ class FishingOrderController extends BaseController
             $arr['venue_name']        = $arr['venue_id'] ? ($venueMap[$arr['venue_id']] ?? '') : '';
             $arr['pond_name']         = $arr['pond_id'] ? ($pondMap[$arr['pond_id']] ?? '') : '';
             $arr['user_nickname']     = $arr['mini_user_id'] ? ($userMap[$arr['mini_user_id']] ?? '') : '';
+            $arr['order_source_label'] = self::orderSourceLabel((string) ($arr['description'] ?? ''));
             $list[] = $arr;
         }
 
@@ -126,6 +134,26 @@ class FishingOrderController extends BaseController
                 'total' => $paginator->total(),
             ],
         ]);
+    }
+
+    /** 列表展示用：根据 description 归纳订单业务来源 */
+    private static function orderSourceLabel(string $description): string
+    {
+        $d = trim($description);
+        if ($d === MemberBalanceRechargeService::ORDER_DESCRIPTION) {
+            return '会员余额充值';
+        }
+        if ($d !== '' && mb_strpos($d, '开钓单预付款') !== false) {
+            return '开钓单/开卡预付款';
+        }
+        if ($d !== '' && mb_strpos($d, '活动报名预付款') !== false) {
+            return '活动报名预付款';
+        }
+        if ($d !== '' && mb_strpos($d, '店铺订单') !== false) {
+            return '店铺订单';
+        }
+
+        return $d !== '' ? ('其它：' . $d) : '其它';
     }
 }
 

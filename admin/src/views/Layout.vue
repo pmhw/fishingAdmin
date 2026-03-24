@@ -64,7 +64,7 @@
           </template>
           <el-menu-item v-if="hasPermission('admin.trade.order.manage')" index="/orders">
             <el-icon><Document /></el-icon>
-            <template #title>钓场开卡订单</template>
+            <template #title>非店铺订单</template>
           </el-menu-item>
           <el-menu-item v-if="hasPermission('admin.trade.order.manage')" index="/shop/orders">
             <el-icon><ShoppingBag /></el-icon>
