@@ -126,6 +126,10 @@
             <el-icon><Setting /></el-icon>
             <template #title>全局配置</template>
           </el-menu-item>
+          <el-menu-item v-if="hasPermission('admin.config.manage')" index="/member-vip-settings">
+            <el-icon><Star /></el-icon>
+            <template #title>会员充值与 VIP</template>
+          </el-menu-item>
         </el-sub-menu>
       </el-menu>
     </el-aside>
@@ -221,6 +225,7 @@ import {
   ShoppingBag,
   Calendar,
   List,
+  Star,
 } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { useVenueContextStore } from '@/stores/venueContext'

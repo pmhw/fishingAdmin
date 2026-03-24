@@ -67,6 +67,8 @@ Route::group('api', function () {
     Route::get('mini/user/info', 'Api.Mini.UserController/info')->middleware(\app\middleware\MiniAuth::class);
     // 小程序会员余额：仅返回 balance/is_vip 等关键信息
     Route::get('mini/user/balance', 'Api.Mini.UserController/balance')->middleware(\app\middleware\MiniAuth::class);
+    Route::get('mini/user/recharge/options', 'Api.Mini.BalanceRechargeController/options');
+    Route::post('mini/user/recharge/order', 'Api.Mini.BalanceRechargeController/createOrder')->middleware(\app\middleware\MiniAuth::class);
     Route::post('mini/profile', 'Api.Mini.UserController/profile')->middleware(\app\middleware\MiniAuth::class);
     Route::put('mini/user/profile', 'Api.Mini.UserController/profile')->middleware(\app\middleware\MiniAuth::class);
     Route::post('mini/user/profile', 'Api.Mini.UserController/profile')->middleware(\app\middleware\MiniAuth::class);
@@ -139,6 +141,8 @@ Route::group('api', function () {
             Route::put('configs/:id', 'Api.Admin.SystemConfigController/update');
             Route::get('configs', 'Api.Admin.SystemConfigController/list');
             Route::post('configs', 'Api.Admin.SystemConfigController/create');
+            Route::get('member-vip-settings', 'Api.Admin.MemberVipConfigController/show');
+            Route::put('member-vip-settings', 'Api.Admin.MemberVipConfigController/update');
             // venues：先 /:id/status、/:id 后 list/create/update/delete
             Route::put('venues/:id/status', 'Api.Admin.FishingVenueController/updateStatus');
             Route::get('venues/:id', 'Api.Admin.FishingVenueController/detail');

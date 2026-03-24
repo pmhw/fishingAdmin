@@ -12,6 +12,8 @@ use app\model\MiniUser;
 use app\model\PondFeeRule;
 use app\model\SystemConfig;
 use app\service\ActivityPayService;
+use app\service\MemberBalanceRechargeService;
+use think\facade\Db;
 use think\response\Json;
 
 /**
@@ -39,6 +41,9 @@ use think\response\Json;
  *
  * - POST /api/mini/pay/wechat/notify  （微信服务器回调，XML）
  *   你可以在这里根据 out_trade_no 更新业务订单状态
+ *
+ * 会员余额充值：订单 description 为「会员余额充值」时，在置为 paid 的事务内增加 mini_user.balance，并按 system_config 判断是否将 is_vip 置 1。
+ * 小程序先 GET /api/mini/user/recharge/options、POST /api/mini/user/recharge/order，再带返回的 order_no 调本接口 jsapi。
  */
 class PayController extends MiniBaseController
 {
@@ -312,13 +317,36 @@ class PayController extends MiniBaseController
         }
 
         $now = date('Y-m-d H:i:s');
-        $order->save([
-            'status'        => 'paid',
-            'amount_paid'   => $totalFee,
-            'pay_trade_no'  => $transactionId !== '' ? $transactionId : $order->pay_trade_no,
-            'pay_time'      => $now,
-            'raw_notify'    => json_encode($data, JSON_UNESCAPED_UNICODE),
-        ]);
+        $notifyJson = json_encode($data, JSON_UNESCAPED_UNICODE);
+        // 订单置已支付与会员充值入账必须在同一事务内，避免已 paid 但余额未到账且微信不再重试
+        Db::transaction(function () use ($order, $totalFee, $transactionId, $now, $notifyJson) {
+            /** @var FishingOrder|null $fresh */
+            $fresh = FishingOrder::where('id', (int) $order->id)->lock(true)->find();
+            if (!$fresh || (string) $fresh->status !== 'pending') {
+                return;
+            }
+            if ((int) $fresh->amount_total !== $totalFee) {
+                $fresh->save(['raw_notify' => $notifyJson]);
+
+                return;
+            }
+            $fresh->save([
+                'status'       => 'paid',
+                'amount_paid'  => $totalFee,
+                'pay_trade_no' => $transactionId !== '' ? $transactionId : $fresh->pay_trade_no,
+                'pay_time'     => $now,
+                'raw_notify'   => $notifyJson,
+            ]);
+            if (MemberBalanceRechargeService::isBalanceRechargeOrder($fresh)) {
+                MemberBalanceRechargeService::creditBalanceAndMaybeVip($fresh);
+            }
+        });
+
+        /** @var FishingOrder|null $order */
+        $order = FishingOrder::where('order_no', $outTradeNo)->find();
+        if (!$order) {
+            return $this->notifyResponse('SUCCESS', 'OK');
+        }
 
         // 店铺订单：同步 venue_shop_order（单号 SO 开头或与描述一致）
         $desc = (string) ($order->description ?? '');
