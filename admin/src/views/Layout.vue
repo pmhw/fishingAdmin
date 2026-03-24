@@ -177,6 +177,24 @@
         </div>
       </el-header>
       <el-main class="main fa-admin-main">
+        <div class="tabs-wrap">
+          <el-tabs
+            v-model="activeTabName"
+            type="card"
+            class="route-tabs"
+            @tab-click="onTabClick"
+            @tab-remove="onTabRemove"
+          >
+            <el-tab-pane
+              v-for="tab in visitedTabs"
+              :key="tab.path"
+              :name="tab.path"
+              :label="tab.title"
+              :closable="tab.path !== '/home'"
+            />
+          </el-tabs>
+          <el-button class="tabs-close-others" text size="small" @click="closeOtherTabs">关闭其他</el-button>
+        </div>
         <div class="main__outlet">
           <router-view />
         </div>
@@ -290,6 +308,64 @@ const showBizMenu = computed(
 const showMiscMenu = computed(() => hasPermission('admin.config.manage'))
 const showShopMenu = computed(
   () => hasPermission('admin.shop.product.manage') || hasPermission('admin.shop.venue.manage')
+)
+
+const HOME_TAB_PATH = '/home'
+const visitedTabs = ref([{ path: HOME_TAB_PATH, title: '首页' }])
+const activeTabName = ref(route.path || HOME_TAB_PATH)
+
+function getRouteTitle(to) {
+  const t = to?.meta?.title
+  if (typeof t === 'string' && t.trim() !== '') return t
+  if (to?.name) return String(to.name)
+  return '页面'
+}
+
+function syncRouteTab(to) {
+  const path = to?.path || HOME_TAB_PATH
+  const title = getRouteTitle(to)
+  const idx = visitedTabs.value.findIndex((x) => x.path === path)
+  if (idx >= 0) {
+    visitedTabs.value[idx].title = title
+  } else {
+    visitedTabs.value.push({ path, title })
+  }
+  activeTabName.value = path
+}
+
+function onTabClick(tabPane) {
+  const target = String(tabPane?.paneName || '')
+  if (target && target !== route.path) {
+    router.push(target)
+  }
+}
+
+function onTabRemove(targetName) {
+  const target = String(targetName || '')
+  if (!target || target === HOME_TAB_PATH) return
+  const idx = visitedTabs.value.findIndex((x) => x.path === target)
+  if (idx < 0) return
+  visitedTabs.value.splice(idx, 1)
+  if (activeTabName.value === target) {
+    const next = visitedTabs.value[idx] || visitedTabs.value[idx - 1] || visitedTabs.value[0]
+    const go = next?.path || HOME_TAB_PATH
+    activeTabName.value = go
+    if (route.path !== go) router.push(go)
+  }
+}
+
+function closeOtherTabs() {
+  const keep = route.path || HOME_TAB_PATH
+  visitedTabs.value = visitedTabs.value.filter((x) => x.path === HOME_TAB_PATH || x.path === keep)
+  activeTabName.value = keep
+}
+
+watch(
+  () => route.fullPath,
+  () => {
+    syncRouteTab(route)
+  },
+  { immediate: true }
 )
 
 /** 展开的子菜单（仅在有权限时包含，避免空菜单占位） */
@@ -671,6 +747,31 @@ async function onLogout() {
   flex-direction: column;
   flex: 1 1 0 !important;
   min-height: 0 !important;
+}
+
+.tabs-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  min-height: 40px;
+}
+
+.route-tabs {
+  flex: 1;
+  min-width: 0;
+}
+
+.route-tabs :deep(.el-tabs__header) {
+  margin: 0;
+}
+
+.route-tabs :deep(.el-tabs__item) {
+  max-width: 210px;
+}
+
+.tabs-close-others {
+  flex-shrink: 0;
 }
 
 /* 占满主区域高度，子页面再决定整页滚或分区滚 */
