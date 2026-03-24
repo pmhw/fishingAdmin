@@ -282,11 +282,37 @@ class ActivityController extends MiniBaseController
             && empty($part->assigned_seat_id)
             && in_array((string) ($part->draw_status ?? ''), ['draw_waiting_unified', 'waiting_paid'], true);
 
+        // 抽号/占座成功后便于端上直接展示（与 POST draw 返回字段对齐）
+        $assignedSeatNo = null;
+        $assignedSeatCode = null;
+        if (!empty($part->assigned_seat_id) || !empty($part->assigned_seat_no)) {
+            $no = (int) ($part->assigned_seat_no ?? 0);
+            $code = '';
+            if (!empty($part->assigned_seat_id)) {
+                /** @var PondSeat|null $seatRow */
+                $seatRow = PondSeat::find((int) $part->assigned_seat_id);
+                if ($seatRow) {
+                    if ($no < 1) {
+                        $no = (int) ($seatRow->seat_no ?? 0);
+                    }
+                    $code = (string) ($seatRow->code ?? '');
+                }
+            }
+            if ($no > 0) {
+                $assignedSeatNo = $no;
+            }
+            if ($code !== '') {
+                $assignedSeatCode = $code;
+            }
+        }
+
         return json([
             'code' => 0,
             'msg'  => 'success',
             'data' => [
                 'enrolled' => true,
+                'assigned_seat_no' => $assignedSeatNo,
+                'assigned_seat_code' => $assignedSeatCode,
                 'participation' => $part->toArray(),
                 'order' => $order ? [
                     'order_no' => (string) ($order->order_no ?? ''),

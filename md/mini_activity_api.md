@@ -59,6 +59,7 @@ Header：`Authorization: Bearer <token>`
 
 - 未报名：`enrolled: false`
 - 已报名：`enrolled: true`，含 `participation`、`order`（若有订单）、`can_draw`（统一抽号且可点抽号）、`can_claim_points`（是否满足领积分前置条件，具体仍以领取接口为准）
+- 已分配钓位时（随机/自选支付后、或统一抽号 `draw` 成功后）：`data` 根级提供 **`assigned_seat_no`**（座位号）、**`assigned_seat_code`**（钓位编码，有则返回），与 `POST .../draw` 返回语义一致；详情仍以 `participation.assigned_seat_*` 为准。
 
 ---
 
