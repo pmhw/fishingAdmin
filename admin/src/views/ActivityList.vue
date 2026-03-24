@@ -3,7 +3,7 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>经营管理 - 活动</span>
+          <span>活动中心 - 活动管理</span>
           <el-button type="primary" @click="openEdit()">新建活动</el-button>
         </div>
       </template>

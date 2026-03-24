@@ -71,6 +71,20 @@
             <template #title>店铺商品订单</template>
           </el-menu-item>
         </el-sub-menu>
+        <el-sub-menu v-if="showActivityCenterMenu" index="activity-center">
+          <template #title>
+            <el-icon><Calendar /></el-icon>
+            <span>活动中心</span>
+          </template>
+          <el-menu-item index="/activities">
+            <el-icon><Calendar /></el-icon>
+            <template #title>活动管理</template>
+          </el-menu-item>
+          <el-menu-item index="/activity-participations">
+            <el-icon><List /></el-icon>
+            <template #title>活动记录</template>
+          </el-menu-item>
+        </el-sub-menu>
         <el-sub-menu v-if="showBizMenu" index="biz">
           <template #title>
             <el-icon><Grid /></el-icon>
@@ -79,14 +93,6 @@
           <el-menu-item v-if="hasPermission('admin.biz.session.manage')" index="/sessions">
             <el-icon><Document /></el-icon>
             <template #title>开钓单</template>
-          </el-menu-item>
-          <el-menu-item v-if="hasPermission('admin.activity.manage')" index="/activities">
-            <el-icon><Calendar /></el-icon>
-            <template #title>活动管理</template>
-          </el-menu-item>
-          <el-menu-item v-if="hasPermission('admin.activity.manage')" index="/activity-participations">
-            <el-icon><List /></el-icon>
-            <template #title>活动参与记录</template>
           </el-menu-item>
           <el-menu-item v-if="hasPermission('admin.biz.return.manage')" index="/return-logs">
             <el-icon><Document /></el-icon>
@@ -274,12 +280,12 @@ const showContentMenu = computed(
   () => hasPermission('admin.banner.manage') || hasPermission('admin.venue.manage') || hasPermission('admin.pond.manage')
 )
 const showTradeMenu = computed(() => hasPermission('admin.trade.order.manage'))
+const showActivityCenterMenu = computed(() => hasPermission('admin.activity.manage'))
 const showBizMenu = computed(
   () =>
     hasPermission('admin.biz.session.manage') ||
     hasPermission('admin.biz.return.manage') ||
-    hasPermission('admin.biz.trade.manage') ||
-    hasPermission('admin.activity.manage')
+    hasPermission('admin.biz.trade.manage')
 )
 const showMiscMenu = computed(() => hasPermission('admin.config.manage'))
 const showShopMenu = computed(
@@ -292,6 +298,7 @@ const defaultOpeneds = computed(() => {
   if (showPermissionMenu.value) opens.push('permission')
   if (showContentMenu.value) opens.push('content')
   if (showTradeMenu.value) opens.push('trade')
+  if (showActivityCenterMenu.value) opens.push('activity-center')
   if (showBizMenu.value) opens.push('biz')
   if (showShopMenu.value) opens.push('shop')
   if (showMiscMenu.value) opens.push('misc')

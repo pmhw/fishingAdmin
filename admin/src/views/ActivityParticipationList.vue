@@ -3,7 +3,7 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>经营管理 - 活动参与 / 抽号记录</span>
+          <span>活动中心 - 活动记录</span>
         </div>
       </template>
 
