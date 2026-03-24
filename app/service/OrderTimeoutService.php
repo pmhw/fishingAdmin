@@ -72,11 +72,23 @@ class OrderTimeoutService
             return;
         }
 
-        // 活动报名：删除待支付参与记录，允许用户重新报名
+        // 活动报名：退回已扣会员余额，删除待支付参与记录，允许用户重新报名
         if (str_contains($desc, '活动报名预付款')) {
-            ActivityParticipation::where('pay_order_no', $orderNo)
+            /** @var ActivityParticipation|null $part */
+            $part = ActivityParticipation::where('pay_order_no', $orderNo)
                 ->where('pay_status', 'pending')
-                ->delete();
+                ->find();
+            if ($part) {
+                $deductFen = (int) ($part->balance_deduct_fen ?? 0);
+                if ($deductFen > 0) {
+                    $u = MiniUser::find((int) $part->mini_user_id);
+                    if ($u) {
+                        $u->balance = ((float) ($u->balance ?? 0)) + $deductFen / 100;
+                        $u->save();
+                    }
+                }
+                $part->delete();
+            }
         }
     }
 

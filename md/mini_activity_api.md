@@ -11,7 +11,7 @@
 | `venue_id` | 可选，只展示该钓场下池塘的活动 |
 | `pond_id` | 可选，只展示该池塘的活动 |
 
-仅返回 `status=published` 的活动。每条含扩展字段：`pond_name`、`venue_id`、`venue_name`、`can_signup`、`paid_count`、`quota_full`。
+仅返回 `status=published` 的活动。每条含扩展字段：`pond_name`、`venue_id`、`venue_name`、`can_signup`、`paid_count`、`quota_full`，以及后台配置的 **`allow_balance_deduct`**（`1` 表示允许报名使用会员余额抵扣及免押）。
 
 ---
 
@@ -71,6 +71,7 @@ Content-Type: `application/json`
 |------|------|------|
 | `fee_rule_id` | 是 | 详情里 `fee_rules[].id`，须属于该活动 |
 | `desired_seat_no` | 自选模式必填 | 钓位序号 `seat_no` |
+| `use_balance` | 否 | 默认 `true`。仅当活动 **`allow_balance_deduct=1`**（后台开启）时生效：与开钓单一致，**仅会员（`is_vip=1`）** 且为 `true` 时免押金、余额先扣、剩余微信。若活动关闭余额报名，服务端**忽略** `use_balance`，按全额微信（含押金）处理。 |
 
 成功返回示例：
 
@@ -80,11 +81,25 @@ Content-Type: `application/json`
   "data": {
     "order_no": "A2026...",
     "amount_total_yuan": 128.0,
+    "need_pay_yuan": 28.0,
+    "balance_deduct_yuan": 100.0,
+    "balance_deduct": "100.00",
+    "need_pay": "28.00",
+    "mini_pay_path": "/pages/pay/index?order_no=A2026...&amount=28.00",
     "participation_id": 1,
-    "description": "活动报名预付款"
+    "description": "活动报名预付款",
+    "allow_balance_deduct": true,
+    "use_balance_requested": true,
+    "use_balance_applied": true
   }
 }
 ```
+
+- `allow_balance_deduct`：该活动是否允许余额报名（与列表/详情中字段一致）。  
+- `use_balance_requested`：本次请求传入的 `use_balance`（解析后）。  
+- `use_balance_applied`：实际是否按余额逻辑处理（活动允许且请求为 true 时为 `true`）。  
+- `need_pay_yuan` 为 0 时表示已用余额付清（订单 `pay_channel=balance`），服务端已执行支付成功后的占座/抽号逻辑，**无需**再调 jsapi。  
+- `mini_pay_path` 仅在 `need_pay_yuan > 0` 时有值。
 
 ---
 
@@ -98,7 +113,8 @@ Content-Type: `application/json`
 - `description`：必须与订单一致，为 **`活动报名预付款`**（服务端已写入 `fishing_order`）  
 - 可不传 `total_fee`，服务端以订单金额为准  
 
-支付成功后，微信回调会更新订单；随机/自选模式会自动占座并创建开钓单（逻辑以服务端为准）。
+支付成功后，微信回调会更新订单；随机/自选模式会自动占座并创建开钓单（逻辑以服务端为准）。  
+若报名时使用了会员余额抵扣，开钓单上的 `amount_paid` 为 **微信实付 + 余额抵扣**（与开钓单 `use_balance` 一致）。
 
 ---
 
@@ -114,4 +130,14 @@ Content-Type: `application/json`
 
 `POST /api/mini/activities/:id/points/claim`
 
-活动已开始、开钓单进行中且后台配置了「1元积分」> 0 等条件满足时可领取。
+活动已开始、开钓单进行中且后台配置了「1元积分」> 0 等条件满足时可领取。  
+实付金额 = 订单微信实付 + 报名时 `balance_deduct_fen`（与积分、开钓单展示一致）。
+
+---
+
+## 附：已有库增量字段
+
+- 活动表增加「允许余额报名」开关：[`activity_allow_balance_deduct.sql`](activity_allow_balance_deduct.sql)  
+- 报名记录余额抵扣字段：[`activity_participation_balance_fields.sql`](activity_participation_balance_fields.sql)  
+
+新建库可直接使用已更新的 [`activity_module.sql`](activity_module.sql)。

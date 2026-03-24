@@ -88,7 +88,7 @@ class ActivityController extends BaseController
 
     /**
      * POST /api/admin/activities
-     * body: name, pond_id, participant_count, open_time, register_deadline, description, draw_mode, points_divisor（每1元实付可得积分；0=不发放）
+     * body: name, pond_id, participant_count, open_time, register_deadline, description, draw_mode, points_divisor（每1元实付可得积分；0=不发放）, allow_balance_deduct（可选，默认1：是否允许报名会员余额抵扣及免押）
      */
     public function create(): Json
     {
@@ -100,6 +100,10 @@ class ActivityController extends BaseController
         $description = (string) $this->request->post('description', '');
         $drawMode = trim((string) $this->request->post('draw_mode', 'random'));
         $pointsDivisor = max(0, (int) $this->request->post('points_divisor', 1));
+        $allowBalanceDeduct = $this->request->post('allow_balance_deduct');
+        $allowBalanceDeduct = $allowBalanceDeduct === null || $allowBalanceDeduct === ''
+            ? 1
+            : ((int) (bool) $allowBalanceDeduct);
 
         if ($name === '') {
             return json(['code' => 400, 'msg' => '活动名不能为空', 'data' => null]);
@@ -131,6 +135,7 @@ class ActivityController extends BaseController
             'draw_mode' => $drawMode,
             'unified_draw_enabled' => 0,
             'points_divisor' => $pointsDivisor,
+            'allow_balance_deduct' => $allowBalanceDeduct,
         ]);
 
         return json(['code' => 0, 'msg' => '创建成功', 'data' => $row->toArray()]);
@@ -156,6 +161,7 @@ class ActivityController extends BaseController
         $description = $this->request->param('description');
         $drawMode = $this->request->param('draw_mode');
         $pointsDivisor = $this->request->param('points_divisor');
+        $allowBalanceDeduct = $this->request->param('allow_balance_deduct');
 
         if ($name !== null && $name !== '') $row->name = trim((string) $name);
         if ($participantCount !== null) $row->participant_count = (int) $participantCount;
@@ -165,6 +171,9 @@ class ActivityController extends BaseController
         if ($drawMode !== null && $drawMode !== '') $row->draw_mode = trim((string) $drawMode);
         if ($pointsDivisor !== null) {
             $row->points_divisor = max(0, (int) $pointsDivisor);
+        }
+        if ($allowBalanceDeduct !== null && $allowBalanceDeduct !== '') {
+            $row->allow_balance_deduct = (int) (bool) $allowBalanceDeduct;
         }
 
         $row->save();

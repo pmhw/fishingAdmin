@@ -10,7 +10,10 @@ use app\model\FishingPond;
 use app\model\FishingSession;
 use app\model\PondFeeRule;
 use app\model\PondSeat;
+use app\model\MiniUser;
 use app\model\MiniUserPointsLedger;
+use app\service\ActivityPayService;
+use think\facade\Db;
 use think\response\Json;
 
 /**
@@ -28,8 +31,8 @@ use think\response\Json;
  * 2) GET /api/mini/activities/:id 看详情（含 fee_rules 收费档位）
  *    或 GET /api/mini/activities/:id/fee-rules 仅拉收费档位
  * 3) self_pick 时 GET /api/mini/activities/:id/available-seats 选座
- * 4) 登录后 POST /api/mini/activities/:id/participate → 拿 order_no
- * 5) POST /api/mini/pay/wechat/jsapi 传 order_no、description=「活动报名预付款」发起支付
+ * 4) POST .../participate（可选 use_balance；仅活动 allow_balance_deduct=1 时与开钓单一致：会员免押金+余额先扣）
+ * 5) need_pay>0 时 POST /api/mini/pay/wechat/jsapi 传 order_no、description=「活动报名预付款」发起支付；否则已余额付清并已走支付后逻辑
  * 6) GET /api/mini/activities/:id/my 查本人报名与支付状态
  */
 class ActivityController extends MiniBaseController
@@ -309,6 +312,7 @@ class ActivityController extends MiniBaseController
      * body:
      * - fee_rule_id（pond_fee_rule.id）
      * - desired_seat_no（仅 self_pick 需要）
+     * - use_balance（可选，默认 true；仅后台开启「允许余额抵扣」的活动生效，否则全额微信含押金）
      */
     public function participate(int $id): Json
     {
@@ -366,35 +370,14 @@ class ActivityController extends MiniBaseController
             }
         }
 
-        // 一人一活动（按 activity_participation unique）
-        $exists = ActivityParticipation::where('activity_id', $activityId)
-            ->where('mini_user_id', (int) $user->id)
-            ->find();
-        if ($exists) {
-            return json(['code' => 400, 'msg' => '你已报名该活动', 'data' => null]);
+        $useBalance = $this->request->post('use_balance');
+        if ($useBalance === null || $useBalance === '') {
+            $useBalance = true;
+        } else {
+            $useBalance = (bool) $useBalance;
         }
-
-        // 名额校验（只统计已支付）
-        $limitCount = (int) ($activity->participant_count ?? 0);
-        if ($limitCount > 0) {
-            $paidCount = ActivityParticipation::where('activity_id', $activityId)
-                ->where('pay_status', 'paid')
-                ->count();
-            if ((int) $paidCount >= $limitCount) {
-                return json(['code' => 400, 'msg' => '活动名额已满', 'data' => null]);
-            }
-        }
-
-        // 计算订单金额（金额 + 押金）
-        $amountFen = (int) round(((float) ($fee->amount ?? 0)) * 100);
-        $depositFen = (int) round(((float) ($fee->deposit ?? 0)) * 100);
-        $amountTotalFen = max(0, $amountFen + $depositFen);
-        if ($amountTotalFen <= 0) {
-            return json(['code' => 400, 'msg' => '活动收费金额异常', 'data' => null]);
-        }
-
-        // 为订单与参与记录生成唯一 order_no
-        $orderNo = 'A' . date('YmdHis') . mt_rand(1000, 9999) . random_int(100, 999);
+        $allowBalance = (int) ($activity->allow_balance_deduct ?? 1) === 1;
+        $useBalanceEffective = $useBalance && $allowBalance;
 
         $pondId = (int) $activity->pond_id;
         $pond = FishingPond::find($pondId);
@@ -402,82 +385,208 @@ class ActivityController extends MiniBaseController
             return json(['code' => 404, 'msg' => '活动池塘不存在', 'data' => null]);
         }
         $venueId = (int) ($pond->venue_id ?? 0);
+        $limitCount = (int) ($activity->participant_count ?? 0);
 
-        // 自选座位：校验该 seat_no 存在且未被占用/分配
-        $seatId = null;
-        $seatNo = null;
-        $seatCode = null;
-        if ($desiredSeatNo !== null) {
-            /** @var PondSeat|null $seat */
-            $seat = PondSeat::where('pond_id', $pondId)->where('seat_no', $desiredSeatNo)->find();
-            if (!$seat) {
-                return json(['code' => 400, 'msg' => '该座位号不存在', 'data' => null]);
+        $resultPayload = null;
+        try {
+            Db::transaction(function () use (
+                &$resultPayload,
+                $activityId,
+                $user,
+                $feeRuleId,
+                $fee,
+                $desiredSeatNo,
+                $useBalanceEffective,
+                $allowBalance,
+                $useBalance,
+                $pondId,
+                $venueId,
+                $limitCount
+            ) {
+                $miniUserId = (int) $user->id;
+
+                /** @var MiniUser|null $lockedUser */
+                $lockedUser = MiniUser::where('id', $miniUserId)->lock(true)->find();
+                if (!$lockedUser) {
+                    $resultPayload = ['code' => 400, 'msg' => '用户不存在', 'data' => null];
+                    throw new \RuntimeException('__participate_abort');
+                }
+
+                if (ActivityParticipation::where('activity_id', $activityId)
+                    ->where('mini_user_id', $miniUserId)
+                    ->find()) {
+                    $resultPayload = ['code' => 400, 'msg' => '你已报名该活动', 'data' => null];
+                    throw new \RuntimeException('__participate_abort');
+                }
+
+                if ($limitCount > 0) {
+                    $paidCount = ActivityParticipation::where('activity_id', $activityId)
+                        ->where('pay_status', 'paid')
+                        ->count();
+                    if ((int) $paidCount >= $limitCount) {
+                        $resultPayload = ['code' => 400, 'msg' => '活动名额已满', 'data' => null];
+                        throw new \RuntimeException('__participate_abort');
+                    }
+                }
+
+                $amountFen = (int) round(((float) ($fee->amount ?? 0)) * 100);
+                $depositRawFen = (int) round(((float) ($fee->deposit ?? 0)) * 100);
+                $depositWaivedFlag = 0;
+                $depositEffectiveFen = $depositRawFen;
+                if ((int) ($lockedUser->is_vip ?? 0) === 1 && $useBalanceEffective && $depositRawFen > 0) {
+                    $depositEffectiveFen = 0;
+                    $depositWaivedFlag = 1;
+                }
+                $amountTotalFen = max(0, $amountFen + $depositEffectiveFen);
+                if ($amountTotalFen <= 0) {
+                    $resultPayload = ['code' => 400, 'msg' => '活动收费金额异常', 'data' => null];
+                    throw new \RuntimeException('__participate_abort');
+                }
+
+                $seatId = null;
+                $seatNo = null;
+                $seatCode = null;
+                if ($desiredSeatNo !== null) {
+                    /** @var PondSeat|null $seat */
+                    $seat = PondSeat::where('pond_id', $pondId)->where('seat_no', $desiredSeatNo)->find();
+                    if (!$seat) {
+                        $resultPayload = ['code' => 400, 'msg' => '该座位号不存在', 'data' => null];
+                        throw new \RuntimeException('__participate_abort');
+                    }
+                    $seatId = (int) $seat->id;
+                    $seatNo = (int) $seat->seat_no;
+                    $seatCode = (string) ($seat->code ?? '');
+
+                    $occupiedSeatIds = FishingSession::where('pond_id', $pondId)
+                        ->where('status', 'ongoing')
+                        ->whereNotNull('seat_id')
+                        ->where('seat_id', '>', 0)
+                        ->column('seat_id');
+                    $occupiedSeatIds = array_flip(array_map('intval', is_array($occupiedSeatIds) ? $occupiedSeatIds : []));
+
+                    $assignedSeatIds = ActivityParticipation::where('activity_id', $activityId)
+                        ->whereNotNull('assigned_seat_id')
+                        ->where('assigned_seat_id', '>', 0)
+                        ->column('assigned_seat_id');
+                    $assignedSeatIds = array_flip(array_map('intval', is_array($assignedSeatIds) ? $assignedSeatIds : []));
+
+                    if (isset($occupiedSeatIds[$seatId]) || isset($assignedSeatIds[$seatId])) {
+                        $resultPayload = ['code' => 400, 'msg' => '该座位已被占用或已分配，请刷新再选', 'data' => null];
+                        throw new \RuntimeException('__participate_abort');
+                    }
+                }
+
+                $balanceDeductFen = 0;
+                $needPayFen = $amountTotalFen;
+                if ($amountTotalFen > 0 && $useBalanceEffective && (int) ($lockedUser->is_vip ?? 0) === 1) {
+                    $userBalanceFen = (int) round(((float) ($lockedUser->balance ?? 0)) * 100);
+                    if ($userBalanceFen > 0) {
+                        $balanceDeductFen = min($userBalanceFen, $amountTotalFen);
+                        $needPayFen = $amountTotalFen - $balanceDeductFen;
+                        $lockedUser->balance = max(0, ((float) $lockedUser->balance) - $balanceDeductFen / 100);
+                        $lockedUser->save();
+                    }
+                }
+
+                $orderNo = 'A' . date('YmdHis') . mt_rand(1000, 9999) . random_int(100, 999);
+
+                $payStatus = $needPayFen > 0 ? 'pending' : 'paid';
+                $participation = ActivityParticipation::create([
+                    'activity_id'          => $activityId,
+                    'mini_user_id'         => $miniUserId,
+                    'fee_rule_id'          => $feeRuleId,
+                    'pay_order_no'         => $orderNo,
+                    'balance_deduct_fen'   => $balanceDeductFen,
+                    'deposit_waived'       => $depositWaivedFlag,
+                    'pay_status'           => $payStatus,
+                    'draw_status'          => 'waiting_paid',
+                    'desired_seat_no'      => $desiredSeatNo,
+                    'assigned_seat_id'     => null,
+                    'assigned_seat_no'     => null,
+                    'assigned_session_id'  => null,
+                ]);
+
+                if ($needPayFen > 0) {
+                    FishingOrder::create([
+                        'order_no'       => $orderNo,
+                        'mini_user_id'   => $miniUserId,
+                        'venue_id'       => $venueId > 0 ? $venueId : null,
+                        'pond_id'        => $pondId > 0 ? $pondId : null,
+                        'seat_id'        => $seatId ? (int) $seatId : null,
+                        'seat_no'        => $seatNo ? (int) $seatNo : null,
+                        'seat_code'      => $seatCode !== '' ? (string) $seatCode : null,
+                        'fee_rule_id'    => $feeRuleId,
+                        'return_rule_id' => null,
+                        'description'    => self::ORDER_DESC,
+                        'amount_total'   => $needPayFen,
+                        'amount_paid'    => 0,
+                        'status'         => 'pending',
+                        'pay_channel'    => 'wx_mini',
+                        'raw_notify'     => null,
+                    ]);
+                } else {
+                    /** @var FishingOrder $paidOrder */
+                    $paidOrder = FishingOrder::create([
+                        'order_no'       => $orderNo,
+                        'mini_user_id'   => $miniUserId,
+                        'venue_id'       => $venueId > 0 ? $venueId : null,
+                        'pond_id'        => $pondId > 0 ? $pondId : null,
+                        'seat_id'        => $seatId ? (int) $seatId : null,
+                        'seat_no'        => $seatNo ? (int) $seatNo : null,
+                        'seat_code'      => $seatCode !== '' ? (string) $seatCode : null,
+                        'fee_rule_id'    => $feeRuleId,
+                        'return_rule_id' => null,
+                        'description'    => self::ORDER_DESC,
+                        'amount_total'   => $amountTotalFen,
+                        'amount_paid'    => $amountTotalFen,
+                        'status'         => 'paid',
+                        'pay_channel'    => 'balance',
+                        'pay_time'       => date('Y-m-d H:i:s'),
+                        'raw_notify'     => null,
+                    ]);
+                    ActivityPayService::processAfterPaid($paidOrder);
+                }
+
+                $amountStr = number_format(round($needPayFen / 100, 2), 2, '.', '');
+                $miniPayPath = $needPayFen > 0
+                    ? '/pages/pay/index?order_no=' . $orderNo . '&amount=' . $amountStr
+                    : null;
+
+                $resultPayload = [
+                    'code' => 0,
+                    'msg'  => 'success',
+                    'data' => [
+                        'order_no'              => $orderNo,
+                        'amount_total_yuan'     => round($amountTotalFen / 100, 2),
+                        'need_pay_yuan'         => round($needPayFen / 100, 2),
+                        'balance_deduct_yuan'   => round($balanceDeductFen / 100, 2),
+                        'balance_deduct'        => number_format($balanceDeductFen / 100, 2, '.', ''),
+                        'need_pay'              => number_format($needPayFen / 100, 2, '.', ''),
+                        'mini_pay_path'         => $miniPayPath,
+                        'participation_id'      => (int) $participation->id,
+                        'description'           => self::ORDER_DESC,
+                        'allow_balance_deduct'  => $allowBalance,
+                        'use_balance_requested' => $useBalance,
+                        'use_balance_applied'   => $useBalanceEffective,
+                    ],
+                ];
+            });
+        } catch (\RuntimeException $e) {
+            if ($e->getMessage() !== '__participate_abort') {
+                return json(['code' => 500, 'msg' => '报名失败，请重试', 'data' => null]);
             }
-            $seatId = (int) $seat->id;
-            $seatNo = (int) $seat->seat_no;
-            $seatCode = (string) ($seat->code ?? '');
-
-            $occupiedSeatIds = FishingSession::where('pond_id', $pondId)
-                ->where('status', 'ongoing')
-                ->whereNotNull('seat_id')
-                ->where('seat_id', '>', 0)
-                ->column('seat_id');
-            $occupiedSeatIds = array_flip(array_map('intval', is_array($occupiedSeatIds) ? $occupiedSeatIds : []));
-
-            $assignedSeatIds = ActivityParticipation::where('activity_id', $activityId)
-                ->whereNotNull('assigned_seat_id')
-                ->where('assigned_seat_id', '>', 0)
-                ->column('assigned_seat_id');
-            $assignedSeatIds = array_flip(array_map('intval', is_array($assignedSeatIds) ? $assignedSeatIds : []));
-
-            if (isset($occupiedSeatIds[$seatId]) || isset($assignedSeatIds[$seatId])) {
-                return json(['code' => 400, 'msg' => '该座位已被占用或已分配，请刷新再选', 'data' => null]);
-            }
+        } catch (\Throwable $e) {
+            return json(['code' => 500, 'msg' => '报名失败，请重试', 'data' => null]);
         }
 
-        // 写入 activity_participation（待支付）
-        $participation = ActivityParticipation::create([
-            'activity_id'          => $activityId,
-            'mini_user_id'         => (int) $user->id,
-            'fee_rule_id'          => $feeRuleId,
-            'pay_order_no'        => $orderNo,
-            'pay_status'          => 'pending',
-            'draw_status'         => 'waiting_paid',
-            'desired_seat_no'     => $desiredSeatNo,
-            'assigned_seat_id'    => null,
-            'assigned_seat_no'    => null,
-            'assigned_session_id' => null,
-        ]);
+        if ($resultPayload === null) {
+            return json(['code' => 500, 'msg' => '报名失败', 'data' => null]);
+        }
+        if (($resultPayload['code'] ?? 0) !== 0) {
+            return json($resultPayload);
+        }
 
-        // 写入 fishing_order（待支付）
-        FishingOrder::create([
-            'order_no'      => $orderNo,
-            'mini_user_id'  => (int) $user->id,
-            'venue_id'      => $venueId > 0 ? $venueId : null,
-            'pond_id'       => $pondId > 0 ? $pondId : null,
-            'seat_id'       => $seatId ? (int) $seatId : null,
-            'seat_no'       => $seatNo ? (int) $seatNo : null,
-            'seat_code'     => $seatCode !== '' ? (string) $seatCode : null,
-            'fee_rule_id'   => $feeRuleId,
-            'return_rule_id'=> null,
-            'description'   => self::ORDER_DESC,
-            'amount_total'  => $amountTotalFen,
-            'amount_paid'   => 0,
-            'status'        => 'pending',
-            'pay_channel'   => 'wx_mini',
-            'raw_notify'    => null,
-        ]);
-
-        return json([
-            'code' => 0,
-            'msg'  => 'success',
-            'data' => [
-                'order_no' => $orderNo,
-                'amount_total_yuan' => round($amountTotalFen / 100, 2),
-                'participation_id'  => (int) $participation->id,
-                'description' => self::ORDER_DESC,
-            ],
-        ]);
+        return json($resultPayload);
     }
 
     /**
@@ -579,10 +688,6 @@ class ActivityController extends MiniBaseController
             return json(['code' => 400, 'msg' => '收费规则不存在', 'data' => null]);
         }
 
-        $amountFen = (int) round(((float) ($fee->amount ?? 0)) * 100);
-        $depositFen = (int) round(((float) ($fee->deposit ?? 0)) * 100);
-        $amountTotalFen = max(0, $amountFen + $depositFen);
-
         // 计算 expire_time
         $expireTime = null;
         $val = $fee->duration_value !== null ? (float) $fee->duration_value : 0;
@@ -595,7 +700,7 @@ class ActivityController extends MiniBaseController
         }
 
         $order = FishingOrder::where('order_no', (string) ($part->pay_order_no ?? ''))->find();
-        $orderPaidFen = $order ? (int) ($order->amount_paid ?? 0) : $amountTotalFen;
+        $money = ActivityPayService::sessionMoneyForActivity($order, $part, $fee);
 
         $pond = FishingPond::find($pondId);
         $venueId = $pond ? (int) ($pond->venue_id ?? 0) : 0;
@@ -614,9 +719,9 @@ class ActivityController extends MiniBaseController
             'start_time'    => (string) $activity->open_time,
             'expire_time'   => $expireTime,
             'status'        => 'ongoing',
-            'amount_total'  => $amountTotalFen,
-            'amount_paid'   => $orderPaidFen,
-            'deposit_total' => $depositFen,
+            'amount_total'  => $money['amount_total_fen'],
+            'amount_paid'   => $money['amount_paid_fen'],
+            'deposit_total' => $money['deposit_total_fen'],
             'remark'        => '活动统一抽号占座',
         ]);
 
@@ -704,7 +809,7 @@ class ActivityController extends MiniBaseController
             return json(['code' => 400, 'msg' => '本活动未开启积分发放（请将「1元积分」设为大于 0）', 'data' => null]);
         }
 
-        $amountPaidFen = (int) ($order->amount_paid ?? 0);
+        $amountPaidFen = (int) ($order->amount_paid ?? 0) + (int) ($part->balance_deduct_fen ?? 0);
         $points = (int) floor(($amountPaidFen / 100.0) * $pointsPerYuan);
         if ($points < 0) {
             $points = 0;

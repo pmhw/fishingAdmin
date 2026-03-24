@@ -58,6 +58,13 @@
             {{ Number(row.points_divisor) > 0 ? row.points_divisor : '不发' }}
           </template>
         </el-table-column>
+        <el-table-column label="余额报名" width="92" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.allow_balance_deduct ? 'success' : 'info'" size="small">
+              {{ row.allow_balance_deduct ? '允许' : '否' }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="statusTag(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
@@ -153,6 +160,10 @@
         <el-form-item label="1元积分">
           <el-input-number v-model="editForm.points_divisor" :min="0" :max="999999" controls-position="right" />
           <span class="form-hint-inline">每实付 1 元可得多少积分（例：10 即 1 元=10 积分）。填 0 表示不发放积分。</span>
+        </el-form-item>
+        <el-form-item label="会员余额报名">
+          <el-switch v-model="editForm.allow_balance_deduct" active-text="允许抵扣/免押" inactive-text="关闭" />
+          <p class="form-hint">关闭后小程序报名不可用会员余额与免押金，须全额微信支付（含押金）。</p>
         </el-form-item>
         <el-form-item label="活动描述">
           <el-input v-model="editForm.description" type="textarea" :rows="4" placeholder="选填" />
@@ -329,6 +340,7 @@ const editForm = reactive({
   description: '',
   draw_mode: 'random',
   points_divisor: 1,
+  allow_balance_deduct: true,
 })
 
 const editRules = {
@@ -350,6 +362,7 @@ function resetEditForm() {
     description: '',
     draw_mode: 'random',
     points_divisor: 1,
+    allow_balance_deduct: true,
   })
   editFormRef.value?.resetFields?.()
 }
@@ -366,6 +379,10 @@ function openEdit(row) {
     editForm.description = row.description || ''
     editForm.draw_mode = row.draw_mode || 'random'
     editForm.points_divisor = row.points_divisor ?? 1
+    editForm.allow_balance_deduct =
+      row.allow_balance_deduct === undefined || row.allow_balance_deduct === null
+        ? true
+        : Number(row.allow_balance_deduct) === 1
   }
   editVisible.value = true
 }
@@ -385,6 +402,7 @@ async function submitEdit() {
         description: editForm.description,
         draw_mode: editForm.draw_mode,
         points_divisor: editForm.points_divisor,
+        allow_balance_deduct: editForm.allow_balance_deduct ? 1 : 0,
       })
     } else {
       await createActivity({
@@ -396,6 +414,7 @@ async function submitEdit() {
         description: editForm.description,
         draw_mode: editForm.draw_mode,
         points_divisor: editForm.points_divisor,
+        allow_balance_deduct: editForm.allow_balance_deduct ? 1 : 0,
       })
     }
     editVisible.value = false
