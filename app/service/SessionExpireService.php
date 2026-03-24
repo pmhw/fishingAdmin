@@ -3,8 +3,10 @@ declare (strict_types = 1);
 
 namespace app\service;
 
-use app\model\PondFeeRule;
+use app\model\Activity;
+use app\model\ActivityParticipation;
 use app\model\FishingSession;
+use app\model\PondFeeRule;
 use think\facade\Cache;
 
 /**
@@ -17,7 +19,7 @@ class SessionExpireService
     /**
      * 在请求链路中兜底执行：带节流，避免每次请求都扫库
      */
-    public static function tick(int $cooldownSeconds = 30, int $limit = 50): void
+    public static function tick(int $cooldownSeconds = 30, int $limit = 150): void
     {
         try {
             $nowTs = time();
@@ -66,21 +68,11 @@ class SessionExpireService
                 if (!$fee) {
                     continue;
                 }
-                $val = $fee->duration_value !== null ? (float) $fee->duration_value : 0;
-                $unit = (string) ($fee->duration_unit ?? '');
-                if ($val <= 0 || ($unit !== 'hour' && $unit !== 'day')) {
-                    continue;
+                $expireAt = self::backfillExpireTimeForSession($s, $fee);
+                if ($expireAt !== null) {
+                    $s->expire_time = $expireAt;
+                    $s->save();
                 }
-                $startTs = strtotime((string) ($s->start_time ?? ''));
-                if ($startTs <= 0) {
-                    continue;
-                }
-                $seconds = $unit === 'day' ? (int) round($val * 86400) : (int) round($val * 3600);
-                if ($seconds <= 0) {
-                    continue;
-                }
-                $s->expire_time = date('Y-m-d H:i:s', $startTs + $seconds);
-                $s->save();
             } catch (\Throwable $e) {
                 // 忽略单条异常
             }
@@ -105,6 +97,45 @@ class SessionExpireService
             $count++;
         }
         return $count;
+    }
+
+    /**
+     * 回填 expire_time：普通开钓单按 start_time + 规则时长；活动占座单无时长时走活动开钓时间 + 默认 24h
+     */
+    private static function backfillExpireTimeForSession(FishingSession $s, PondFeeRule $fee): ?string
+    {
+        $startTs = strtotime((string) ($s->start_time ?? ''));
+        if ($startTs <= 0) {
+            return null;
+        }
+        $val = $fee->duration_value !== null ? (float) $fee->duration_value : 0;
+        $unit = (string) ($fee->duration_unit ?? '');
+        if ($val > 0 && ($unit === 'hour' || $unit === 'day')) {
+            $seconds = $unit === 'day' ? (int) round($val * 86400) : (int) round($val * 3600);
+            if ($seconds > 0) {
+                return date('Y-m-d H:i:s', $startTs + $seconds);
+            }
+        }
+
+        /** @var ActivityParticipation|null $part */
+        $part = ActivityParticipation::where('assigned_session_id', (int) $s->id)->find();
+        $activityId = 0;
+        if ($part) {
+            $activityId = (int) ($part->activity_id ?? 0);
+        }
+        if ($activityId < 1) {
+            $activityId = (int) ($fee->activity_id ?? 0);
+        }
+        if ($activityId < 1) {
+            return null;
+        }
+        /** @var Activity|null $activity */
+        $activity = Activity::find($activityId);
+        if (!$activity) {
+            return null;
+        }
+
+        return ActivityPayService::computeActivitySessionExpireAt($activity, $fee);
     }
 }
 

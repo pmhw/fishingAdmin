@@ -714,16 +714,7 @@ class ActivityController extends MiniBaseController
             return json(['code' => 400, 'msg' => '收费规则不存在', 'data' => null]);
         }
 
-        // 计算 expire_time
-        $expireTime = null;
-        $val = $fee->duration_value !== null ? (float) $fee->duration_value : 0;
-        $unit = (string) ($fee->duration_unit ?? '');
-        if ($val > 0 && ($unit === 'hour' || $unit === 'day')) {
-            $seconds = $unit === 'day' ? (int) round($val * 86400) : (int) round($val * 3600);
-            if ($seconds > 0) {
-                $expireTime = date('Y-m-d H:i:s', strtotime((string) $activity->open_time) + $seconds);
-            }
-        }
+        $expireTime = ActivityPayService::computeActivitySessionExpireAt($activity, $fee);
 
         $order = FishingOrder::where('order_no', (string) ($part->pay_order_no ?? ''))->find();
         $money = ActivityPayService::sessionMoneyForActivity($order, $part, $fee);

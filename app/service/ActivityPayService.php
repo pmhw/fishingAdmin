@@ -16,6 +16,29 @@ use app\model\PondSeat;
 class ActivityPayService
 {
     /**
+     * 活动开钓单到期时间：活动开钓时间 + 收费规则时长；规则未配置时长时默认 +24 小时，
+     * 保证 SessionExpireService 能按 expire_time 自动截单（避免 expire 为空永远不结束）。
+     * 始终返回合法 datetime 字符串（开钓时间异常时退化为「当前 +24h」，避免写入 NULL）。
+     */
+    public static function computeActivitySessionExpireAt(Activity $activity, PondFeeRule $fee): string
+    {
+        $openTs = strtotime((string) ($activity->open_time ?? ''));
+        if ($openTs <= 0) {
+            return date('Y-m-d H:i:s', time() + 86400);
+        }
+        $val = $fee->duration_value !== null ? (float) $fee->duration_value : 0;
+        $unit = (string) ($fee->duration_unit ?? '');
+        if ($val > 0 && ($unit === 'hour' || $unit === 'day')) {
+            $seconds = $unit === 'day' ? (int) round($val * 86400) : (int) round($val * 3600);
+            if ($seconds > 0) {
+                return date('Y-m-d H:i:s', $openTs + $seconds);
+            }
+        }
+
+        return date('Y-m-d H:i:s', $openTs + 86400);
+    }
+
+    /**
      * 开钓单展示用：应收、实收、押金（与会员免押金、余额抵扣一致）
      *
      * @return array{amount_total_fen:int, amount_paid_fen:int, deposit_total_fen:int}
@@ -168,15 +191,7 @@ class ActivityPayService
 
         $money = self::sessionMoneyForActivity($order, $part, $fee);
 
-        $expireTime = null;
-        $durationValue = $fee->duration_value !== null ? (float) $fee->duration_value : 0;
-        $durationUnit = (string) ($fee->duration_unit ?? '');
-        if ($durationValue > 0 && ($durationUnit === 'hour' || $durationUnit === 'day')) {
-            $seconds = $durationUnit === 'day' ? (int) round($durationValue * 86400) : (int) round($durationValue * 3600);
-            if ($seconds > 0) {
-                $expireTime = date('Y-m-d H:i:s', strtotime((string) $activity->open_time) + $seconds);
-            }
-        }
+        $expireTime = self::computeActivitySessionExpireAt($activity, $fee);
 
         $sessionNo = 'S' . date('YmdHis') . mt_rand(1000, 9999);
         $session = FishingSession::create([
