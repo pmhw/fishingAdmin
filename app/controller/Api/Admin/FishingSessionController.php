@@ -82,18 +82,24 @@ class FishingSessionController extends BaseController
         $pondIds = [];
         $venueIds = [];
         $userIds = [];
+        $orderIds = [];
         foreach ($rows as $r) {
             if ($r->pond_id) $pondIds[] = (int) $r->pond_id;
             if ($r->venue_id) $venueIds[] = (int) $r->venue_id;
             if ($r->mini_user_id) $userIds[] = (int) $r->mini_user_id;
+            if ($r->order_id) $orderIds[] = (int) $r->order_id;
         }
         $pondIds = array_values(array_unique($pondIds));
         $venueIds = array_values(array_unique($venueIds));
         $userIds = array_values(array_unique($userIds));
+        $orderIds = array_values(array_unique($orderIds));
 
         $pondMap = $pondIds ? FishingPond::whereIn('id', $pondIds)->column('name', 'id') : [];
         $venueMap = $venueIds ? FishingVenue::whereIn('id', $venueIds)->column('name', 'id') : [];
         $userMap = $userIds ? MiniUser::whereIn('id', $userIds)->column('nickname', 'id') : [];
+        $orderRows = $orderIds
+            ? FishingOrder::whereIn('id', $orderIds)->column('description', 'id')
+            : [];
 
         $list = [];
         foreach ($rows as $r) {
@@ -104,6 +110,8 @@ class FishingSessionController extends BaseController
             $arr['amount_total_yuan'] = round(((int) ($arr['amount_total'] ?? 0)) / 100, 2);
             $arr['amount_paid_yuan'] = round(((int) ($arr['amount_paid'] ?? 0)) / 100, 2);
             $arr['deposit_total_yuan'] = round(((int) ($arr['deposit_total'] ?? 0)) / 100, 2);
+            $desc = (string) ($orderRows[(int) ($arr['order_id'] ?? 0)] ?? '');
+            $arr['order_type'] = str_contains($desc, '活动报名预付款') ? 'activity' : 'session';
             $list[] = $arr;
         }
 

@@ -32,6 +32,13 @@
       <el-table v-loading="loading" :data="list" stripe>
         <el-table-column prop="id" label="ID" width="70" />
         <el-table-column prop="session_no" label="开钓单号" min-width="190" show-overflow-tooltip />
+        <el-table-column label="类型" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.order_type === 'activity' ? 'warning' : 'success'" size="small">
+              {{ row.order_type === 'activity' ? '活动订单' : '开卡单' }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="user_nickname" label="用户" width="130" show-overflow-tooltip />
         <el-table-column label="钓场/池塘" min-width="180" show-overflow-tooltip>
           <template #default="{ row }">

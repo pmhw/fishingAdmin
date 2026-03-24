@@ -229,6 +229,7 @@ import { logout, getMe } from '@/api/auth'
 import { useOrderNewAlert } from '@/composables/useOrderNewAlert'
 
 const STORAGE_KEY = 'admin_sidebar_collapsed'
+const TABS_STORAGE_KEY = 'admin_route_tabs_v1'
 
 const userStore = useUserStore()
 const venueStore = useVenueContextStore()
@@ -313,6 +314,48 @@ const showShopMenu = computed(
 const HOME_TAB_PATH = '/home'
 const visitedTabs = ref([{ path: HOME_TAB_PATH, title: '首页' }])
 const activeTabName = ref(route.path || HOME_TAB_PATH)
+const tabsHydrated = ref(false)
+
+function saveTabsState() {
+  if (!tabsHydrated.value) return
+  try {
+    localStorage.setItem(
+      TABS_STORAGE_KEY,
+      JSON.stringify({
+        active: activeTabName.value || HOME_TAB_PATH,
+        tabs: visitedTabs.value,
+      })
+    )
+  } catch (_) {}
+}
+
+function loadTabsState() {
+  try {
+    const raw = localStorage.getItem(TABS_STORAGE_KEY)
+    if (!raw) return
+    const parsed = JSON.parse(raw)
+    const tabs = Array.isArray(parsed?.tabs) ? parsed.tabs : []
+    const normalized = tabs
+      .filter((x) => x && typeof x.path === 'string' && x.path.startsWith('/'))
+      .map((x) => ({
+        path: x.path,
+        title: typeof x.title === 'string' && x.title.trim() !== '' ? x.title : '页面',
+      }))
+    const homeIdx = normalized.findIndex((x) => x.path === HOME_TAB_PATH)
+    if (homeIdx < 0) {
+      normalized.unshift({ path: HOME_TAB_PATH, title: '首页' })
+    } else if (homeIdx > 0) {
+      const home = normalized.splice(homeIdx, 1)[0]
+      normalized.unshift(home)
+    }
+    if (normalized.length > 0) {
+      visitedTabs.value = normalized
+    }
+    if (typeof parsed?.active === 'string' && parsed.active.startsWith('/')) {
+      activeTabName.value = parsed.active
+    }
+  } catch (_) {}
+}
 
 function getRouteTitle(to) {
   const t = to?.meta?.title
@@ -331,6 +374,7 @@ function syncRouteTab(to) {
     visitedTabs.value.push({ path, title })
   }
   activeTabName.value = path
+  saveTabsState()
 }
 
 function onTabClick(tabPane) {
@@ -352,20 +396,22 @@ function onTabRemove(targetName) {
     activeTabName.value = go
     if (route.path !== go) router.push(go)
   }
+  saveTabsState()
 }
 
 function closeOtherTabs() {
   const keep = route.path || HOME_TAB_PATH
   visitedTabs.value = visitedTabs.value.filter((x) => x.path === HOME_TAB_PATH || x.path === keep)
   activeTabName.value = keep
+  saveTabsState()
 }
 
 watch(
   () => route.fullPath,
   () => {
+    if (!tabsHydrated.value) return
     syncRouteTab(route)
-  },
-  { immediate: true }
+  }
 )
 
 /** 展开的子菜单（仅在有权限时包含，避免空菜单占位） */
@@ -392,6 +438,9 @@ onMounted(async () => {
   try {
     collapsed.value = localStorage.getItem(STORAGE_KEY) === '1'
   } catch (_) {}
+  loadTabsState()
+  tabsHydrated.value = true
+  syncRouteTab(route)
   venueStore.hydrateFromStorage()
   // 进入后台时拉取最新用户信息（含权限），保证分配角色/权限后菜单能正确显示
   if (userStore.token) {
