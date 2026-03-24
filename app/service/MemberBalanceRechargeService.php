@@ -165,6 +165,7 @@ class MemberBalanceRechargeService
         if ($thresholdYuan > 0) {
             $thresholdFen = (int) round($thresholdYuan * 100);
             if ($paidFen >= $thresholdFen) {
+                // 已是会员时仍为 1，不会降级
                 $user->is_vip = 1;
             }
         }
