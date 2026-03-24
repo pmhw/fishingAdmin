@@ -339,7 +339,7 @@ const editForm = reactive({
   register_deadline: '',
   description: '',
   draw_mode: 'random',
-  points_divisor: 1,
+  points_divisor: 0,
   allow_balance_deduct: true,
 })
 
@@ -361,7 +361,7 @@ function resetEditForm() {
     register_deadline: '',
     description: '',
     draw_mode: 'random',
-    points_divisor: 1,
+    points_divisor: 0,
     allow_balance_deduct: true,
   })
   editFormRef.value?.resetFields?.()
@@ -378,7 +378,7 @@ function openEdit(row) {
     editForm.register_deadline = row.register_deadline || ''
     editForm.description = row.description || ''
     editForm.draw_mode = row.draw_mode || 'random'
-    editForm.points_divisor = row.points_divisor ?? 1
+    editForm.points_divisor = row.points_divisor ?? 0
     editForm.allow_balance_deduct =
       row.allow_balance_deduct === undefined || row.allow_balance_deduct === null
         ? true

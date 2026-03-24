@@ -88,7 +88,7 @@ class ActivityController extends BaseController
 
     /**
      * POST /api/admin/activities
-     * body: name, pond_id, participant_count, open_time, register_deadline, description, draw_mode, points_divisor（每1元实付可得积分；0=不发放）, allow_balance_deduct（可选，默认1：是否允许报名会员余额抵扣及免押）
+     * body: name, pond_id, participant_count, open_time, register_deadline, description, draw_mode, points_divisor（每1元实付可得积分；0=不发放；缺省0）, allow_balance_deduct（可选，默认1：是否允许报名会员余额抵扣及免押）
      */
     public function create(): Json
     {
@@ -99,7 +99,7 @@ class ActivityController extends BaseController
         $registerDeadline = trim((string) $this->request->post('register_deadline', ''));
         $description = (string) $this->request->post('description', '');
         $drawMode = trim((string) $this->request->post('draw_mode', 'random'));
-        $pointsDivisor = max(0, (int) $this->request->post('points_divisor', 1));
+        $pointsDivisor = max(0, (int) $this->request->post('points_divisor', 0));
         $allowBalanceDeduct = $this->request->post('allow_balance_deduct');
         $allowBalanceDeduct = $allowBalanceDeduct === null || $allowBalanceDeduct === ''
             ? 1
@@ -120,10 +120,6 @@ class ActivityController extends BaseController
         if ($openTime === '' || $registerDeadline === '') {
             return json(['code' => 400, 'msg' => '开钓时间/报名截止时间不能为空', 'data' => null]);
         }
-        if ($pointsDivisor < 1) {
-            $pointsDivisor = 1;
-        }
-
         $row = Activity::create([
             'name' => $name,
             'pond_id' => $pondId,

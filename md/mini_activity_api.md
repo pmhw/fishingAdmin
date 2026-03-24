@@ -139,5 +139,6 @@ Content-Type: `application/json`
 
 - 活动表增加「允许余额报名」开关：[`activity_allow_balance_deduct.sql`](activity_allow_balance_deduct.sql)  
 - 报名记录余额抵扣字段：[`activity_participation_balance_fields.sql`](activity_participation_balance_fields.sql)  
+- 「1元积分」列默认值改为 0（新建活动默认不发放积分）：[`activity_points_divisor_default_zero.sql`](activity_points_divisor_default_zero.sql)  
 
 新建库可直接使用已更新的 [`activity_module.sql`](activity_module.sql)。
