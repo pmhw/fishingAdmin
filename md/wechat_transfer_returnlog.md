@@ -3,7 +3,7 @@
 ## 1. 需求规则
 
 - **会员（mini_user.is_vip=1）**：回鱼金额直接 **入账到 `mini_user.balance`**，并在回鱼流水上标记打款成功。
-- **非会员（is_vip=0）**：调用微信支付 v3 **「转账到零钱」**接口发起转账；回鱼流水标记为 `pending`，等待后续补回调确认（本期先记录请求结果，回调可后续加）。
+- **非会员（is_vip=0）**：调用微信支付 v3 **商家转账用户确认模式**发起转账；回鱼流水标记为 `pending`，并由小程序 `wx.requestMerchantTransfer` 拉起**用户确认收款页**。
 
 ## 2. 数据库迁移
 
@@ -25,7 +25,29 @@
 `POST /api/admin/pond-return-logs/:id/payout`
 
 - **会员**：立即入余额并返回成功。
-- **非会员**：调用微信 v3 发起转账，成功则返回 `pending` + `out_bill_no`。
+- **非会员**：调用微信 v3 发起转账，成功则返回 `pending` + `out_bill_no`（并在 `payout_raw` 中含 `package_info` 供小程序拉起确认页）。
+
+## 3.3 小程序确认收款
+
+`GET /api/mini/return-payouts/:id/package`（需登录）
+
+返回：
+
+- `mchId`
+- `appId`
+- `package`（来自微信 `package_info`）
+- `openId`
+
+小程序调用：
+
+```js
+wx.requestMerchantTransfer({
+  mchId,
+  appId,
+  package,
+  openId,
+})
+```
 
 ### 3.2 列表增强
 

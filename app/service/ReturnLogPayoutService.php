@@ -117,6 +117,7 @@ class ReturnLogPayoutService
             $body = $resp['body'] ?? null;
 
             if ($httpCode >= 200 && $httpCode < 300) {
+                // 用户确认模式：需要 body.package_info，由小程序 wx.requestMerchantTransfer 拉起确认页
                 $log->save([
                     'payout_status' => 'pending',
                     'payout_channel' => 'wechat',
@@ -125,7 +126,7 @@ class ReturnLogPayoutService
                     'payout_raw' => $raw,
                     'payout_fail_reason' => null,
                 ]);
-                return ['mode' => 'wechat', 'msg' => '已发起微信转账（待回调确认）', 'out_bill_no' => $outBillNo];
+                return ['mode' => 'wechat_confirm', 'msg' => '已发起微信转账（待用户在小程序确认收款）', 'out_bill_no' => $outBillNo];
             }
 
             $failMsg = '';
