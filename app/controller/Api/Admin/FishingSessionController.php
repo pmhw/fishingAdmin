@@ -123,6 +123,16 @@ class FishingSessionController extends BaseController
             $arr['amount_total_yuan'] = round(((int) ($arr['amount_total'] ?? 0)) / 100, 2);
             $arr['amount_paid_yuan'] = round(((int) ($arr['amount_paid'] ?? 0)) / 100, 2);
             $arr['deposit_total_yuan'] = round(((int) ($arr['deposit_total'] ?? 0)) / 100, 2);
+            // 兼容历史数据：timeout_time 为空时，超时状态回退显示 expire_time
+            if ((string) ($arr['status'] ?? '') === 'timeout') {
+                $tt = trim((string) ($arr['timeout_time'] ?? ''));
+                if ($tt === '' || $tt === '0000-00-00 00:00:00') {
+                    $et = trim((string) ($arr['expire_time'] ?? ''));
+                    if ($et !== '' && $et !== '0000-00-00 00:00:00') {
+                        $arr['timeout_time'] = $et;
+                    }
+                }
+            }
             $desc = (string) ($orderRows[(int) ($arr['order_id'] ?? 0)] ?? '');
             $arr['order_type'] = str_contains($desc, '活动报名预付款') ? 'activity' : 'session';
             $fid = (int) ($arr['fee_rule_id'] ?? 0);
@@ -159,6 +169,16 @@ class FishingSessionController extends BaseController
         $arr['amount_total_yuan'] = round(((int) ($arr['amount_total'] ?? 0)) / 100, 2);
         $arr['amount_paid_yuan'] = round(((int) ($arr['amount_paid'] ?? 0)) / 100, 2);
         $arr['deposit_total_yuan'] = round(((int) ($arr['deposit_total'] ?? 0)) / 100, 2);
+        // 兼容历史数据：timeout_time 为空时，超时状态回退显示 expire_time
+        if ((string) ($arr['status'] ?? '') === 'timeout') {
+            $tt = trim((string) ($arr['timeout_time'] ?? ''));
+            if ($tt === '' || $tt === '0000-00-00 00:00:00') {
+                $et = trim((string) ($arr['expire_time'] ?? ''));
+                if ($et !== '' && $et !== '0000-00-00 00:00:00') {
+                    $arr['timeout_time'] = $et;
+                }
+            }
+        }
         $fid = (int) ($arr['fee_rule_id'] ?? 0);
         /** @var PondFeeRule|null $fee */
         $fee = $fid > 0 ? PondFeeRule::find($fid) : null;
