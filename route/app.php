@@ -69,6 +69,7 @@ Route::group('api', function () {
     Route::get('mini/user/balance', 'Api.Mini.UserController/balance')->middleware(\app\middleware\MiniAuth::class);
     Route::get('mini/user/recharge/options', 'Api.Mini.BalanceRechargeController/options');
     Route::post('mini/user/recharge/order', 'Api.Mini.BalanceRechargeController/createOrder')->middleware(\app\middleware\MiniAuth::class);
+    Route::get('mini/return-payouts', 'Api.Mini.ReturnPayoutController/list')->middleware(\app\middleware\MiniAuth::class);
     Route::get('mini/return-payouts/:id/package', 'Api.Mini.ReturnPayoutController/package')->middleware(\app\middleware\MiniAuth::class);
     Route::post('mini/profile', 'Api.Mini.UserController/profile')->middleware(\app\middleware\MiniAuth::class);
     Route::put('mini/user/profile', 'Api.Mini.UserController/profile')->middleware(\app\middleware\MiniAuth::class);

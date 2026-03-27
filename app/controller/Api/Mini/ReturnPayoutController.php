@@ -15,6 +15,64 @@ use think\response\Json;
 class ReturnPayoutController extends MiniBaseController
 {
     /**
+     * GET /api/mini/return-payouts
+     * 需登录；仅返回当前用户自己的回鱼打款记录
+     *
+     * 可选 query：
+     * - page, limit
+     * - payout_status (none/pending/success/failed/cancelled)
+     * - payout_channel (balance/wechat)
+     */
+    public function list(): Json
+    {
+        [$user, $err] = $this->getCurrentUserOrFail();
+        if ($err !== null) {
+            return $err;
+        }
+
+        $page = max((int) $this->request->get('page', 1), 1);
+        $limit = min(max((int) $this->request->get('limit', 10), 1), 100);
+        $payoutStatus = trim((string) $this->request->get('payout_status', ''));
+        $payoutChannel = trim((string) $this->request->get('payout_channel', ''));
+
+        $sessionIds = FishingSession::where('mini_user_id', (int) $user->id)->column('id');
+        $sessionIds = array_values(array_unique(array_map('intval', is_array($sessionIds) ? $sessionIds : [])));
+        if ($sessionIds === []) {
+            return json([
+                'code' => 0,
+                'msg'  => 'success',
+                'data' => ['list' => [], 'total' => 0],
+            ]);
+        }
+
+        $q = PondReturnLog::whereIn('session_id', $sessionIds)->order('id', 'desc');
+        if ($payoutStatus !== '') {
+            $q->where('payout_status', $payoutStatus);
+        }
+        if ($payoutChannel !== '') {
+            $q->where('payout_channel', $payoutChannel);
+        }
+
+        $p = $q->paginate(['list_rows' => $limit, 'page' => $page]);
+        $rows = $p->items();
+        $list = [];
+        foreach ($rows as $row) {
+            $arr = $row->toArray();
+            $arr['can_confirm'] = ((string) ($arr['payout_status'] ?? '') === 'pending' && (string) ($arr['payout_channel'] ?? '') === 'wechat') ? 1 : 0;
+            $list[] = $arr;
+        }
+
+        return json([
+            'code' => 0,
+            'msg'  => 'success',
+            'data' => [
+                'list' => $list,
+                'total' => $p->total(),
+            ],
+        ]);
+    }
+
+    /**
      * GET /api/mini/return-payouts/:id/package
      * 需登录；仅能获取自己的回鱼流水
      *
