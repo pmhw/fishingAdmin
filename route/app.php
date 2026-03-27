@@ -204,6 +204,7 @@ Route::group('api', function () {
             // pond-return-logs：回鱼流水（经营链路）
             Route::delete('pond-return-logs/:id', 'Api.Admin.PondReturnLogController/delete');
             Route::put('pond-return-logs/:id', 'Api.Admin.PondReturnLogController/update');
+            Route::post('pond-return-logs/:id/payout', 'Api.Admin.PondReturnLogController/payout');
             Route::get('pond-return-logs', 'Api.Admin.PondReturnLogController/list');
             Route::post('pond-return-logs', 'Api.Admin.PondReturnLogController/create');
             // fish-trade-logs：卖鱼/收鱼流水（经营链路）

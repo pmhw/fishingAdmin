@@ -39,10 +39,34 @@
           </template>
         </el-table-column>
         <el-table-column prop="amount" label="金额(元)" width="110" />
+        <el-table-column label="打款状态" width="110">
+          <template #default="{ row }">
+            <el-tag :type="payoutTagType(row.payout_status)" size="small">
+              {{ payoutLabel(row.payout_status) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="打款方式" width="110">
+          <template #default="{ row }">
+            <span v-if="row.payout_channel === 'balance'">余额</span>
+            <span v-else-if="row.payout_channel === 'wechat'">微信</span>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="payout_time" label="打款时间" width="170" />
         <el-table-column prop="remark" label="备注" min-width="160" show-overflow-tooltip />
         <el-table-column prop="created_at" label="创建时间" width="170" />
-        <el-table-column label="操作" width="130" fixed="right">
+        <el-table-column label="操作" width="210" fixed="right">
           <template #default="{ row }">
+            <el-button
+              v-if="row.payout_status === 'none' || row.payout_status === '' || row.payout_status == null || row.payout_status === 'failed'"
+              link
+              type="success"
+              size="small"
+              @click="onPayout(row)"
+            >
+              {{ Number(row.is_vip_user) === 1 ? '入余额' : '微信转账' }}
+            </el-button>
             <el-button link type="primary" size="small" @click="openForm(row)">编辑</el-button>
             <el-button link type="danger" size="small" @click="onDelete(row)">删除</el-button>
           </template>
@@ -129,7 +153,7 @@
 import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getReturnLogList, createReturnLog, updateReturnLog, deleteReturnLog } from '@/api/returnLog'
+import { getReturnLogList, createReturnLog, updateReturnLog, deleteReturnLog, payoutReturnLog } from '@/api/returnLog'
 import { getPondReturnRules } from '@/api/pond'
 
 const route = useRoute()
@@ -228,6 +252,51 @@ async function fetchList() {
   }
 }
 
+function payoutLabel(status) {
+  const map = {
+    none: '未打款',
+    pending: '处理中',
+    success: '成功',
+    failed: '失败',
+    cancelled: '取消',
+  }
+  return map[status] || status || '-'
+}
+
+function payoutTagType(status) {
+  const map = {
+    none: 'info',
+    pending: 'warning',
+    success: 'success',
+    failed: 'danger',
+    cancelled: 'info',
+  }
+  return map[status] || 'info'
+}
+
+async function onPayout(row) {
+  const amount = Number(row.amount || 0)
+  if (!Number.isFinite(amount) || amount <= 0) {
+    ElMessage.warning('金额必须大于 0')
+    return
+  }
+  const isVip = Number(row.is_vip_user) === 1
+  const tip = isVip
+    ? `确认将回鱼金额 ¥${amount.toFixed(2)} 入账到该用户余额吗？`
+    : `确认发起微信转账 ¥${amount.toFixed(2)} 吗？（将产生真实付款）`
+  try {
+    await ElMessageBox.confirm(tip, '提示', { type: 'warning' })
+  } catch {
+    return
+  }
+  try {
+    await payoutReturnLog(row.id)
+    ElMessage.success('已提交')
+    fetchList()
+  } catch (e) {
+    ElMessage.error(e?.message || '操作失败')
+  }
+}
 function resetFilters() {
   filters.session_id = ''
   filters.pond_id = ''

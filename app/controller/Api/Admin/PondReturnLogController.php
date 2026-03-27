@@ -5,8 +5,10 @@ namespace app\controller\Api\Admin;
 
 use app\BaseController;
 use app\model\FishingSession;
+use app\model\MiniUser;
 use app\model\PondReturnLog;
 use app\model\PondReturnRule;
+use app\service\ReturnLogPayoutService;
 use think\response\Json;
 
 /**
@@ -50,7 +52,25 @@ class PondReturnLogController extends BaseController
         }
 
         $paginator = $query->paginate(['list_rows' => $limit, 'page' => $page]);
-        $list = array_map(static fn($r) => $r->toArray(), $paginator->items());
+        $items = $paginator->items();
+
+        // 预加载用户 VIP 信息（用于前端展示“会员走余额/非会员走微信”）
+        $sessionIds = [];
+        foreach ($items as $r) {
+            $sessionIds[] = (int) ($r->session_id ?? 0);
+        }
+        $sessionIds = array_values(array_unique(array_filter($sessionIds)));
+        $sessionMap = $sessionIds ? FishingSession::whereIn('id', $sessionIds)->column('mini_user_id', 'id') : [];
+        $userIds = array_values(array_unique(array_filter(array_map('intval', array_values($sessionMap)))));
+        $vipMap = $userIds ? MiniUser::whereIn('id', $userIds)->column('is_vip', 'id') : [];
+
+        $list = array_map(static function ($r) use ($sessionMap, $vipMap) {
+            $arr = $r->toArray();
+            $sid = (int) ($arr['session_id'] ?? 0);
+            $uid = $sid > 0 ? (int) ($sessionMap[$sid] ?? 0) : 0;
+            $arr['is_vip_user'] = $uid > 0 ? (int) (($vipMap[$uid] ?? 0) == 1) : 0;
+            return $arr;
+        }, $items);
 
         return json(['code' => 0, 'msg' => 'success', 'data' => ['list' => $list, 'total' => $paginator->total()]]);
     }
@@ -176,6 +196,27 @@ class PondReturnLogController extends BaseController
         }
         $row->delete();
         return json(['code' => 0, 'msg' => '删除成功', 'data' => null]);
+    }
+
+    /**
+     * 发起打款（会员入余额 / 非会员微信转账）
+     * POST /api/admin/pond-return-logs/:id/payout
+     */
+    public function payout(int $id): Json
+    {
+        $row = PondReturnLog::find($id);
+        if (!$row) {
+            return json(['code' => 404, 'msg' => '回鱼流水不存在', 'data' => null]);
+        }
+        if (!$this->canAccessPond((int) $row->pond_id)) {
+            return json(['code' => 403, 'msg' => '无权限管理该池塘', 'data' => null]);
+        }
+        try {
+            $result = ReturnLogPayoutService::payout($id);
+            return json(['code' => 0, 'msg' => $result['msg'] ?? 'success', 'data' => $result]);
+        } catch (\Throwable $e) {
+            return json(['code' => 400, 'msg' => $e->getMessage(), 'data' => null]);
+        }
     }
 }
 

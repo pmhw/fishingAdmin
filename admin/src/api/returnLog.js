@@ -16,3 +16,7 @@ export function deleteReturnLog(id) {
   return request.delete(`/api/admin/pond-return-logs/${id}`)
 }
 
+export function payoutReturnLog(id) {
+  return request.post(`/api/admin/pond-return-logs/${id}/payout`)
+}
+
