@@ -83,7 +83,7 @@ class SessionController extends MiniBaseController
             $seatNo   = (int) $seat->seat_no;
             $seatCode = (string) $seat->code;
 
-            $exists = FishingSession::where('seat_id', $seatId)->where('status', 'ongoing')->find();
+            $exists = FishingSession::where('seat_id', $seatId)->whereIn('status', ['ongoing', 'timeout'])->find();
             if ($exists) {
                 return json(['code' => 400, 'msg' => '该钓位当前已有开钓单，请先结束或选择其他钓位', 'data' => null]);
             }

@@ -26,7 +26,7 @@ class FishingSessionController extends BaseController
      * 列表 GET /api/admin/sessions
      * 可选参数：
      * - page, limit
-     * - status       ongoing/finished/settled/cancelled
+     * - status       ongoing/timeout/finished/settled/cancelled
      * - venue_id
      * - pond_id
      * - seat_code
@@ -197,7 +197,7 @@ class FishingSessionController extends BaseController
 
             // 校验该钓位是否已有未结束的开钓单，避免重复绑定
             $exists = FishingSession::where('seat_id', $seatId)
-                ->where('status', 'ongoing')
+                ->whereIn('status', ['ongoing', 'timeout'])
                 ->find();
             if ($exists) {
                 return json([
@@ -365,8 +365,8 @@ class FishingSessionController extends BaseController
         if (!$this->canAccessPond((int) $session->pond_id)) {
             return json(['code' => 403, 'msg' => '无权限操作该池塘开钓单', 'data' => null]);
         }
-        if ($session->status !== 'ongoing') {
-            return json(['code' => 400, 'msg' => '仅进行中的开钓单可结束', 'data' => null]);
+        if (!in_array((string) $session->status, ['ongoing', 'timeout'], true)) {
+            return json(['code' => 400, 'msg' => '仅进行中/超时的开钓单可结束', 'data' => null]);
         }
 
         $now = date('Y-m-d H:i:s');

@@ -199,7 +199,7 @@ class ActivityController extends MiniBaseController
         }
 
         $occupiedSeatIds = FishingSession::where('pond_id', $pondId)
-            ->where('status', 'ongoing')
+            ->whereIn('status', ['ongoing', 'timeout'])
             ->whereNotNull('seat_id')
             ->where('seat_id', '>', 0)
             ->column('seat_id');
@@ -484,7 +484,7 @@ class ActivityController extends MiniBaseController
                     $seatCode = (string) ($seat->code ?? '');
 
                     $occupiedSeatIds = FishingSession::where('pond_id', $pondId)
-                        ->where('status', 'ongoing')
+                        ->whereIn('status', ['ongoing', 'timeout'])
                         ->whereNotNull('seat_id')
                         ->where('seat_id', '>', 0)
                         ->column('seat_id');
@@ -670,7 +670,7 @@ class ActivityController extends MiniBaseController
 
         // 获取空闲座位集合：排除正在占用的 seat_id、以及其它参与已分配的 seat
         $occupiedSeatIds = FishingSession::where('pond_id', $pondId)
-            ->where('status', 'ongoing')
+            ->whereIn('status', ['ongoing', 'timeout'])
             ->where('seat_id', '>', 0)
             ->column('seat_id');
         $occupiedSeatIds = array_flip(array_map('intval', is_array($occupiedSeatIds) ? $occupiedSeatIds : []));

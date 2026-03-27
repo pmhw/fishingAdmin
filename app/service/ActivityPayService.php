@@ -129,7 +129,7 @@ class ActivityPayService
         }
 
         $occupiedSeatIds = FishingSession::where('pond_id', $pondId)
-            ->where('status', 'ongoing')
+            ->whereIn('status', ['ongoing', 'timeout'])
             ->where('seat_id', '>', 0)
             ->column('seat_id');
         $occupiedSeatIds = array_flip(array_map('intval', is_array($occupiedSeatIds) ? $occupiedSeatIds : []));

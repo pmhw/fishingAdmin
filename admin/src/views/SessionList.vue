@@ -15,6 +15,7 @@
         <el-form-item label="状态">
           <el-select v-model="filters.status" placeholder="全部" clearable style="width: 160px">
             <el-option label="进行中" value="ongoing" />
+            <el-option label="已超时" value="timeout" />
             <el-option label="已结束" value="finished" />
             <el-option label="已结算" value="settled" />
             <el-option label="已取消" value="cancelled" />
@@ -65,17 +66,18 @@
           </template>
         </el-table-column>
         <el-table-column prop="start_time" label="开始时间" width="170" />
+        <el-table-column prop="timeout_time" label="超时时间" width="170" />
         <el-table-column prop="end_time" label="结束时间" width="170" />
         <el-table-column label="操作" width="260" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="goReturnLogs(row)">回鱼流水</el-button>
             <el-button link type="primary" @click="goFishTrades(row)">卖鱼流水</el-button>
             <el-button
-              v-if="row.status === 'ongoing'"
+              v-if="row.status === 'ongoing' || row.status === 'timeout'"
               link
               type="danger"
               @click="finishSessionRow(row)"
-            >结束</el-button>
+            >手动结束</el-button>
             <el-button
               v-if="row.status === 'ongoing'"
               link
@@ -279,12 +281,12 @@ const miniUserOptions = ref([])
 const searchingMiniUser = ref(false)
 
 function statusLabel(status) {
-  const map = { ongoing: '进行中', finished: '已结束', settled: '已结算', cancelled: '已取消' }
+  const map = { ongoing: '进行中', timeout: '已超时', finished: '已结束', settled: '已结算', cancelled: '已取消' }
   return map[status] || status || '-'
 }
 
 function statusTagType(status) {
-  const map = { ongoing: 'success', finished: 'info', settled: 'warning', cancelled: 'danger' }
+  const map = { ongoing: 'success', timeout: 'danger', finished: 'info', settled: 'warning', cancelled: 'info' }
   return map[status] || 'info'
 }
 

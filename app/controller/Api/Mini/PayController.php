@@ -524,7 +524,7 @@ class PayController extends MiniBaseController
 
             // 再次校验该钓位是否已有未结束的开钓单，避免重复占用
             $exists = FishingSession::where('seat_id', $seatId)
-                ->where('status', 'ongoing')
+                ->whereIn('status', ['ongoing', 'timeout'])
                 ->find();
             if ($exists) {
                 return;

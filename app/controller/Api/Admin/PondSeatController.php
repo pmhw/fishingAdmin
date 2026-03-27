@@ -50,7 +50,7 @@ class PondSeatController extends BaseController
 
         // 当前池塘下进行中开钓单占用的钓位 id 列表
         $occupiedSeatIds = FishingSession::where('pond_id', $pondId)
-            ->where('status', 'ongoing')
+            ->whereIn('status', ['ongoing', 'timeout'])
             ->whereNotNull('seat_id')
             ->where('seat_id', '>', 0)
             ->column('seat_id');

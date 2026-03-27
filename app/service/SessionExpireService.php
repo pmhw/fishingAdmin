@@ -10,7 +10,8 @@ use app\model\PondFeeRule;
 use think\facade\Cache;
 
 /**
- * 到期自动结束（方案A）服务：支持命令/请求兜底复用
+ * 到期自动超时服务：支持命令/请求兜底复用
+ * 说明：超时仅置为 timeout，不自动结束；需管理员手动结束。
  */
 class SessionExpireService
 {
@@ -36,8 +37,8 @@ class SessionExpireService
     }
 
     /**
-     * 执行到期结束
-     * @return int 实际结束数量
+     * 执行到期超时标记
+     * @return int 实际标记数量
      */
     public static function run(int $limit = 200): int
     {
@@ -91,8 +92,14 @@ class SessionExpireService
             if ((string) $row->status !== 'ongoing') {
                 continue;
             }
-            $row->status = 'finished';
-            $row->end_time = $now;
+            $row->status = 'timeout';
+            // 兼容历史库：若已加 timeout_time 字段则写入；未加字段不阻塞主流程
+            try {
+                if ($row->hasField('timeout_time')) {
+                    $row->timeout_time = $now;
+                }
+            } catch (\Throwable $e) {
+            }
             $row->save();
             $count++;
         }

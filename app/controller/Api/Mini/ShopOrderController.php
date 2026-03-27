@@ -96,7 +96,7 @@ class ShopOrderController extends MiniBaseController
                 /** @var FishingSession|null $session */
                 $session = FishingSession::where('mini_user_id', $miniUserId)
                     ->where('venue_id', $venueId)
-                    ->where('status', 'ongoing')
+                    ->whereIn('status', ['ongoing', 'timeout'])
                     ->order('id', 'desc')
                     ->lock(true)
                     ->find();
