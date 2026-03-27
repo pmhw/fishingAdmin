@@ -77,13 +77,27 @@ class PondReturnLogController extends BaseController
         $sessionIds = array_values(array_unique(array_filter($sessionIds)));
         $sessionMap = $sessionIds ? FishingSession::whereIn('id', $sessionIds)->column('mini_user_id', 'id') : [];
         $userIds = array_values(array_unique(array_filter(array_map('intval', array_values($sessionMap)))));
-        $vipMap = $userIds ? MiniUser::whereIn('id', $userIds)->column('is_vip', 'id') : [];
+        $userRows = $userIds ? MiniUser::whereIn('id', $userIds)->select() : [];
+        $vipMap = [];
+        $nickMap = [];
+        $avatarMap = [];
+        foreach ($userRows as $u) {
+            $uid = (int) ($u->id ?? 0);
+            if ($uid < 1) {
+                continue;
+            }
+            $vipMap[$uid] = (int) (($u->is_vip ?? 0) == 1);
+            $nickMap[$uid] = (string) ($u->nickname ?? '');
+            $avatarMap[$uid] = (string) ($u->avatar ?? '');
+        }
 
-        $list = array_map(static function ($r) use ($sessionMap, $vipMap) {
+        $list = array_map(static function ($r) use ($sessionMap, $vipMap, $nickMap, $avatarMap) {
             $arr = $r->toArray();
             $sid = (int) ($arr['session_id'] ?? 0);
             $uid = $sid > 0 ? (int) ($sessionMap[$sid] ?? 0) : 0;
             $arr['is_vip_user'] = $uid > 0 ? (int) (($vipMap[$uid] ?? 0) == 1) : 0;
+            $arr['user_nickname'] = $uid > 0 ? (string) ($nickMap[$uid] ?? '') : '';
+            $arr['user_avatar'] = $uid > 0 ? (string) ($avatarMap[$uid] ?? '') : '';
             return $arr;
         }, $items);
 

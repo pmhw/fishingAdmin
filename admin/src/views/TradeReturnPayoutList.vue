@@ -50,6 +50,16 @@
         <el-table-column prop="id" label="回鱼ID" width="90" />
         <el-table-column prop="session_id" label="开钓单" width="90" />
         <el-table-column prop="pond_id" label="池塘" width="80" />
+        <el-table-column label="收款用户" min-width="170" show-overflow-tooltip>
+          <template #default="{ row }">
+            <div class="user-cell">
+              <el-avatar :size="26" :src="formatStorageUrl(row.user_avatar || '')">
+                {{ userInitial(row.user_nickname) }}
+              </el-avatar>
+              <span class="user-name">{{ row.user_nickname || '-' }}</span>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column prop="amount" label="回鱼金额(元)" width="120" />
         <el-table-column label="用户类型" width="110">
           <template #default="{ row }">
@@ -169,6 +179,18 @@ function resetFilters() {
   fetchList()
 }
 
+function userInitial(name) {
+  const n = String(name || '').trim()
+  return n ? n.slice(0, 1).toUpperCase() : '?'
+}
+
+function formatStorageUrl(u) {
+  if (!u) return ''
+  if (String(u).startsWith('http')) return u
+  const base = import.meta.env.VITE_STORAGE_URL || ''
+  return base + u
+}
+
 onMounted(fetchList)
 </script>
 
@@ -183,6 +205,17 @@ onMounted(fetchList)
 }
 .mb-12 {
   margin-bottom: 12px;
+}
+.user-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.user-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>
 
