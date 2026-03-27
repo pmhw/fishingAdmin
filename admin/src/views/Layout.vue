@@ -70,6 +70,10 @@
             <el-icon><ShoppingBag /></el-icon>
             <template #title>店铺商品订单</template>
           </el-menu-item>
+          <el-menu-item v-if="hasPermission('admin.biz.return.manage')" index="/trade/return-payouts">
+            <el-icon><Document /></el-icon>
+            <template #title>回鱼打款记录</template>
+          </el-menu-item>
         </el-sub-menu>
         <el-sub-menu v-if="showActivityCenterMenu" index="activity-center">
           <template #title>

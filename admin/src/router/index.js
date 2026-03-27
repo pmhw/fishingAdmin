@@ -22,6 +22,12 @@ const routes = [
       { path: 'ponds', name: 'Ponds', component: () => import('@/views/PondList.vue'), meta: { title: '池塘管理' } },
       { path: 'orders', name: 'Orders', component: () => import('@/views/OrderList.vue'), meta: { title: '交易中心 - 非店铺订单' } },
       { path: 'shop/orders', name: 'ShopOrders', component: () => import('@/views/ShopOrderList.vue'), meta: { title: '交易中心 - 店铺商品订单' } },
+      {
+        path: 'trade/return-payouts',
+        name: 'TradeReturnPayouts',
+        component: () => import('@/views/TradeReturnPayoutList.vue'),
+        meta: { title: '交易中心 - 回鱼打款记录' },
+      },
       { path: 'sessions', name: 'Sessions', component: () => import('@/views/SessionList.vue'), meta: { title: '经营管理 - 开钓单' } },
       { path: 'activities', name: 'Activities', component: () => import('@/views/ActivityList.vue'), meta: { title: '活动中心 - 活动管理' } },
       {

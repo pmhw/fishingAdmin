@@ -24,6 +24,9 @@ class PondReturnLogController extends BaseController
      * - page, limit
      * - session_id
      * - pond_id
+     * - payout_status
+     * - payout_channel
+     * - payout_out_bill_no
      */
     public function list(): Json
     {
@@ -36,6 +39,9 @@ class PondReturnLogController extends BaseController
         $limit = min(max((int) $this->request->get('limit', 10), 1), 100);
         $sessionId = (int) $this->request->get('session_id', 0);
         $pondId = (int) $this->request->get('pond_id', 0);
+        $payoutStatus = trim((string) $this->request->get('payout_status', ''));
+        $payoutChannel = trim((string) $this->request->get('payout_channel', ''));
+        $outBillNo = trim((string) $this->request->get('payout_out_bill_no', ''));
 
         $query = PondReturnLog::order('id', 'desc');
         if ($sessionId > 0) {
@@ -49,6 +55,15 @@ class PondReturnLogController extends BaseController
         }
         if ($allowed !== null) {
             $query->whereIn('pond_id', $allowed);
+        }
+        if ($payoutStatus !== '') {
+            $query->where('payout_status', $payoutStatus);
+        }
+        if ($payoutChannel !== '') {
+            $query->where('payout_channel', $payoutChannel);
+        }
+        if ($outBillNo !== '') {
+            $query->where('payout_out_bill_no', $outBillNo);
         }
 
         $paginator = $query->paginate(['list_rows' => $limit, 'page' => $page]);
