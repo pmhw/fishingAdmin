@@ -135,6 +135,7 @@
           <el-descriptions-item label="押金(元)">{{ formatMoney(detailData.deposit_total_yuan) }}</el-descriptions-item>
           <el-descriptions-item label="开始时间">{{ detailData.start_time || '-' }}</el-descriptions-item>
           <el-descriptions-item label="超时时间">{{ detailData.timeout_time || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="已超时多久">{{ timeoutElapsedText }}</el-descriptions-item>
           <el-descriptions-item label="结束时间">{{ detailData.end_time || '-' }}</el-descriptions-item>
           <el-descriptions-item label="下单已多久">{{ formatElapsed(detailData.start_time, detailData.end_time) }}</el-descriptions-item>
           <el-descriptions-item label="备注" :span="2">{{ detailData.remark || '-' }}</el-descriptions-item>
@@ -272,10 +273,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getSessionList, createSession, finishSession, cancelSession } from '@/api/session'
+import { getSessionList, getSessionDetail, getServerNow, createSession, finishSession, cancelSession } from '@/api/session'
 import { getVenueOptions, getPondList, getPondSeats, getPondFeeRules } from '@/api/pond'
 import { searchMiniUsers } from '@/api/miniUser'
 import { useVenueContextStore } from '@/stores/venueContext'
@@ -298,6 +299,11 @@ const createDialogVisible = ref(false)
 const detailDialogVisible = ref(false)
 const detailLoading = ref(false)
 const detailData = ref(null)
+const calibratedServerNowMs = ref(0)
+const calibratedLocalBaseMs = ref(0)
+const nowTick = ref(0)
+let timeoutTickTimer = null
+let timeoutResyncTimer = null
 const createFormRef = ref(null)
 const createSubmitting = ref(false)
 const payQrDialogVisible = ref(false)
@@ -365,6 +371,79 @@ function formatElapsed(startTime, endTime) {
   return parts.join('')
 }
 
+function formatElapsedSeconds(secondsTotal) {
+  if (!Number.isFinite(secondsTotal) || secondsTotal < 0) return '-'
+  let seconds = Math.floor(secondsTotal)
+  const days = Math.floor(seconds / 86400)
+  seconds -= days * 86400
+  const hours = Math.floor(seconds / 3600)
+  seconds -= hours * 3600
+  const minutes = Math.floor(seconds / 60)
+  seconds -= minutes * 60
+  const parts = []
+  if (days > 0) parts.push(`${days}天`)
+  if (hours > 0) parts.push(`${hours}小时`)
+  if (minutes > 0) parts.push(`${minutes}分`)
+  if (parts.length === 0) parts.push(`${seconds}秒`)
+  return parts.join('')
+}
+
+const calibratedNowMs = computed(() => {
+  void nowTick.value
+  if (calibratedServerNowMs.value <= 0 || calibratedLocalBaseMs.value <= 0) {
+    return Date.now()
+  }
+  return calibratedServerNowMs.value + (Date.now() - calibratedLocalBaseMs.value)
+})
+
+const timeoutElapsedText = computed(() => {
+  const d = detailData.value
+  if (!d || d.status !== 'timeout' || !d.timeout_time) return '-'
+  const timeoutTs = new Date(d.timeout_time).getTime()
+  if (!Number.isFinite(timeoutTs) || timeoutTs <= 0) return '-'
+  const endTs = d.end_time ? new Date(d.end_time).getTime() : 0
+  const nowTs = Number.isFinite(endTs) && endTs > 0 ? endTs : calibratedNowMs.value
+  if (!Number.isFinite(nowTs) || nowTs < timeoutTs) return '-'
+  return formatElapsedSeconds((nowTs - timeoutTs) / 1000)
+})
+
+function applyServerNow(serverNow) {
+  const serverMs = new Date(serverNow || '').getTime()
+  if (!Number.isFinite(serverMs) || serverMs <= 0) return
+  calibratedServerNowMs.value = serverMs
+  calibratedLocalBaseMs.value = Date.now()
+}
+
+function stopTimeoutAutoTick() {
+  if (timeoutTickTimer) {
+    clearInterval(timeoutTickTimer)
+    timeoutTickTimer = null
+  }
+  if (timeoutResyncTimer) {
+    clearInterval(timeoutResyncTimer)
+    timeoutResyncTimer = null
+  }
+}
+
+function startTimeoutAutoTick() {
+  stopTimeoutAutoTick()
+  // 每秒触发一次响应式重算
+  timeoutTickTimer = setInterval(() => {
+    nowTick.value += 1
+  }, 1000)
+  // 每 45 秒向服务端校准一次当前时间（轻接口，不查业务详情）
+  timeoutResyncTimer = setInterval(async () => {
+    try {
+      if (!detailDialogVisible.value) return
+      const res = await getServerNow()
+      const d = res?.data ?? res
+      if (d?.server_now) {
+        applyServerNow(d.server_now)
+      }
+    } catch (_) {}
+  }, 45000)
+}
+
 async function openDetailDialog(row) {
   detailDialogVisible.value = true
   detailLoading.value = true
@@ -375,12 +454,29 @@ async function openDetailDialog(row) {
       ...row,
       ...(d || {}),
     }
+    applyServerNow(detailData.value?.server_now)
+    if (detailData.value?.status === 'timeout' && !detailData.value?.end_time) {
+      startTimeoutAutoTick()
+    } else {
+      stopTimeoutAutoTick()
+    }
   } catch (e) {
     detailData.value = row || null
+    stopTimeoutAutoTick()
   } finally {
     detailLoading.value = false
   }
 }
+
+watch(detailDialogVisible, (open) => {
+  if (!open) {
+    stopTimeoutAutoTick()
+    return
+  }
+  if (detailData.value?.status === 'timeout' && !detailData.value?.end_time) {
+    startTimeoutAutoTick()
+  }
+})
 
 async function fetchList() {
   loading.value = true
@@ -611,6 +707,10 @@ watch(
 onMounted(() => {
   fetchList()
   loadVenues()
+})
+
+onUnmounted(() => {
+  stopTimeoutAutoTick()
 })
 
 function formatMiniUserLabel(u) {

@@ -165,6 +165,7 @@ class FishingSessionController extends BaseController
         $arr['fee_rule_name'] = $fee ? (string) ($fee->name ?? '') : '';
         $arr['fee_rule_duration_text'] = $fee ? (string) ($fee->duration ?? '') : '';
         $arr['fee_rule_order_label'] = self::feeRuleOrderLabel($fee);
+        $arr['server_now'] = date('Y-m-d H:i:s');
         return json(['code' => 0, 'msg' => 'success', 'data' => $arr]);
     }
 

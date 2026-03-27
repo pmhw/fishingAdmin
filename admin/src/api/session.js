@@ -8,6 +8,10 @@ export function getSessionDetail(id) {
   return request.get(`/api/admin/sessions/${id}`)
 }
 
+export function getServerNow() {
+  return request.get('/api/admin/time/now')
+}
+
 export function createSession(data) {
   return request.post('/api/admin/sessions', data)
 }
