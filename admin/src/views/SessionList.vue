@@ -70,6 +70,7 @@
         <el-table-column prop="end_time" label="结束时间" width="170" />
         <el-table-column label="操作" width="260" fixed="right">
           <template #default="{ row }">
+            <el-button link type="primary" @click="openDetailDialog(row)">详情</el-button>
             <el-button link type="primary" @click="goReturnLogs(row)">回鱼流水</el-button>
             <el-button link type="primary" @click="goFishTrades(row)">卖鱼流水</el-button>
             <el-button
@@ -99,6 +100,51 @@
         @size-change="(s) => { limit = s; page = 1; fetchList(); }"
       />
     </el-card>
+
+    <el-dialog
+      v-model="detailDialogVisible"
+      title="开钓单详情"
+      width="620px"
+      :close-on-click-modal="false"
+    >
+      <div v-loading="detailLoading">
+        <el-descriptions v-if="detailData" :column="2" border>
+          <el-descriptions-item label="开钓单号">{{ detailData.session_no || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="状态">
+            <el-tag :type="statusTagType(detailData.status)" size="small">{{ statusLabel(detailData.status) }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="用户">{{ detailData.user_nickname || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="类型">
+            <el-tag :type="detailData.order_type === 'activity' ? 'warning' : 'success'" size="small">
+              {{ detailData.order_type === 'activity' ? '活动订单' : '开卡单' }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="钓场">{{ detailData.venue_name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="池塘">{{ detailData.pond_name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="钓位">
+            <span v-if="detailData.seat_code">{{ detailData.seat_code }}</span>
+            <span v-else-if="detailData.seat_no">#{{ detailData.seat_no }}</span>
+            <span v-else>-</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="下单套餐" :span="2">
+            <span>{{ detailData.fee_rule_order_label || '-' }}</span>
+            <span v-if="detailData.fee_rule_id" class="fee-rule-id">（规则ID {{ detailData.fee_rule_id }}）</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="应收(元)">{{ formatMoney(detailData.amount_total_yuan) }}</el-descriptions-item>
+          <el-descriptions-item label="实收(元)">{{ formatMoney(detailData.amount_paid_yuan) }}</el-descriptions-item>
+          <el-descriptions-item label="押金(元)">{{ formatMoney(detailData.deposit_total_yuan) }}</el-descriptions-item>
+          <el-descriptions-item label="开始时间">{{ detailData.start_time || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="超时时间">{{ detailData.timeout_time || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="结束时间">{{ detailData.end_time || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="下单已多久">{{ formatElapsed(detailData.start_time, detailData.end_time) }}</el-descriptions-item>
+          <el-descriptions-item label="备注" :span="2">{{ detailData.remark || '-' }}</el-descriptions-item>
+        </el-descriptions>
+        <el-empty v-else description="暂无详情" :image-size="80" />
+      </div>
+      <template #footer>
+        <el-button @click="detailDialogVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
 
     <el-dialog
       v-model="createDialogVisible"
@@ -249,6 +295,9 @@ const filters = reactive({
 })
 
 const createDialogVisible = ref(false)
+const detailDialogVisible = ref(false)
+const detailLoading = ref(false)
+const detailData = ref(null)
 const createFormRef = ref(null)
 const createSubmitting = ref(false)
 const payQrDialogVisible = ref(false)
@@ -293,6 +342,44 @@ function statusTagType(status) {
 function formatMoney(v) {
   const n = Number(v || 0)
   return n.toFixed(2)
+}
+
+function formatElapsed(startTime, endTime) {
+  if (!startTime) return '-'
+  const startTs = new Date(startTime).getTime()
+  if (!Number.isFinite(startTs) || startTs <= 0) return '-'
+  const endTs = endTime ? new Date(endTime).getTime() : Date.now()
+  if (!Number.isFinite(endTs) || endTs < startTs) return '-'
+  let seconds = Math.floor((endTs - startTs) / 1000)
+  const days = Math.floor(seconds / 86400)
+  seconds -= days * 86400
+  const hours = Math.floor(seconds / 3600)
+  seconds -= hours * 3600
+  const minutes = Math.floor(seconds / 60)
+  seconds -= minutes * 60
+  const parts = []
+  if (days > 0) parts.push(`${days}天`)
+  if (hours > 0) parts.push(`${hours}小时`)
+  if (minutes > 0) parts.push(`${minutes}分`)
+  if (parts.length === 0) parts.push(`${seconds}秒`)
+  return parts.join('')
+}
+
+async function openDetailDialog(row) {
+  detailDialogVisible.value = true
+  detailLoading.value = true
+  try {
+    const res = await getSessionDetail(row.id)
+    const d = res?.data ?? res
+    detailData.value = {
+      ...row,
+      ...(d || {}),
+    }
+  } catch (e) {
+    detailData.value = row || null
+  } finally {
+    detailLoading.value = false
+  }
 }
 
 async function fetchList() {
@@ -565,6 +652,11 @@ async function onSearchMiniUser(query) {
 }
 .filter-form {
   margin-bottom: 12px;
+}
+.fee-rule-id {
+  margin-left: 6px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 </style>
 

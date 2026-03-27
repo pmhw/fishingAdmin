@@ -83,16 +83,21 @@ class FishingSessionController extends BaseController
         $venueIds = [];
         $userIds = [];
         $orderIds = [];
+        $feeRuleIds = [];
         foreach ($rows as $r) {
             if ($r->pond_id) $pondIds[] = (int) $r->pond_id;
             if ($r->venue_id) $venueIds[] = (int) $r->venue_id;
             if ($r->mini_user_id) $userIds[] = (int) $r->mini_user_id;
             if ($r->order_id) $orderIds[] = (int) $r->order_id;
+            if ($r->fee_rule_id) {
+                $feeRuleIds[] = (int) $r->fee_rule_id;
+            }
         }
         $pondIds = array_values(array_unique($pondIds));
         $venueIds = array_values(array_unique($venueIds));
         $userIds = array_values(array_unique($userIds));
         $orderIds = array_values(array_unique($orderIds));
+        $feeRuleIds = array_values(array_unique(array_filter($feeRuleIds)));
 
         $pondMap = $pondIds ? FishingPond::whereIn('id', $pondIds)->column('name', 'id') : [];
         $venueMap = $venueIds ? FishingVenue::whereIn('id', $venueIds)->column('name', 'id') : [];
@@ -100,6 +105,14 @@ class FishingSessionController extends BaseController
         $orderRows = $orderIds
             ? FishingOrder::whereIn('id', $orderIds)->column('description', 'id')
             : [];
+        /** @var array<int, PondFeeRule> $feeRuleMap */
+        $feeRuleMap = [];
+        if ($feeRuleIds !== []) {
+            $feeRows = PondFeeRule::whereIn('id', $feeRuleIds)->select();
+            foreach ($feeRows as $fr) {
+                $feeRuleMap[(int) $fr->id] = $fr;
+            }
+        }
 
         $list = [];
         foreach ($rows as $r) {
@@ -112,6 +125,11 @@ class FishingSessionController extends BaseController
             $arr['deposit_total_yuan'] = round(((int) ($arr['deposit_total'] ?? 0)) / 100, 2);
             $desc = (string) ($orderRows[(int) ($arr['order_id'] ?? 0)] ?? '');
             $arr['order_type'] = str_contains($desc, '活动报名预付款') ? 'activity' : 'session';
+            $fid = (int) ($arr['fee_rule_id'] ?? 0);
+            $fee = $fid > 0 ? ($feeRuleMap[$fid] ?? null) : null;
+            $arr['fee_rule_name'] = $fee ? (string) ($fee->name ?? '') : '';
+            $arr['fee_rule_duration_text'] = $fee ? (string) ($fee->duration ?? '') : '';
+            $arr['fee_rule_order_label'] = self::feeRuleOrderLabel($fee);
             $list[] = $arr;
         }
 
@@ -141,7 +159,44 @@ class FishingSessionController extends BaseController
         $arr['amount_total_yuan'] = round(((int) ($arr['amount_total'] ?? 0)) / 100, 2);
         $arr['amount_paid_yuan'] = round(((int) ($arr['amount_paid'] ?? 0)) / 100, 2);
         $arr['deposit_total_yuan'] = round(((int) ($arr['deposit_total'] ?? 0)) / 100, 2);
+        $fid = (int) ($arr['fee_rule_id'] ?? 0);
+        /** @var PondFeeRule|null $fee */
+        $fee = $fid > 0 ? PondFeeRule::find($fid) : null;
+        $arr['fee_rule_name'] = $fee ? (string) ($fee->name ?? '') : '';
+        $arr['fee_rule_duration_text'] = $fee ? (string) ($fee->duration ?? '') : '';
+        $arr['fee_rule_order_label'] = self::feeRuleOrderLabel($fee);
         return json(['code' => 0, 'msg' => 'success', 'data' => $arr]);
+    }
+
+    /**
+     * 下单套餐展示：如「正钓1小时」（name + duration 展示字段；缺省时用数值+单位兜底）
+     */
+    private static function feeRuleOrderLabel(?PondFeeRule $fee): string
+    {
+        if ($fee === null) {
+            return '';
+        }
+        $name = trim((string) ($fee->name ?? ''));
+        $durShow = trim((string) ($fee->duration ?? ''));
+        if ($name !== '' && $durShow !== '') {
+            return $name . $durShow;
+        }
+        if ($name !== '') {
+            return $name;
+        }
+        if ($durShow !== '') {
+            return $durShow;
+        }
+        $val = $fee->duration_value !== null ? (float) $fee->duration_value : 0.0;
+        $unit = (string) ($fee->duration_unit ?? '');
+        if ($val > 0 && ($unit === 'hour' || $unit === 'day')) {
+            $suffix = $unit === 'day' ? '天' : '小时';
+            $num = abs($val - (float) (int) $val) < 0.001 ? (string) (int) $val : (string) $val;
+
+            return ($name !== '' ? $name : '垂钓') . $num . $suffix;
+        }
+
+        return '';
     }
 
     /**
