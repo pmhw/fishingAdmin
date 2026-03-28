@@ -29,6 +29,7 @@
 | POST | `/api/mini/user/recharge/order` | 需登录（Bearer token） | 创建充值待支付订单 |
 | POST | `/api/mini/pay/wechat/jsapi` | 需登录 | 统一下单，返回 `wx.requestPayment` 参数 |
 | GET | `/api/mini/user/balance` | 需登录 | 支付成功后刷新余额 / 会员状态 |
+| GET | `/api/mini/trades` | 需登录 | 交易聚合列表（开钓单/店铺/回鱼，无新表），说明见 `md/mini_trades_aggregate.md` |
 
 兼容路径：若项目里配置了别名，`/api/mini/pay/weixin/jsapi` 与 `jsapi` 等价（以 `route/app.php` 为准）。
 

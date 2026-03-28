@@ -76,6 +76,8 @@ Route::group('api', function () {
     Route::post('mini/user/profile', 'Api.Mini.UserController/profile')->middleware(\app\middleware\MiniAuth::class);
     // 小程序订单查询（支付页用）
     Route::get('mini/orders/:order_no', 'Api.Mini.OrderController/show')->middleware(\app\middleware\MiniAuth::class);
+    // 交易聚合列表（开钓单/店铺/回鱼，无新表，多表 UNION）
+    Route::get('mini/trades', 'Api.Mini.TradeController/list')->middleware(\app\middleware\MiniAuth::class);
     // 小程序端开钓单（开卡）
     Route::post('mini/sessions', 'Api.Mini.SessionController/create')->middleware(\app\middleware\MiniAuth::class);
     // 小程序端垂钓记录（开钓单列表 + 总数 + 总回鱼重量）
@@ -256,3 +258,4 @@ Route::post('mini/pay/weixin/jsapi', 'Api.Mini.PayController/jsapi')->middleware
 Route::post('mini/pay/balance', 'Api.Mini.SessionController/create')->middleware(\app\middleware\MiniAuth::class);
 Route::post('mini/sessions', 'Api.Mini.SessionController/create')->middleware(\app\middleware\MiniAuth::class);
 Route::post('mini/venues/:venue_id/shop/orders', 'Api.Mini.ShopOrderController/create')->middleware(\app\middleware\MiniAuth::class);
+Route::get('mini/trades', 'Api.Mini.TradeController/list')->middleware(\app\middleware\MiniAuth::class);
