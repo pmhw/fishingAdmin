@@ -64,6 +64,13 @@
 - **`SO` 开头**或描述含「店铺订单」的 **`fishing_order`** 不在本列表出现，**以 `venue_shop_order` 为准**，避免店铺单双条。
 - 纯余额支付的店铺单可能**仅有** `venue_shop_order`，仍会出现在 `kind=shop` / `all` 中。
 
+## 不展示的数据（过滤规则）
+
+- **支付超时**：`fishing_order.status = 'timeout'` 不展示。
+- **店铺单超时关闭**：`venue_shop_order.status = 'closed'`（待支付超时关单）不展示。
+- **回鱼未到账**：仅展示 **`pond_return_log.payout_status = 'success'`**（已入会员余额或微信打款已成功）。`none` / `pending` / `failed` 等均不展示。
+- 若库表**尚未执行** `md/pond_return_log_payout_fields.sql`，没有 `payout_status` 字段，则**聚合列表中不会出现回鱼行**（避免误展示未到账记录）。
+
 ---
 
 ## 后端文件

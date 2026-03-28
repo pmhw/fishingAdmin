@@ -13,9 +13,14 @@ use think\response\Json;
  * 小程序端：交易聚合列表（不新增表，从 fishing_order / venue_shop_order / pond_return_log 聚合）
  *
  * GET /api/mini/trades
+ *
+ * 过滤：不含支付超时钓场单、不含店铺超时关单、回鱼仅含打款成功（到账）记录。
  */
 class TradeController extends MiniBaseController
 {
+    /** @var bool|null 是否已有 pond_return_log.payout_status（缓存，避免重复 SHOW COLUMNS） */
+    private static ?bool $pondReturnHasPayoutStatusColumn = null;
+
     /**
      * Query：page，limit（默认 10，最大 50），kind：all | fishing | shop | return
      */
@@ -91,6 +96,7 @@ SELECT
   COALESCE(fo.pay_time, fo.created_at) AS sort_ts
 FROM fishing_order fo
 WHERE fo.mini_user_id = ?
+  AND fo.status <> 'timeout'
   AND NOT (fo.order_no LIKE 'SO%' OR IFNULL(fo.description, '') LIKE '%店铺订单%')
 ";
 
@@ -108,7 +114,12 @@ SELECT
   COALESCE(v.pay_time, v.created_at) AS sort_ts
 FROM venue_shop_order v
 WHERE v.mini_user_id = ?
+  AND v.status <> 'closed'
 ";
+
+        $returnPayoutClause = $this->pondReturnLogHasPayoutStatusColumn()
+            ? 'AND prl.payout_status = \'success\''
+            : 'AND 1 = 0';
 
         $returnSql = "
 SELECT
@@ -125,6 +136,7 @@ SELECT
 FROM pond_return_log prl
 INNER JOIN fishing_session fs ON fs.id = prl.session_id
 WHERE fs.mini_user_id = ?
+  {$returnPayoutClause}
 ";
 
         if ($kind === 'all' || $kind === 'fishing') {
@@ -145,6 +157,24 @@ WHERE fs.mini_user_id = ?
         }
 
         return [implode(' UNION ALL ', $parts), $binds];
+    }
+
+    /**
+     * 无 payout_status 字段时无法在 SQL 中区分是否到账，回鱼分支不返回任何行（需执行 md/pond_return_log_payout_fields.sql）
+     */
+    private function pondReturnLogHasPayoutStatusColumn(): bool
+    {
+        if (self::$pondReturnHasPayoutStatusColumn !== null) {
+            return self::$pondReturnHasPayoutStatusColumn;
+        }
+        try {
+            $rows = Db::query("SHOW COLUMNS FROM `pond_return_log` LIKE 'payout_status'");
+            self::$pondReturnHasPayoutStatusColumn = !empty($rows);
+        } catch (\Throwable $e) {
+            self::$pondReturnHasPayoutStatusColumn = false;
+        }
+
+        return self::$pondReturnHasPayoutStatusColumn;
     }
 
     /**
