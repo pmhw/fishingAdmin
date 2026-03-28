@@ -27,7 +27,8 @@ class BannerController extends BaseController
      * - recommended_limit: 可选，推荐条数，默认 10，最大 20
      * 仅返回 status=1 且在有效期内（start_time/end_time 为空或当前时间在区间内）的数据，按 sort_order 升序
      *
-     * 响应：`data` 仍为轮播数组（兼容旧版）；顶层另含 `recommended_venues`、`recommended_title` 等同城推荐字段。
+     * 响应：`data` 仍为轮播数组（兼容旧版）；顶层另含 `recommended_venues`、`recommended_title` 等。
+     * 推荐钓场项含 `facilities`（原文）与 `facilities_list`（解析后的设施标签数组，便于渲染）。
      */
     public function list(): Json
     {
@@ -127,16 +128,47 @@ class BannerController extends BaseController
                 'opening_hours' => (string) ($arr['opening_hours'] ?? ''),
                 'price_type'    => (string) ($arr['price_type'] ?? ''),
                 'price_info'    => (string) ($arr['price_info'] ?? ''),
-                'price_min'     => $arr['price_min'] ?? null,
-                'price_max'     => $arr['price_max'] ?? null,
-                'facilities'    => (string) ($arr['facilities'] ?? ''),
-                'fish_species'  => (string) ($arr['fish_species'] ?? ''),
+                'price_min'        => $arr['price_min'] ?? null,
+                'price_max'        => $arr['price_max'] ?? null,
+                'facilities'       => (string) ($arr['facilities'] ?? ''),
+                'facilities_list'  => $this->parseFacilitiesList($arr['facilities'] ?? ''),
+                'fish_species'     => (string) ($arr['fish_species'] ?? ''),
                 'view_count'    => (int) ($arr['view_count'] ?? 0),
                 'sort_order'    => (int) ($arr['sort_order'] ?? 0),
             ];
         }
 
         return [$out, $scopeLabel, $scopeCity, $scopeProvince];
+    }
+
+    /**
+     * 与钓场详情一致：facilities 可为 JSON 数组或中英文逗号分隔
+     *
+     * @return string[]
+     */
+    private function parseFacilitiesList(mixed $raw): array
+    {
+        if ($raw === null || $raw === '') {
+            return [];
+        }
+        $s = is_string($raw) ? $raw : (string) $raw;
+        $s = trim($s);
+        if ($s === '') {
+            return [];
+        }
+        $decoded = json_decode($s, true);
+        if (is_array($decoded)) {
+            return array_values(array_filter(array_map(static function ($v) {
+                return trim((string) $v);
+            }, $decoded), static function ($v) {
+                return $v !== '';
+            }));
+        }
+        $parts = preg_split('/[，,]/u', $s);
+
+        return array_values(array_filter(array_map('trim', is_array($parts) ? $parts : []), static function ($v) {
+            return $v !== '';
+        }));
     }
 
     /**
