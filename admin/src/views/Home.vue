@@ -93,6 +93,7 @@ import {
   Coin,
   TrendCharts,
   Histogram,
+  Clock,
   Tickets,
   UserFilled,
   StarFilled,
@@ -185,6 +186,16 @@ const statSections = computed(() => {
           tone: 'teal',
           icon: TrendCharts,
           valueClass: 'stat-card__value--accent',
+        },
+        {
+          key: 'session_timeout_count',
+          label: '超时钓卡',
+          value: Number(s.session_timeout_count) || 0,
+          valueFormat: 'int',
+          desc: '当前状态为「超时」、待管理员手动结束的开钓单',
+          tone: 'orange',
+          icon: Clock,
+          valueClass: 'stat-card__value--warn',
         },
         {
           key: 'session_total_count',
@@ -733,6 +744,10 @@ onUnmounted(() => {
 
 .stat-card__value--vip {
   color: #d97706;
+}
+
+.stat-card__value--warn {
+  color: #ea580c;
 }
 
 .stat-card__suffix {

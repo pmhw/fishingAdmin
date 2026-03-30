@@ -67,6 +67,7 @@ class DashboardController extends BaseController
             'return_amount_yuan'     => 0.0,
             'session_total_count'    => 0,
             'session_ongoing_count'  => 0,
+            'session_timeout_count'  => 0,
             'card_order_count'       => 0,
             'venue_name'             => '',
         ];
@@ -112,6 +113,7 @@ class DashboardController extends BaseController
         // ---------- fishing_session ----------
         $sessionTotalCount   = (int) $sessionScoped()->count();
         $sessionOngoingCount = (int) $sessionScoped()->where('status', 'ongoing')->count();
+        $sessionTimeoutCount = (int) $sessionScoped()->where('status', 'timeout')->count();
         $sessionPaidSumFen   = (int) $sessionScoped()->sum('amount_paid');
         $sessionPaidYuan     = round($sessionPaidSumFen / 100, 2);
 
@@ -192,6 +194,7 @@ class DashboardController extends BaseController
                 'return_amount_yuan'    => round($returnAmount, 2),
                 'session_total_count'   => $sessionTotalCount,
                 'session_ongoing_count'   => $sessionOngoingCount,
+                'session_timeout_count'   => $sessionTimeoutCount,
                 'card_order_count'      => $cardOrderCount,
             ],
         ]);
