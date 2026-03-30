@@ -94,9 +94,11 @@
 
 <script setup>
 import { ref, reactive, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { getOrderList } from '@/api/order'
 import { useVenueContextStore } from '@/stores/venueContext'
 
+const route = useRoute()
 const venueStore = useVenueContextStore()
 
 const loading = ref(false)
@@ -165,7 +167,19 @@ watch(
   }
 )
 
+watch(
+  () => route.query.status,
+  (v) => {
+    filters.status = typeof v === 'string' ? v : ''
+    page.value = 1
+    fetchList()
+  }
+)
+
 onMounted(() => {
+  if (typeof route.query.status === 'string' && route.query.status) {
+    filters.status = route.query.status
+  }
   fetchList()
 })
 </script>

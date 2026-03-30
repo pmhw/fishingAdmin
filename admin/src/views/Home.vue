@@ -57,8 +57,17 @@
           >
             <div
               class="stat-card"
-              :class="[`stat-card--${item.tone}`, 'stat-card--enter']"
+              :class="[
+                `stat-card--${item.tone}`,
+                'stat-card--enter',
+                { 'stat-card--clickable': !!item.to },
+              ]"
               :style="{ '--i': flatIndex(si, idx) }"
+              :role="item.to ? 'button' : undefined"
+              :tabindex="item.to ? 0 : undefined"
+              @click="statNavigate(item)"
+              @keydown.enter.prevent="statNavigate(item)"
+              @keydown.space.prevent="statNavigate(item)"
             >
               <div class="stat-card__top">
                 <div class="stat-card__icon" :class="`stat-card__icon--${item.tone}`">
@@ -102,10 +111,12 @@ import {
 } from '@element-plus/icons-vue'
 import FishIcon from '@/components/icons/FishIcon.vue'
 import CountUpText from '@/components/CountUpText.vue'
+import { useRouter } from 'vue-router'
 import { getDashboardStats } from '@/api/dashboard'
 import { useVenueContextStore } from '@/stores/venueContext'
 import { subscribeDashboardRefresh } from '@/composables/dashboardRefreshHub'
 
+const router = useRouter()
 const venueStore = useVenueContextStore()
 const loading = ref(false)
 const stats = ref(null)
@@ -132,11 +143,12 @@ const scopeHint = computed(() => {
 })
 
 /** 与统计范围配套的短说明（重写板块后单独一行展示） */
-const scopeTip = computed(() =>
-  venueStore.venueId
+const scopeTip = computed(() => {
+  const base = venueStore.venueId
     ? '当前与顶部栏「当前钓场」筛选一致。'
     : '顶部未选钓场时，下方为全部钓场合计。'
-)
+  return `${base} 点击数据卡片可进入对应管理页（与顶部钓场筛选一致）。`
+})
 
 function flatIndex(sectionIdx, itemIdx) {
   let n = 0
@@ -144,6 +156,12 @@ function flatIndex(sectionIdx, itemIdx) {
     n += statSections.value[i]?.items?.length ?? 0
   }
   return n + itemIdx
+}
+
+/** 点击卡片跳转对应管理页（与顶部「当前钓场」筛选一致，由目标页使用 venueStore） */
+function statNavigate(item) {
+  if (!item?.to) return
+  router.push(item.to)
 }
 
 const statSections = computed(() => {
@@ -165,6 +183,7 @@ const statSections = computed(() => {
           tone: 'emerald',
           icon: Wallet,
           valueClass: 'stat-card__value--money',
+          to: { name: 'Orders', query: { status: 'paid' } },
         },
         {
           key: 'session_paid_yuan',
@@ -176,6 +195,7 @@ const statSections = computed(() => {
           tone: 'cyan',
           icon: Coin,
           valueClass: 'stat-card__value--money',
+          to: { name: 'Sessions' },
         },
         {
           key: 'session_ongoing_count',
@@ -186,6 +206,7 @@ const statSections = computed(() => {
           tone: 'teal',
           icon: TrendCharts,
           valueClass: 'stat-card__value--accent',
+          to: { name: 'Sessions', query: { status: 'ongoing' } },
         },
         {
           key: 'session_timeout_count',
@@ -196,6 +217,7 @@ const statSections = computed(() => {
           tone: 'orange',
           icon: Clock,
           valueClass: 'stat-card__value--warn',
+          to: { name: 'Sessions', query: { status: 'timeout' } },
         },
         {
           key: 'session_total_count',
@@ -205,6 +227,7 @@ const statSections = computed(() => {
           desc: '全部状态开钓单',
           tone: 'slate',
           icon: Histogram,
+          to: { name: 'Sessions' },
         },
       ],
     },
@@ -221,6 +244,7 @@ const statSections = computed(() => {
           desc: '开卡类订单笔数（不含 SO）',
           tone: 'indigo',
           icon: Tickets,
+          to: { name: 'Orders' },
         },
         {
           key: 'consumer_user_count',
@@ -230,6 +254,7 @@ const statSections = computed(() => {
           desc: '有过开钓单的用户数',
           tone: 'blue',
           icon: UserFilled,
+          to: { name: 'Sessions' },
         },
         {
           key: 'vip_user_count',
@@ -240,6 +265,7 @@ const statSections = computed(() => {
           tone: 'amber',
           icon: StarFilled,
           valueClass: 'stat-card__value--vip',
+          to: { name: 'Sessions' },
         },
         {
           key: 'return_log_count',
@@ -249,6 +275,7 @@ const statSections = computed(() => {
           desc: '回鱼记录条数',
           tone: 'violet',
           icon: List,
+          to: { name: 'ReturnLogs' },
         },
       ],
     },
@@ -268,6 +295,7 @@ const statSections = computed(() => {
           icon: ScaleToOriginal,
           md: 8,
           lg: 8,
+          to: { name: 'ReturnLogs' },
         },
         {
           key: 'return_tiao_qty',
@@ -280,6 +308,7 @@ const statSections = computed(() => {
           icon: FishIcon,
           md: 8,
           lg: 8,
+          to: { name: 'ReturnLogs' },
         },
         {
           key: 'return_amount_yuan',
@@ -293,6 +322,7 @@ const statSections = computed(() => {
           valueClass: 'stat-card__value--money',
           md: 8,
           lg: 8,
+          to: { name: 'ReturnLogs' },
         },
       ],
     },
@@ -621,6 +651,22 @@ onUnmounted(() => {
   background: #fff;
   border: 1px solid rgba(15, 23, 42, 0.08);
   overflow: hidden;
+}
+
+.stat-card--clickable {
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  user-select: none;
+}
+
+.stat-card--clickable:hover {
+  border-color: rgba(13, 148, 136, 0.35);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.stat-card--clickable:focus-visible {
+  outline: 2px solid #0d9488;
+  outline-offset: 2px;
 }
 
 .stat-card--enter {

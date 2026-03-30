@@ -3,6 +3,7 @@ declare (strict_types = 1);
 
 namespace app\controller\Api\Mini;
 
+use app\model\Activity;
 use app\model\FishingVenue;
 use app\model\FishingPond;
 use app\model\PondFeeRule;
@@ -212,6 +213,9 @@ class VenueController extends \app\BaseController
      *
      * 可选参数（query/body）：
      * - latitude, longitude 用户经纬度，用于计算距离展示文案
+     *
+     * ponds[].status：池塘若存在已发布活动（activity.status=published），优先展示「活动中」（已到 open_time）
+     * 或「活动报名中」（未到 open_time）；否则仍为「开放中」/「关闭」（以池塘自身状态为准，关闭优先）。
      */
     public function spot(int $id): Json
     {
@@ -361,6 +365,29 @@ class VenueController extends \app\BaseController
                 }
             }
 
+            // 已发布活动：按池塘标记（与小程序开钓单禁入逻辑一致：存在 published 即占用池塘）
+            /** @var array<int, string> $activityStatusByPond pond_id => 活动中|活动报名中 */
+            $activityStatusByPond = [];
+            if (!empty($pondIds)) {
+                $now = date('Y-m-d H:i:s');
+                $actRows = Activity::whereIn('pond_id', $pondIds)
+                    ->where('status', 'published')
+                    ->field(['pond_id', 'open_time'])
+                    ->select();
+                foreach ($actRows as $ar) {
+                    $pid = (int) ($ar->pond_id ?? 0);
+                    if ($pid < 1) {
+                        continue;
+                    }
+                    $openTs = strtotime((string) ($ar->open_time ?? ''));
+                    $label = ($openTs > 0 && $openTs <= strtotime($now)) ? '活动中' : '活动报名中';
+                    // 多活动同塘：优先展示「活动中」
+                    if (($activityStatusByPond[$pid] ?? '') !== '活动中') {
+                        $activityStatusByPond[$pid] = $label;
+                    }
+                }
+            }
+
             // 预加载收费规则，避免 N+1
             $feeRulesByPond = [];
             if (!empty($pondIds)) {
@@ -409,11 +436,21 @@ class VenueController extends \app\BaseController
                     FishingPond::TYPE_PRACTICE  => '练杆塘',
                     default                     => '',
                 };
-                $statusLabel = match ($pondArr['status'] ?? '') {
-                    FishingPond::STATUS_OPEN   => '开放中',
-                    FishingPond::STATUS_CLOSED => '关闭',
-                    default                    => '',
-                };
+                $pondOpen = ($pondArr['status'] ?? '') === FishingPond::STATUS_OPEN;
+                if (!$pondOpen) {
+                    $statusLabel = match ($pondArr['status'] ?? '') {
+                        FishingPond::STATUS_CLOSED => '关闭',
+                        default                    => '',
+                    };
+                } elseif (!empty($activityStatusByPond[$pondId])) {
+                    $statusLabel = $activityStatusByPond[$pondId];
+                } else {
+                    $statusLabel = match ($pondArr['status'] ?? '') {
+                        FishingPond::STATUS_OPEN   => '开放中',
+                        FishingPond::STATUS_CLOSED => '关闭',
+                        default                    => '',
+                    };
+                }
 
                 $ponds[] = [
                     'id'        => $pondId,

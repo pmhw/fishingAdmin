@@ -274,7 +274,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, onUnmounted, watch, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getSessionList, getSessionDetail, getServerNow, createSession, finishSession, cancelSession } from '@/api/session'
 import { getVenueOptions, getPondList, getPondSeats, getPondFeeRules } from '@/api/pond'
@@ -282,6 +282,7 @@ import { searchMiniUsers } from '@/api/miniUser'
 import { useVenueContextStore } from '@/stores/venueContext'
 
 const router = useRouter()
+const route = useRoute()
 const venueStore = useVenueContextStore()
 const loading = ref(false)
 const list = ref([])
@@ -704,7 +705,19 @@ watch(
   }
 )
 
+watch(
+  () => route.query.status,
+  (v) => {
+    filters.status = typeof v === 'string' ? v : ''
+    page.value = 1
+    fetchList()
+  }
+)
+
 onMounted(() => {
+  if (typeof route.query.status === 'string' && route.query.status) {
+    filters.status = route.query.status
+  }
   fetchList()
   loadVenues()
 })
