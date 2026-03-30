@@ -216,6 +216,9 @@ class VenueController extends \app\BaseController
      *
      * ponds[].status：池塘若存在已发布活动（activity.status=published），优先展示「活动中」（已到 open_time）
      * 或「活动报名中」（未到 open_time）；否则仍为「开放中」/「关闭」（以池塘自身状态为准，关闭优先）。
+     *
+     * 钓位：spot.seat / spot.seatTotal / spot.seat_remaining 为全钓场汇总（各池塘 pond_seat 统计）；
+     * ponds[].seat 为已占用，ponds[].seatTotal 为总钓位，ponds[].seat_remaining 为剩余。
      */
     public function spot(int $id): Json
     {
@@ -452,19 +455,22 @@ class VenueController extends \app\BaseController
                     };
                 }
 
+                $pondSeatRemain = max(0, $seatTotal - $seatUsed);
+
                 $ponds[] = [
-                    'id'        => $pondId,
-                    'name'      => (string) $pondArr['name'],
-                    'status'    => $statusLabel,
-                    'area'      => $pondArr['area_mu'] !== null ? ((string) $pondArr['area_mu'] . '亩') : '',
-                    'depth'     => (string) ($pondArr['water_depth'] ?? ''),
-                    'type'      => $typeLabel,
-                    'rodLimit'  => (string) ($pondArr['rod_rule'] ?? ''),
-                    'baitRule'  => (string) ($pondArr['bait_rule'] ?? ''),
-                    'seat'      => $seatUsed,
-                    'seatTotal' => $seatTotal,
-                    'fishTypes' => $fishTypes,
-                    'feeRules'  => $feeRulesByPond[$pondId] ?? [],
+                    'id'             => $pondId,
+                    'name'           => (string) $pondArr['name'],
+                    'status'         => $statusLabel,
+                    'area'           => $pondArr['area_mu'] !== null ? ((string) $pondArr['area_mu'] . '亩') : '',
+                    'depth'          => (string) ($pondArr['water_depth'] ?? ''),
+                    'type'           => $typeLabel,
+                    'rodLimit'       => (string) ($pondArr['rod_rule'] ?? ''),
+                    'baitRule'       => (string) ($pondArr['bait_rule'] ?? ''),
+                    'seat'           => $seatUsed,
+                    'seatTotal'      => $seatTotal,
+                    'seat_remaining' => $pondSeatRemain,
+                    'fishTypes'      => $fishTypes,
+                    'feeRules'       => $feeRulesByPond[$pondId] ?? [],
                 ];
             }
         }
@@ -474,25 +480,28 @@ class VenueController extends \app\BaseController
             default => '休息中',
         };
 
+        $venueSeatRemain = max(0, $totalSeatAll - $totalSeat);
+
         $spot = [
-            'id'          => (int) $venue['id'],
-            'name'        => (string) $venue['name'],
-            'images'      => $images,
-            'status'      => $venueStatusLabel,
-            'rating'      => null,
-            'distance'    => $distanceText,
-            'seat'        => $totalSeat,
-            'seatTotal'   => $totalSeatAll,
-            'description' => (string) ($venue['description'] ?? ''),
-            'openTime'    => (string) ($venue['opening_hours'] ?? ''),
-            'phone'       => (string) ($venue['contact_phone'] ?? ''),
-            'latitude'    => $venueLat ?: null,
-            'longitude'   => $venueLng ?: null,
-            'address'     => (string) ($venue['address'] ?? ''),
-            'facilities'  => $facilities,
-            'feeds'       => $feeds,
-            'is_favorited'=> $isFavorited ? 1 : 0,
-            'ponds'       => $ponds,
+            'id'             => (int) $venue['id'],
+            'name'           => (string) $venue['name'],
+            'images'         => $images,
+            'status'         => $venueStatusLabel,
+            'rating'         => null,
+            'distance'       => $distanceText,
+            'seat'           => $totalSeat,
+            'seatTotal'      => $totalSeatAll,
+            'seat_remaining' => $venueSeatRemain,
+            'description'    => (string) ($venue['description'] ?? ''),
+            'openTime'       => (string) ($venue['opening_hours'] ?? ''),
+            'phone'          => (string) ($venue['contact_phone'] ?? ''),
+            'latitude'       => $venueLat ?: null,
+            'longitude'      => $venueLng ?: null,
+            'address'        => (string) ($venue['address'] ?? ''),
+            'facilities'     => $facilities,
+            'feeds'          => $feeds,
+            'is_favorited'   => $isFavorited ? 1 : 0,
+            'ponds'          => $ponds,
         ];
 
         return json(['code' => 0, 'msg' => 'success', 'data' => ['spot' => $spot]]);
