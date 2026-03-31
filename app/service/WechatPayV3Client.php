@@ -63,9 +63,15 @@ class WechatPayV3Client
 
         $timestamp = (string) time();
         $nonceStr = bin2hex(random_bytes(16));
-        $signature = $this->sign('POST', $path, $timestamp, $nonceStr, $body);
+        [$signature, $signErr] = $this->sign('POST', $path, $timestamp, $nonceStr, $body);
         if ($signature === '') {
-            return ['http_code' => 0, 'body' => ['code' => 'SIGN_FAILED', 'message' => 'sign failed']];
+            return [
+                'http_code' => 0,
+                'body' => [
+                    'code' => 'SIGN_FAILED',
+                    'message' => $signErr !== '' ? $signErr : 'sign failed',
+                ],
+            ];
         }
 
         $authorization = sprintf(
@@ -106,20 +112,36 @@ class WechatPayV3Client
         return ['http_code' => $httpCode, 'body' => is_array($decoded) ? $decoded : (string) $resp];
     }
 
-    private function sign(string $method, string $path, string $timestamp, string $nonceStr, string $body): string
+    /**
+     * @return array{0:string,1:string} [signatureBase64, errorMessage]
+     */
+    private function sign(string $method, string $path, string $timestamp, string $nonceStr, string $body): array
     {
         $message = $method . "\n" . $path . "\n" . $timestamp . "\n" . $nonceStr . "\n" . $body . "\n";
-        $pkey = openssl_pkey_get_private($this->privateKeyPem);
+        $pem = $this->normalizePem($this->privateKeyPem);
+        $pkey = openssl_pkey_get_private($pem);
         if ($pkey === false) {
-            return '';
+            return ['', 'sign failed: invalid private key pem (wxpay_v3_private_key_pem)'];
         }
         $signature = '';
         $ok = openssl_sign($message, $signature, $pkey, OPENSSL_ALGO_SHA256);
         openssl_free_key($pkey);
         if (!$ok) {
-            return '';
+            return ['', 'sign failed: openssl_sign failed'];
         }
-        return base64_encode($signature);
+        return [base64_encode($signature), ''];
+    }
+
+    private function normalizePem(string $pem): string
+    {
+        $pem = trim($pem);
+        // 若用户在后台粘贴时把换行变成了 \n 两个字符，则还原
+        if (str_contains($pem, '\\n') && !str_contains($pem, "\n")) {
+            $pem = str_replace('\\n', "\n", $pem);
+        }
+        // 兼容 Windows 换行
+        $pem = str_replace("\r\n", "\n", $pem);
+        return $pem;
     }
 }
 

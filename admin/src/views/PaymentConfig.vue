@@ -19,31 +19,43 @@
         <div class="section-title">微信支付（小程序支付 / v2）</div>
         <el-form-item label="微信支付回调地址" prop="pay_notify_url">
           <el-input v-model="form.pay_notify_url" placeholder="如 https://你的域名/api/mini/pay/notify" />
-          <div class="tip">对应 system_config：<code>pay_notify_url</code></div>
+          <div class="tip">
+            对应 system_config：<code>pay_notify_url</code>（这是你系统的回调接口地址；不是在微信支付后台“固定填写”的字段）
+          </div>
         </el-form-item>
         <el-form-item label="微信支付商户号" prop="pay_mch_id">
           <el-input v-model="form.pay_mch_id" placeholder="商户号 mch_id" />
-          <div class="tip">对应 system_config：<code>pay_mch_id</code></div>
+          <div class="tip">
+            对应 system_config：<code>pay_mch_id</code>；获取位置：微信支付商户平台 → 账户中心 → 商户信息（基本信息）→ 商户号(MchID)
+          </div>
         </el-form-item>
         <el-form-item label="商户 APIv2 密钥" prop="pay_key">
           <el-input v-model="form.pay_key" show-password placeholder="APIv2 Key" />
-          <div class="tip">对应 system_config：<code>pay_key</code></div>
+          <div class="tip">
+            对应 system_config：<code>pay_key</code>；获取/设置位置：微信支付商户平台 → 账户中心 → API安全 → API密钥（APIv2 密钥）
+          </div>
         </el-form-item>
 
         <div class="section-title">小程序基础信息</div>
         <el-form-item label="小程序 AppID" prop="mini_appid">
           <el-input v-model="form.mini_appid" placeholder="wx..." />
-          <div class="tip">对应 system_config：<code>mini_appid</code></div>
+          <div class="tip">
+            对应 system_config：<code>mini_appid</code>；获取位置：微信公众平台(小程序) → 开发 → 开发管理 → 开发设置 → AppID(小程序ID)
+          </div>
         </el-form-item>
         <el-form-item label="小程序 AppSecret" prop="mini_secret">
           <el-input v-model="form.mini_secret" show-password placeholder="AppSecret" />
-          <div class="tip">对应 system_config：<code>mini_secret</code></div>
+          <div class="tip">
+            对应 system_config：<code>mini_secret</code>；获取/重置位置：微信公众平台(小程序) → 开发 → 开发管理 → 开发设置 → AppSecret(小程序密钥)
+          </div>
         </el-form-item>
 
         <div class="section-title">微信 v3 回鱼转账（商家转账用户确认模式）</div>
         <el-form-item label="v3 证书序列号" prop="wxpay_v3_serial_no">
           <el-input v-model="form.wxpay_v3_serial_no" placeholder="如 444F486D..." />
-          <div class="tip">对应 system_config：<code>wxpay_v3_serial_no</code></div>
+          <div class="tip">
+            对应 system_config：<code>wxpay_v3_serial_no</code>；获取位置：微信支付商户平台 → 账户中心 → API安全 → API证书/证书管理（商户API证书序列号）
+          </div>
         </el-form-item>
         <el-form-item label="v3 商户私钥 PEM" prop="wxpay_v3_private_key_pem">
           <el-input
@@ -52,19 +64,28 @@
             :rows="6"
             placeholder="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
           />
-          <div class="tip">对应 system_config：<code>wxpay_v3_private_key_pem</code></div>
+          <div class="tip">
+            对应 system_config：<code>wxpay_v3_private_key_pem</code>；获取方式：在微信支付商户平台 → 账户中心 → API安全 → API证书/证书管理 下载商户API证书后，从本地私钥文件整理出 PEM（PKCS#8）
+            （请保留原始多行换行，不要去掉换行）
+          </div>
         </el-form-item>
         <el-form-item label="v3 转账小程序 AppID" prop="wxpay_v3_appid">
           <el-input v-model="form.wxpay_v3_appid" placeholder="wx..." />
-          <div class="tip">对应 system_config：<code>wxpay_v3_appid</code></div>
+          <div class="tip">
+            对应 system_config：<code>wxpay_v3_appid</code>；获取位置：微信公众平台(小程序) → 开发 → 开发管理 → 开发设置 → AppID(小程序ID)
+          </div>
         </el-form-item>
         <el-form-item label="v3 转账回调地址" prop="wxpay_v3_transfer_notify_url">
           <el-input v-model="form.wxpay_v3_transfer_notify_url" placeholder="如 https://你的域名/api/wechat/transfer/notify" />
-          <div class="tip">对应 system_config：<code>wxpay_v3_transfer_notify_url</code>（可选）</div>
+          <div class="tip">
+            对应 system_config：<code>wxpay_v3_transfer_notify_url</code>（可选；这是你系统的回调接口地址，不是微信支付后台固定字段）
+          </div>
         </el-form-item>
         <el-form-item label="v3 转账场景 ID" prop="wxpay_v3_transfer_scene_id">
           <el-input v-model="form.wxpay_v3_transfer_scene_id" placeholder="默认 1000" />
-          <div class="tip">对应 system_config：<code>wxpay_v3_transfer_scene_id</code>（可选）</div>
+          <div class="tip">
+            对应 system_config：<code>wxpay_v3_transfer_scene_id</code>（可选；这是接口参数，不在微信支付后台配置；不确定可用默认 1000）
+          </div>
         </el-form-item>
       </el-form>
     </el-card>
