@@ -39,6 +39,7 @@ const routes = [
       { path: 'return-logs', name: 'ReturnLogs', component: () => import('@/views/ReturnLogList.vue'), meta: { title: '经营管理 - 回鱼流水' } },
       { path: 'fish-trades', name: 'FishTrades', component: () => import('@/views/FishTradeList.vue'), meta: { title: '经营管理 - 卖鱼/收鱼流水' } },
       { path: 'config', name: 'Config', component: () => import('@/views/ConfigList.vue'), meta: { title: '全局配置' } },
+      { path: 'payment-config', name: 'PaymentConfig', component: () => import('@/views/PaymentConfig.vue'), meta: { title: '支付配置' } },
       {
         path: 'member-vip-settings',
         name: 'MemberVipSettings',

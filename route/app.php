@@ -146,6 +146,9 @@ Route::group('api', function () {
             Route::put('configs/:id', 'Api.Admin.SystemConfigController/update');
             Route::get('configs', 'Api.Admin.SystemConfigController/list');
             Route::post('configs', 'Api.Admin.SystemConfigController/create');
+            // payment-config：支付配置（写入 system_config）
+            Route::get('payment-config', 'Api.Admin.PaymentConfigController/show');
+            Route::put('payment-config', 'Api.Admin.PaymentConfigController/save');
             Route::get('member-vip-settings', 'Api.Admin.MemberVipConfigController/show');
             Route::put('member-vip-settings', 'Api.Admin.MemberVipConfigController/update');
             // venues：先 /:id/status、/:id 后 list/create/update/delete

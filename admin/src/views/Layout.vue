@@ -126,6 +126,10 @@
             <el-icon><Grid /></el-icon>
             <span>杂项</span>
           </template>
+          <el-menu-item v-if="hasPermission('admin.config.manage')" index="/payment-config">
+            <el-icon><Setting /></el-icon>
+            <template #title>支付配置</template>
+          </el-menu-item>
           <el-menu-item v-if="hasPermission('admin.config.manage')" index="/config">
             <el-icon><Setting /></el-icon>
             <template #title>全局配置</template>
